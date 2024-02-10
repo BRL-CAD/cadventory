@@ -29,7 +29,7 @@ include:
 # use the official gcc image, based on debian
 image: gcc
 
-build:
+build_linux:
   stage: build
   script:
     - echo "Building CADventory"
@@ -40,6 +40,21 @@ build:
     paths:
       - artifact.txt
       - cadventory
+
+build_windows:
+  stage: build
+  tags:
+    - windows
+  before_script:
+    - Start-Service -Name "docker"
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t ${CI_REGISTRY}/${CI_PROJECT_PATH}:${CI_COMMIT_REF_SLUG} . 
+    - docker push ${CI_REGISTRY}/${CI_PROJECT_PATH}:${CI_COMMIT_REF_SLUG}
+    - echo "artifact from project:$CI_PROJECT_PATH, branch:$CI_COMMIT_BRANCH, job_url:$CI_JOB_URL" > artifact.txt
+  artifacts:
+    paths:
+      -artifact.txt
 
 test:
   stage: test
