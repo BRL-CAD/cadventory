@@ -74,36 +74,39 @@ void ReportGenerationWindow::onGenerateReportButtonClicked() {
     return;
   }
 
-  std::vector<std::string> existing_working_files;
+  //std::vector<std::string> existing_working_files;
 
-  // check for any model.working files!
-  for (const auto& model : model->getSelectedModels()) {
-    std::string model_working_path =
-        model.file_path.substr(0, model.file_path.find(".g")) + ".working";
-    std::string model_working_name =
-        model_working_path.substr(model_working_path.find_last_of("/\\") + 1);
-    QDir dir_temp(QString::fromStdString(model_working_path));
-    if (dir_temp.exists()) {
-      // move it
-      existing_working_files.push_back(model_working_path);
-    }
-  }
-  if (existing_working_files.size()) {
-    QString message;
-    for (const auto& str : existing_working_files) {
-      message += QString::fromStdString(str) +
-                 "\n";  // Append each string with a newline
-    }
+  //// check for any model.working files!
+  //for (const auto& model : model->getSelectedModels()) {
+  //  std::string model_working_path =
+  //      model.file_path.substr(0, model.file_path.find(".g")) + ".working";
+  //  std::string model_working_name =
+  //      model_working_path.substr(model_working_path.find_last_of("/\\") + 1);
+  //  QDir dir_temp(QString::fromStdString(model_working_path));
+  //  if (dir_temp.exists()) {
+  //    // move it
+  //    existing_working_files.push_back(model_working_path);
+  //  }
+  //}
+  //if (existing_working_files.size()) {
+  //  QString message;
+  //  for (const auto& str : existing_working_files) {
+  //    message += QString::fromStdString(str) +
+  //               "\n";  // Append each string with a newline
+  //  }
 
-    // Create and show the popup of any model.working folders
-    QMessageBox msgBox(this);
-    msgBox.setText(
-        "Found Model.working folders, please move or remove these folders "
-        "before generating report.");
-    msgBox.setInformativeText(message);
-    msgBox.exec();
-    return;
-  }
+  //  // Create and show the popup of any model.working folders
+  //  QMessageBox msgBox(this);
+  //  msgBox.setText(
+  //      "Found Model.working folders, please move or remove these folders "
+  //      "before generating report.");
+  //  msgBox.setInformativeText(message);
+  //  msgBox.exec();
+  //  return;
+  //}
+  // 
+  // 
+  // 
   // get time
   auto t = std::time(nullptr);
   auto tm = *std::localtime(&t);

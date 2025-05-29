@@ -64,6 +64,23 @@ jobs:
       with:
         version: '6.*'
 
+    - name: Install BRL-CAD (Windows only)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        # Download BRL-CAD installer (.exe) from GitHub Releases
+        Invoke-WebRequest -Uri "https://github.com/BRL-CAD/brlcad/releases/download/rel-7-40-2/BRL-CAD_7.40.2_win64.exe" -OutFile "brlcad-installer.exe"
+    
+        # Run the installer silently
+        Start-Process -FilePath ".\brlcad-installer.exe" -ArgumentList "/S" -Wait
+
+    - name: Set BRLCAD_ROOT and CMAKE_PREFIX_PATH (Windows only)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        echo 'CMAKE_PREFIX_PATH="C:/Program Files/BRL-CAD 7.40.2"' >> $GITHUB_ENV
+        echo 'BRLCAD_ROOT="C:/Program Files/BRL-CAD 7.40.2"' >> $GITHUB_ENV
+    
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
@@ -72,6 +89,8 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -DQt6_DIR="${{ env.Qt6_DIR }}"
+        -DBRLCAD_ROOT=${{ env.BRLCAD_ROOT }}
         -S ${{ github.workspace }}
 
     - name: Build

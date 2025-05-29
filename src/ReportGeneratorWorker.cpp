@@ -28,8 +28,10 @@ void ReportGeneratorWorker::process() {
       qDebug() << "ReportGeneratorWorker::process() stopping due to interruption request";
       break;
     }
+    std::string g_file_name = modelData.short_name;
+    g_file_name.erase(g_file_name.size() - 2);
     std::string path_gist_output =
-        output_directory + "/" + std::to_string(num_file) + ".png";
+        output_directory + "/" + g_file_name + "_report.png";
 
     std::string primary_obj = "";
     std::vector<ObjectData> associatedObjects =

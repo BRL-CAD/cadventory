@@ -5,6 +5,7 @@
 #include <QMainWindow>
 #include <QSplashScreen>
 #include <QObject>
+#include "ModelTagging.h"
 
 
 class CADventory : public QApplication
@@ -19,10 +20,18 @@ public:
 
   void indexDirectory(const char *path);
 
+  void checkAndSetupModels();
+
+  bool startOllamaServer();
+
+  ModelTagging* getModelTagging() { return modelTagging; }
+
 signals:
   void indexingComplete(const char *summary);
 
 private:
+  ModelTagging* modelTagging;
+  QProcess* m_ollamaProcess = nullptr;
   void initMainWindow();
 
 public:

@@ -121,7 +121,7 @@
       </font>
      </property>
      <property name="text">
-      <string>CADventory v0.1.0</string>
+      <string>CADventory v0.2.0</string>
      </property>
     </widget>
     <widget class="QLabel" name="indexingStatus">

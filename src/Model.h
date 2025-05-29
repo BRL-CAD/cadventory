@@ -57,7 +57,8 @@ public:
         LibraryNameRole,
         IsSelectedRole,
         IsIncludedRole,
-        IsProcessedRole
+        IsProcessedRole,
+		TagsRole
     };
 
     explicit Model(const std::string& libraryPath, QObject* parent = nullptr);
@@ -123,7 +124,7 @@ public:
   bool addTagToModel(int modelId, const std::string& tagName);
   int getTagId(const std::string& tagName);
   std::vector<std::string> getAllTags();
-  std::vector<std::string> getTagsForModel(int modelId);
+  std::vector<std::string> getTagsForModel(int modelId) const;
   bool removeTagFromModel(int modelId, const std::string& tagName);
   bool removeAllTagsFromModel(int modelId);
 
@@ -133,7 +134,7 @@ public:
   std::map<std::string, std::string> getPropertiesForModel(int model_id);
 
   // Simplifying executions
-  sqlite3_stmt* prepareStatement(const std::string& sql);
+  sqlite3_stmt* prepareStatement(const std::string& sql) const;
   bool executePreparedStatement(sqlite3_stmt* stmt);
 
 private:

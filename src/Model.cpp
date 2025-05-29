@@ -119,6 +119,14 @@ QVariant Model::data(const QModelIndex& index, int role) const {
       return QString::fromStdString(modelData.override_info);
     case TitleRole:
       return QString::fromStdString(modelData.title);
+	case TagsRole: {
+        std::vector<std::string> tagsFromDb = getTagsForModel(modelData.id);
+        QStringList tagList;
+        for (const std::string& tag : tagsFromDb) {
+            tagList.append(QString::fromStdString(tag));
+        }
+        return tagList;
+	}
     case ThumbnailRole:
       if (!modelData.thumbnail.empty()) {
         QPixmap thumbnail;
@@ -1125,7 +1133,7 @@ std::vector<std::string> Model::getAllTags() {
   return tags;
 }
 
-std::vector<std::string> Model::getTagsForModel(int modelId) {
+std::vector<std::string> Model::getTagsForModel(int modelId) const {
   std::vector<std::string> tags;
   std::string sql =
       "SELECT name FROM tags t JOIN model_tags mt ON t.id = mt.tag_id WHERE "
@@ -1243,7 +1251,7 @@ bool Model::setPropertyForModel(int modelId, const std::string& property,
 }
 
 // Simplifying executions
-sqlite3_stmt* Model::prepareStatement(const std::string& sql) {
+sqlite3_stmt* Model::prepareStatement(const std::string& sql) const {
   sqlite3_stmt* stmt;
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
     std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db)

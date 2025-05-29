@@ -62,12 +62,12 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     viewMenu->addAction(test);
     helpMenu->addAction(test);
 
-
+    // Some menu items do not have any functionality yet, but are placeholders for future features
     menuBar()->addMenu(fileMenu);
-    menuBar()->addMenu(editMenu);
-    menuBar()->addMenu(viewMenu);
+    // menuBar()->addMenu(editMenu);
+    // menuBar()->addMenu(viewMenu);
     menuBar()->addMenu(windowMenu);
-    menuBar()->addMenu(helpMenu);
+    // menuBar()->addMenu(helpMenu);
 
     settingWindow = new SettingWindow(this);
     connect(set,&QAction::triggered,this,&MainWindow::showSettingsWindow);
@@ -194,8 +194,14 @@ void MainWindow::addLibraryButton(const char* label, const char* /*path*/)
         newButton->setFixedSize(DEFAULT_SIZE);
     }
     QFont font = newButton->font();
-    font.setPointSize(20);
+    font.setPointSize(15);
     newButton->setFont(font);
+
+    // Button label size adjustment, along with hover property
+    QFontMetrics metrics(newButton->font());
+    QString elidedText = metrics.elidedText(QString(label), Qt::ElideRight, newButton->width() - 10);
+    newButton->setText(elidedText);
+    newButton->setToolTip(QString(label));
 
     connect(newButton, &QPushButton::released, this, &MainWindow::openLibrary);
 

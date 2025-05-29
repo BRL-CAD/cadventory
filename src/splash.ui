@@ -41,7 +41,7 @@
     </font>
    </property>
    <property name="text">
-    <string>CADventory 0.1.0</string>
+    <string>CADventory 0.2.0</string>
    </property>
    <property name="textFormat">
     <enum>Qt::RichText</enum>

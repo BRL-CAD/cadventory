@@ -5,6 +5,10 @@
 #include <QPixmap>
 #include <QString>
 #include <QSplashScreen>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
+#include <QDebug>
 
 #include <stdlib.h>
 #include <stdlib.h>
@@ -12,6 +16,65 @@
 #include <filesystem>
 #include <string>
 
+void myMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+{
+    QString txt;
+    QDateTime dateTime = QDateTime::currentDateTime();
+    QString dateTimeString = dateTime.toString("yyyy-MM-dd hh:mm:ss.zzz");
+
+    switch (type) {
+    case QtDebugMsg:
+        txt = QString("%1 Debug: %2 (%3:%4, %5)\n")
+                  .arg(dateTimeString)
+                  .arg(msg)
+                  .arg(context.file)
+                  .arg(context.line)
+                  .arg(context.function);
+        break;
+    case QtInfoMsg:
+        txt = QString("%1 Info: %2 (%3:%4, %5)\n")
+                  .arg(dateTimeString)
+                  .arg(msg)
+                  .arg(context.file)
+                  .arg(context.line)
+                  .arg(context.function);
+        break;
+    case QtWarningMsg:
+        txt = QString("%1 Warning: %2 (%3:%4, %5)\n")
+                  .arg(dateTimeString)
+                  .arg(msg)
+                  .arg(context.file)
+                  .arg(context.line)
+                  .arg(context.function);
+        break;
+    case QtCriticalMsg:
+        txt = QString("%1 Critical: %2 (%3:%4, %5)\n")
+                  .arg(dateTimeString)
+                  .arg(msg)
+                  .arg(context.file)
+                  .arg(context.line)
+                  .arg(context.function);
+        break;
+    case QtFatalMsg:
+        txt = QString("%1 Fatal: %2 (%3:%4, %5)\n")
+                  .arg(dateTimeString)
+                  .arg(msg)
+                  .arg(context.file)
+                  .arg(context.line)
+                  .arg(context.function);
+        break;
+    }
+
+    QFile outFile("cadventory_debug.log");
+    outFile.open(QIODevice::WriteOnly | QIODevice::Append);
+    QTextStream ts(&outFile);
+    ts << txt;
+    outFile.close();
+
+    // Also print to standard error for immediate visibility if running from console
+    fprintf(stderr, "%s", txt.toLocal8Bit().constData());
+    fflush(stderr);
+}
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN 1
@@ -30,6 +93,9 @@ int
 main(int argc, char **argv)
 {
 #endif
+  // Install the custom message handler
+  qInstallMessageHandler(myMessageHandler);
+  
   CADventory app(argc, argv);
   app.showSplash();
 

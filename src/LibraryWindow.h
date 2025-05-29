@@ -8,6 +8,7 @@
 #include <QLineEdit>
 #include <QSortFilterProxyModel>
 #include <QThread>
+#include <QStandardItemModel>
 
 #include "ui_librarywindow.h"
 #include "Library.h"
@@ -36,14 +37,21 @@ private slots:
     void onSearchTextChanged(const QString& text);
     void onSearchFieldChanged(const QString& field);
     void onAvailableModelClicked(const QModelIndex& index);
-    void onSelectedModelClicked(const QModelIndex& index);
     void onGenerateReportButtonClicked();
     void on_backButton_clicked();
+    void onGenerateAllTagsClicked();
+    void onPauseTagGenerationClicked();
+    void onCancelTagGenerationClicked();
+    void onResumeTagGenerationClicked();
 
     void onSettingsClicked(int modelId);
 
     void onGeometryBrowserClicked(int modelId);
     void onModelViewClicked(int modelId);
+    
+    // New slots for explorer view
+    void onExplorerModelClicked(const QModelIndex& index);
+    void onExplorerModelDoubleClicked(const QModelIndex& index);
 
     void startIndexing();
     void onModelProcessed(int modelId);
@@ -57,6 +65,11 @@ private slots:
 private:
     void setupModelsAndViews();
     void setupConnections();
+    void setupExplorerView();
+    void populateExplorerModel();
+
+    void processNextFile();
+    void onTagsGeneratedFromBatch(const std::vector<std::string>& tags);
 
     Library* library;
     MainWindow* mainWindow;
@@ -64,10 +77,17 @@ private:
     Ui::LibraryWindow ui;
     Model* model;
 
-    ModelFilterProxyModel* availableModelsProxyModel;
-    ModelFilterProxyModel* selectedModelsProxyModel;
+    bool canceled = false;
+    bool paused = false;
+    std::vector<std::string> filesToTag;
+    int currentFileIndex = -1;
 
+    ModelFilterProxyModel* availableModelsProxyModel;
     ModelCardDelegate* modelCardDelegate;
+    
+    // New model for explorer view
+    QStandardItemModel* explorerModel;
+    QList<QStandardItem*> allExplorerItems; // Store all items for filtering
 
     QList<int> selectedModelIds;
 

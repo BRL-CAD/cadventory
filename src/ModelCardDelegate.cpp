@@ -21,12 +21,20 @@ void ModelCardDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opt
     QString shortName = index.data(Model::ShortNameRole).toString();
     QString title = index.data(Model::TitleRole).toString();
     QString author = index.data(Model::AuthorRole).toString();
+    bool isSelected = index.data(Model::IsSelectedRole).toBool();
 
     // Draw background
     if (option.state & QStyle::State_Selected) {
         painter->fillRect(option.rect, option.palette.highlight());
+    } else if (isSelected) {
+        // Use a dark gray background for selected items
+        QColor selectedColor = QColor(220, 220, 220);
+        painter->fillRect(option.rect, selectedColor);
     } else {
-        painter->fillRect(option.rect, option.palette.window());
+        // For unselected items, use a slightly transparent background
+        QColor unselectedColor = option.palette.window().color();
+        unselectedColor.setAlpha(200); // 80% opacity
+        painter->fillRect(option.rect, unselectedColor);
     }
 
     // Calculate rectangles
@@ -56,11 +64,18 @@ void ModelCardDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opt
     painter->drawText(textR.adjusted(0, 40, 0, 0), Qt::AlignLeft | Qt::AlignTop, author);
 
     // QIcon icon = QApplication::style()->standardIcon(QStyle::SP_DialogOpenButton);
-    QIcon icon(":/src/assets/file-sliders.svg");
+    
 
-    icon.paint(painter, iconR, Qt::AlignCenter, QIcon::Normal, QIcon::On);
+    /*icon.paint(painter, iconR, Qt::AlignCenter, QIcon::Normal, QIcon::On);
+    painter->restore();*/
+    QIcon magnifyIcon = QIcon::fromTheme("edit-find");
+    if (magnifyIcon.isNull()) {
+        // Fallback: use a standard Qt icon that is adaptive
+        magnifyIcon = QApplication::style()->standardIcon(QStyle::SP_FileDialogContentsView);
+    }
 
-    painter->restore();
+    // Draw the adaptive magnifying glass icon in the icon rectangle.
+    magnifyIcon.paint(painter, iconRect(option), Qt::AlignCenter, QIcon::Normal, QIcon::On);
 }
 
 QSize ModelCardDelegate::sizeHint(const QStyleOptionViewItem& option,

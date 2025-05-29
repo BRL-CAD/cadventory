@@ -96,6 +96,21 @@
     "qlabel": "cpp",
     "qlistview": "cpp",
     "qhboxlayout": "cpp",
-    "source_location": "cpp"
+    "xhash": "cpp",
+    "xtree": "cpp",
+    "xutility": "cpp",
+    "filesystem": "cpp",
+    "xfacet": "cpp",
+    "xiosbase": "cpp",
+    "xlocale": "cpp",
+    "xlocbuf": "cpp",
+    "xlocinfo": "cpp",
+    "xlocmes": "cpp",
+    "xlocmon": "cpp",
+    "xlocnum": "cpp",
+    "xloctime": "cpp",
+    "xmemory": "cpp",
+    "xstring": "cpp",
+    "xtr1common": "cpp"
   }
 }

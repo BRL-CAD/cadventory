@@ -6,17 +6,34 @@
 #include <QSettings>
 #include <QFile>
 #include <QDir>
-
 #include "config.h"
+#include <string>
+#include <algorithm>
+#include <filesystem>
+
+// Helper function to truncate a path if it exceeds maxLen (default 50 characters).
+// It keeps the first part and the last part of the path and places "..." in between.
+static std::string truncatePath(const std::string& path, size_t maxLen = 20) {
+    if (path.length() <= maxLen) {
+        return path;
+    }
+    // Calculate how many characters to show from the front and back.
+    size_t frontLen = (maxLen - 3) / 2;
+    size_t backLen = maxLen - 3 - frontLen;
+    return path.substr(0, frontLen) + "..." + path.substr(path.length() - backLen);
+}
 
 ProcessGFiles::ProcessGFiles(Model* model)
     : model(model)
 {
 }
+
 void ProcessGFiles::processGFile(const ModelData& modelData)
 {
+    // Use truncated path for debug output only.
+    std::string displayPath = truncatePath(modelData.file_path);
     qDebug() << "[ProcessGFiles::processGFile] Processing model with ID:" << modelData.id
-             << "and file path:" << QString::fromStdString(modelData.file_path);
+        << "and file path:" << QString::fromStdString(displayPath);
 
     // Ensure file path is not empty
     if (modelData.file_path.empty()) {
@@ -24,12 +41,12 @@ void ProcessGFiles::processGFile(const ModelData& modelData)
         return;
     }
 
-    // Open the BRL-CAD database
+    // Open the BRL-CAD database using the full path.
     const char* db_filename = modelData.file_path.c_str();
     struct ged* gedp = ged_open("db", db_filename, 0);
     if (gedp == GED_NULL) {
         qDebug() << "[ProcessGFiles::processGFile] Error: Unable to open BRL-CAD database at path:"
-                 << QString::fromStdString(modelData.file_path);
+            << QString::fromStdString(displayPath);
         return;
     }
 
@@ -40,20 +57,19 @@ void ProcessGFiles::processGFile(const ModelData& modelData)
     extractTitle(updatedModelData, gedp);
     qDebug() << "[ProcessGFiles::processGFile] Title extracted:" << QString::fromStdString(updatedModelData.title);
 
-    // update the model in the database with the extracted title
+    // Update the model in the database with the extracted title.
     if (!model->updateModel(updatedModelData.id, updatedModelData)) {
         qDebug() << "[ProcessGFiles::processGFile] Error: Could not update model in database for ID:"
-                 << updatedModelData.id;
+            << updatedModelData.id;
         ged_close(gedp);
         return;
     }
     extractObjects(updatedModelData, gedp);
 
-
     std::vector<ObjectData> allObjects = model->getObjectsForModel(updatedModelData.id);
     if (allObjects.empty()) {
         qDebug() << "[ProcessGFiles::processGFile] No objects found for model ID:" << updatedModelData.id
-                 << ". Skipping thumbnail generation.";
+            << ". Skipping thumbnail generation.";
         ged_close(gedp);
         return;
     }
@@ -67,12 +83,14 @@ void ProcessGFiles::processGFile(const ModelData& modelData)
         const ObjectData& selectedObject = selectedObjects.front();
         objectNameForThumbnail = selectedObject.name;
         qDebug() << "[ProcessGFiles::processGFile] Found selected object. Using object named:"
-                 << QString::fromStdString(objectNameForThumbnail) << "for thumbnail.";
-    } else {
+            << QString::fromStdString(objectNameForThumbnail) << "for thumbnail.";
+    }
+    else {
         if (!allObjects.empty()) {
             objectNameForThumbnail = "all";
             qDebug() << "[ProcessGFiles::processGFile] No specific object selected. Defaulting to 'all'.";
-        } else {
+        }
+        else {
             qDebug() << "[ProcessGFiles::processGFile] No objects available for thumbnail generation.";
             ged_close(gedp);
             return;
@@ -83,21 +101,23 @@ void ProcessGFiles::processGFile(const ModelData& modelData)
 
     if (!thumbnailGenerated) {
         qDebug() << "[ProcessGFiles::processGFile] Thumbnail generation failed for model ID:" << updatedModelData.id;
-    } else {
+    }
+    else {
         qDebug() << "[ProcessGFiles::processGFile] Thumbnail generated successfully for model ID:" << updatedModelData.id
-                 << ". Updating model data in the database.";
+            << ". Updating model data in the database.";
         if (!model->updateModel(updatedModelData.id, updatedModelData)) {
             qDebug() << "[ProcessGFiles::processGFile] Error updating model thumbnail in database for ID:"
-                     << updatedModelData.id;
-        } else {
+                << updatedModelData.id;
+        }
+        else {
             qDebug() << "[ProcessGFiles::processGFile] Successfully updated model thumbnail for model ID:" << updatedModelData.id;
         }
     }
 
     ged_close(gedp);
-    qDebug() << "[ProcessGFiles::processGFile] Completed processing for path:" << QString::fromStdString(updatedModelData.file_path);
+    // Use the truncated version for the final debug output.
+    qDebug() << "[ProcessGFiles::processGFile] Completed processing for path:" << QString::fromStdString(truncatePath(updatedModelData.file_path));
 }
-
 
 void ProcessGFiles::extractTitle(ModelData& modelData, struct ged* gedp)
 {
@@ -105,11 +125,13 @@ void ProcessGFiles::extractTitle(ModelData& modelData, struct ged* gedp)
         std::string title(gedp->dbip->dbi_title);
         modelData.title = title;
         qDebug() << "[ProcessGFiles::extractTitle] Database title found:" << QString::fromStdString(title);
-    } else {
+    }
+    else {
         modelData.title = "(Untitled)";
         qDebug() << "[ProcessGFiles::extractTitle] No title found in database. Using '(Untitled)'";
     }
 }
+
 void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp)
 {
     qDebug() << "[ProcessGFiles::extractObjects] Started for model ID:" << modelData.id;
@@ -121,7 +143,7 @@ void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp)
     }
 
     // Initialize the directory pointer to list top-level objects
-    struct directory **dir = nullptr;
+    struct directory** dir = nullptr;
     qDebug() << "[ProcessGFiles::extractObjects] Listing top-level objects from the database.";
     size_t dir_count = db_ls(gedp->dbip, DB_LS_TOPS, nullptr, &dir);
     if (dir_count == 0) {
@@ -173,29 +195,31 @@ void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp)
         topLevelObjData.is_selected = (object_name == selected_object_name);
 
         qDebug() << "[ProcessGFiles::extractObjects] Inserting top-level object - "
-                 << "Model ID:" << topLevelObjData.model_id
-                 << ", Name:" << QString::fromStdString(topLevelObjData.name)
-                 << ", Parent Object ID:" << topLevelObjData.parent_object_id
-                 << ", is_selected:" << topLevelObjData.is_selected;
+            << "Model ID:" << topLevelObjData.model_id
+            << ", Name:" << QString::fromStdString(topLevelObjData.name)
+            << ", Parent Object ID:" << topLevelObjData.parent_object_id
+            << ", is_selected:" << topLevelObjData.is_selected;
 
         int insertedTopLevelObjectId = model->insertObject(topLevelObjData);
         if (insertedTopLevelObjectId == -1) {
             qDebug() << "[ProcessGFiles::extractObjects] Failed to insert top-level object:"
-                     << QString::fromStdString(topLevelObjData.name)
-                     << "for model ID:" << topLevelObjData.model_id;
+                << QString::fromStdString(topLevelObjData.name)
+                << "for model ID:" << topLevelObjData.model_id;
             continue;
-        } else {
+        }
+        else {
             topLevelObjData.object_id = insertedTopLevelObjectId;
             qDebug() << "[ProcessGFiles::extractObjects] Successfully inserted top-level object:"
-                     << QString::fromStdString(topLevelObjData.name)
-                     << "with ID:" << insertedTopLevelObjectId << "for model ID:" << topLevelObjData.model_id;
+                << QString::fromStdString(topLevelObjData.name)
+                << "with ID:" << insertedTopLevelObjectId << "for model ID:" << topLevelObjData.model_id;
         }
 
         // If this top-level object is a combination, retrieve and insert its children
         if (dir[i]->d_flags & RT_DIR_COMB) {
             qDebug() << "[ProcessGFiles::extractObjects] Object" << QString::fromStdString(object_name) << "is a combination. Retrieving children.";
             insertChildObjects(modelData, gedp, topLevelObjData, selected_object_name);
-        } else {
+        }
+        else {
             qDebug() << "[ProcessGFiles::extractObjects] Object" << QString::fromStdString(object_name) << "is a primitive. No child objects to insert.";
         }
     }
@@ -209,7 +233,7 @@ void ProcessGFiles::insertChildObjects(ModelData& modelData, struct ged* gedp, c
 {
     qDebug() << "[ProcessGFiles::insertChildObjects] Started for parent object ID:" << parentObjData.object_id << "Name:" << QString::fromStdString(parentObjData.name);
 
-    struct directory *parent_dir = db_lookup(gedp->dbip, parentObjData.name.c_str(), LOOKUP_QUIET);
+    struct directory* parent_dir = db_lookup(gedp->dbip, parentObjData.name.c_str(), LOOKUP_QUIET);
     if (!parent_dir) {
         qDebug() << "[ProcessGFiles::insertChildObjects] Parent object" << QString::fromStdString(parentObjData.name) << "not found in database.";
         return;
@@ -221,7 +245,7 @@ void ProcessGFiles::insertChildObjects(ModelData& modelData, struct ged* gedp, c
     }
 
     struct rt_db_internal intern;
-    struct rt_comb_internal *comb;
+    struct rt_comb_internal* comb;
     if (rt_db_get_internal(&intern, parent_dir, gedp->dbip, nullptr, &rt_uniresource) < 0) {
         qDebug() << "[ProcessGFiles::insertChildObjects] Error retrieving internal representation for object" << QString::fromStdString(parentObjData.name);
         return;
@@ -246,7 +270,7 @@ void ProcessGFiles::insertChildObjects(ModelData& modelData, struct ged* gedp, c
         qDebug() << "[ProcessGFiles::insertChildObjects] Processing child object name:" << QString::fromStdString(child_name);
 
         // Lookup the child's directory entry
-        struct directory *child_dir = db_lookup(gedp->dbip, child_name.c_str(), LOOKUP_QUIET);
+        struct directory* child_dir = db_lookup(gedp->dbip, child_name.c_str(), LOOKUP_QUIET);
         if (!child_dir) {
             qDebug() << "[ProcessGFiles::insertChildObjects] Child object" << QString::fromStdString(child_name) << "not found in database.";
             continue;
@@ -260,21 +284,22 @@ void ProcessGFiles::insertChildObjects(ModelData& modelData, struct ged* gedp, c
         childObjData.is_selected = (child_name == selected_object_name);
 
         qDebug() << "[ProcessGFiles::insertChildObjects] Inserting child object -"
-                 << "Model ID:" << childObjData.model_id
-                 << ", Name:" << QString::fromStdString(childObjData.name)
-                 << ", Parent Object ID:" << childObjData.parent_object_id
-                 << ", is_selected:" << childObjData.is_selected;
+            << "Model ID:" << childObjData.model_id
+            << ", Name:" << QString::fromStdString(childObjData.name)
+            << ", Parent Object ID:" << childObjData.parent_object_id
+            << ", is_selected:" << childObjData.is_selected;
 
         int childInsertedObjectId = model->insertObject(childObjData);
         if (childInsertedObjectId == -1) {
             qDebug() << "[ProcessGFiles::insertChildObjects] Failed to insert child object:"
-                     << QString::fromStdString(childObjData.name)
-                     << "for parent object ID:" << parentObjData.object_id << "model ID:" << childObjData.model_id;
-        } else {
+                << QString::fromStdString(childObjData.name)
+                << "for parent object ID:" << parentObjData.object_id << "model ID:" << childObjData.model_id;
+        }
+        else {
             childObjData.object_id = childInsertedObjectId;
             qDebug() << "[ProcessGFiles::insertChildObjects] Successfully inserted child object:"
-                     << QString::fromStdString(childObjData.name)
-                     << "with ID:" << childInsertedObjectId << "for parent object ID:" << parentObjData.object_id << "model ID:" << childObjData.model_id;
+                << QString::fromStdString(childObjData.name)
+                << "with ID:" << childInsertedObjectId << "for parent object ID:" << parentObjData.object_id << "model ID:" << childObjData.model_id;
         }
     }
 
@@ -284,7 +309,7 @@ void ProcessGFiles::insertChildObjects(ModelData& modelData, struct ged* gedp, c
 }
 
 
-void db_tree_list_comb_children(const union tree *tree, std::vector<std::string>& children) {
+void db_tree_list_comb_children(const union tree* tree, std::vector<std::string>& children) {
     if (!tree) return;
 
     switch (tree->tr_op) {
@@ -306,21 +331,23 @@ void db_tree_list_comb_children(const union tree *tree, std::vector<std::string>
 }
 
 
+
+
+
 bool ProcessGFiles::generateThumbnail(ModelData& modelData, const std::string& selected_object_name)
 {
     qDebug() << "[ProcessGFiles::generateThumbnail] Started for model ID:" << modelData.id
-             << "with selected object:" << QString::fromStdString(selected_object_name);
+        << "with selected object:" << QString::fromStdString(selected_object_name);
 
     QSettings settings;
     int timeLimitMs = settings.value("previewTimer", 30).toInt() * 1000;
 
     if (selected_object_name.empty()) {
         qDebug() << "[ProcessGFiles::generateThumbnail] No valid object selected for raytrace in file:"
-                 << QString::fromStdString(modelData.file_path);
+            << QString::fromStdString(truncatePath(modelData.file_path));
         return false;
     }
 
-    // Ensure the .g file path is present in modelData
     if (modelData.file_path.empty()) {
         qDebug() << "[ProcessGFiles::generateThumbnail] No file path available in modelData for generating thumbnail.";
         return false;
@@ -334,30 +361,37 @@ bool ProcessGFiles::generateThumbnail(ModelData& modelData, const std::string& s
     // Use the RT_EXECUTABLE_PATH from configuration
     QString rtExecutable = QStringLiteral(RT_EXECUTABLE_PATH);
 
-    // Construct the rt command
-    // -s512 sets image size to 512x512
-    // -o outputs the raytraced image to the specified file
-    QString rtCommand = rtExecutable + " -s512 -o \"" + pngFilePath + "\" \"" +
-                        QString::fromStdString(modelData.file_path) + "\" " +
-                        QString::fromStdString(selected_object_name);
+    // Build the arguments list for rt.exe
+    QStringList arguments;
+    arguments << "-s512"
+        << "-o" << pngFilePath
+        << QString::fromStdString(modelData.file_path)
+        << QString::fromStdString(selected_object_name);
 
-    qDebug() << "[ProcessGFiles::generateThumbnail] Running command:" << rtCommand;
+    qDebug() << "[ProcessGFiles::generateThumbnail] Running command:" << rtExecutable << arguments;
 
     QProcess process;
-    process.setProgram("/bin/sh");
-    process.setArguments({"-c", rtCommand});
     process.setProcessChannelMode(QProcess::MergedChannels);
+
+#ifdef Q_OS_WIN
+    // On Windows, execute the executable directly.
+    process.setProgram(rtExecutable);
+    process.setArguments(arguments);
+#else
+    // On Unix-like systems, if needed, you can execute via the shell.
+    QString rtCommand = rtExecutable + " " + arguments.join(" ");
+    process.setProgram("/bin/sh");
+    process.setArguments({ "-c", rtCommand });
+#endif
 
     process.start();
     if (!process.waitForStarted()) {
-        qDebug() << "[ProcessGFiles::generateThumbnail] Failed to start the process for command:" << rtCommand;
+        qDebug() << "[ProcessGFiles::generateThumbnail] Failed to start the process for command:" << rtExecutable << arguments;
         return false;
     }
 
     bool finishedInTime = process.waitForFinished(timeLimitMs);
-
     if (!finishedInTime) {
-        // The process did not finish in the allotted time
         qDebug() << "[ProcessGFiles::generateThumbnail] Command timed out after" << timeLimitMs / 1000 << "seconds.";
         process.kill();
         process.waitForFinished();
@@ -371,18 +405,14 @@ bool ProcessGFiles::generateThumbnail(ModelData& modelData, const std::string& s
         return false;
     }
 
-    // Ensure the PNG was successfully created
     if (!QFile::exists(pngFilePath) || QFileInfo(pngFilePath).size() == 0) {
-        qDebug() << "[ProcessGFiles::generateThumbnail] Generated thumbnail file is empty or missing at path:"
-                 << pngFilePath;
+        qDebug() << "[ProcessGFiles::generateThumbnail] Generated thumbnail file is empty or missing at path:" << pngFilePath;
         return false;
     }
 
-    // Read the generated thumbnail data
     QFile thumbnailFile(pngFilePath);
     if (!thumbnailFile.open(QIODevice::ReadOnly)) {
-        qDebug() << "[ProcessGFiles::generateThumbnail] Failed to open thumbnail file at:"
-                 << pngFilePath;
+        qDebug() << "[ProcessGFiles::generateThumbnail] Failed to open thumbnail file at:" << pngFilePath;
         return false;
     }
 
@@ -394,48 +424,56 @@ bool ProcessGFiles::generateThumbnail(ModelData& modelData, const std::string& s
         return false;
     }
 
-    // convert thumbnail data to std::vector<char>
     modelData.thumbnail.assign(thumbnailData.begin(), thumbnailData.end());
 
-    // delete the PNG file after loading it
     if (!QFile::remove(pngFilePath)) {
         qDebug() << "[ProcessGFiles::generateThumbnail] Could not remove PNG file at" << pngFilePath;
     }
 
     qDebug() << "[ProcessGFiles::generateThumbnail] Thumbnail generated and stored for model with ID:" << modelData.id
-             << "and object:" << QString::fromStdString(selected_object_name);
+        << "and object:" << QString::fromStdString(selected_object_name);
 
     return true;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 std::tuple<bool, std::string, std::string> ProcessGFiles::generateGistReport(const std::string& inputFilePath, const std::string& outputFilePath, const std::string& primary_obj, const std::string& label)
 {
     std::string gistCommand;
     std::string errorMessage;
 
-    qDebug() << "[ProcessGFiles::generateGistReport] Started for inputFilePath:" << QString::fromStdString(inputFilePath)
-             << ", outputFilePath:" << QString::fromStdString(outputFilePath)
-             << ", primary_obj:" << QString::fromStdString(primary_obj)
-             << ", label:" << QString::fromStdString(label);
+    // Use truncated paths for debug display.
+    qDebug() << "[ProcessGFiles::generateGistReport] Started for inputFilePath:" << QString::fromStdString(truncatePath(inputFilePath))
+        << ", outputFilePath:" << QString::fromStdString(truncatePath(outputFilePath))
+        << ", primary_obj:" << QString::fromStdString(primary_obj)
+        << ", label:" << QString::fromStdString(label);
 
     QFileInfo inputFile(QString::fromStdString(inputFilePath));
     if (!inputFile.exists()) {
         errorMessage = "Input file does not exist: " + inputFilePath;
         qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
-        return {false, errorMessage, ""};
+        return { false, errorMessage, "" };
     }
 
     QString gistExecutable = QStringLiteral(GIST_EXECUTABLE_PATH);
     QStringList arguments;
-    arguments << QString::fromStdString(inputFilePath)
-              << "-o" << QString::fromStdString(outputFilePath);
 
-    if (!primary_obj.empty()) {
-        arguments << "-t" << QString::fromStdString(primary_obj);
-    }
-    if (!label.empty()) {
-        arguments << "-c" << QString::fromStdString(label);
-    }
+    arguments << QString::fromStdString(inputFilePath)
+        << "-o" << QString::fromStdString(outputFilePath) << "-Z";
+
 
     gistCommand = gistExecutable.toStdString() + " " + arguments.join(" ").toStdString();
     qDebug() << "[ProcessGFiles::generateGistReport] Running gist command:" << QString::fromStdString(gistCommand);
@@ -452,7 +490,7 @@ std::tuple<bool, std::string, std::string> ProcessGFiles::generateGistReport(con
     if (!process.waitForStarted()) {
         errorMessage = "Failed to start the gist process for command: " + gistCommand;
         qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
-        return {false, errorMessage, gistCommand};
+        return { false, errorMessage, gistCommand };
     }
 
     bool finishedInTime = process.waitForFinished(timeLimitMs);
@@ -463,7 +501,7 @@ std::tuple<bool, std::string, std::string> ProcessGFiles::generateGistReport(con
         qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
         process.kill();
         process.waitForFinished();
-        return {false, errorMessage, gistCommand};
+        return { false, errorMessage, gistCommand };
     }
 
     int exitCode = process.exitCode();
@@ -472,7 +510,7 @@ std::tuple<bool, std::string, std::string> ProcessGFiles::generateGistReport(con
         std::string processOutput = process.readAllStandardOutput().toStdString();
         qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
         qDebug() << "[ProcessGFiles::generateGistReport] Process output:" << QString::fromStdString(processOutput);
-        return {false, processOutput, gistCommand};
+        return { false, processOutput, gistCommand };
     }
 
     // Check if the output file was generated
@@ -480,12 +518,12 @@ std::tuple<bool, std::string, std::string> ProcessGFiles::generateGistReport(con
     if (!outputFile.exists() || outputFile.size() == 0) {
         errorMessage = "Output file not generated or empty at path: " + outputFilePath;
         qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
-        return {false, errorMessage, gistCommand};
+        return { false, errorMessage, gistCommand };
     }
 
     qDebug() << "[ProcessGFiles::generateGistReport] Gist report generated successfully for file:"
-             << QString::fromStdString(inputFilePath)
-             << "Output path:" << QString::fromStdString(outputFilePath);
+        << QString::fromStdString(truncatePath(inputFilePath))
+        << "Output path:" << QString::fromStdString(truncatePath(outputFilePath));
 
-    return {true, "", gistCommand};
+    return { true, "", gistCommand };
 }
