@@ -1,8 +1,22 @@
+# temp files
 *~
-.build
-build
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-v][a-z]
+[._]sw[a-p]
+
+# 'build' directories
+/*build*
+/out
+
+# OS specific
 .DS_Store
-.idea/
+.DS_Store?
+
+# dot files
+.idea
+/.vs
+.vscode
 
 # Qt Creator user-specific files
 *.user
@@ -10,3 +24,7 @@ build
 *.user.*.tmp
 CMakeLists.txt.user
 CMakeLists.txt.user.*
+
+# misc
+CMakeSettings.json
+.clang-format
