@@ -119,6 +119,8 @@ std::string executeCommandNoWindowWithRedirection(const std::string& command,
 std::string executeCommandNoWindow(const std::string& command) {
 #ifdef _WIN32
     /* Windows */
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
     SECURITY_ATTRIBUTES sa;
     HANDLE hStdOutRead, hStdOutWrite;
     std::string result;
