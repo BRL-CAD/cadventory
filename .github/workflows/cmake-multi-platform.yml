@@ -62,7 +62,7 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v4.1.1
       with:
-        version: '6.*'
+        version: '6.9.0' # TODO: change this back to pull lastest 6.*
 
     - name: Install BRL-CAD (Windows only)
       if: runner.os == 'Windows'
