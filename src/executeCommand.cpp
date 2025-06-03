@@ -1,18 +1,26 @@
 #include "executeCommand.h"
 #include <iostream>
-#include <cstdio>  
+#include <cstdio>
 #include <stdexcept>
-#include <fstream>
 #include <string>
+#include <fstream>
+#include <array>
+
 #ifdef _WIN32
 #include <windows.h>
+#else
+    #include <fcntl.h>
+    #include <sys/types.h>
+    #include <sys/wait.h>
+    #include <unistd.h>
 #endif
 
 
 std::string executeCommandNoWindowWithRedirection(const std::string& command,
     const std::string& inputFile,
     const std::string& outputFile) {
-
+#ifdef _WIN32
+    /* Windows */
     HANDLE hInput = CreateFileA(inputFile.c_str(), GENERIC_READ, FILE_SHARE_READ,
         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hInput == INVALID_HANDLE_VALUE) {
@@ -58,7 +66,48 @@ std::string executeCommandNoWindowWithRedirection(const std::string& command,
     CloseHandle(pi.hThread);
     CloseHandle(hInput);
     CloseHandle(hOutput);
+#else
+    /* linux */
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        return "";
+    }
 
+    if (pid == 0) {
+        // redirect stdin
+        int fdIn = open(inputFile.c_str(), O_RDONLY);
+        if (fdIn < 0) {
+            perror(("open " + inputFile).c_str());
+            _exit(1);
+        }
+        dup2(fdIn, STDIN_FILENO);
+        close(fdIn);
+
+        // redirect stdout / stderr
+        int fdOut = open(outputFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
+        if (fdOut < 0) {
+            perror(("open " + outputFile).c_str());
+            _exit(1);
+        }
+        dup2(fdOut, STDOUT_FILENO);
+        dup2(fdOut, STDERR_FILENO);
+        close(fdOut);
+
+        // Execute through the shell so users can pass complex commands.
+        execl("/bin/sh", "sh", "-c", command.c_str(), (char*)nullptr);
+        _exit(127); // only reached if exec fails
+    }
+
+    // ---- parent ----
+    int status = 0;
+    if (waitpid(pid, &status, 0) == -1) {
+        perror("waitpid");
+        return {};
+    }
+#endif
+
+    // read back output file into a string
     std::ifstream outFile(outputFile);
     std::string result((std::istreambuf_iterator<char>(outFile)),
         std::istreambuf_iterator<char>());
@@ -68,8 +117,8 @@ std::string executeCommandNoWindowWithRedirection(const std::string& command,
 }
 
 std::string executeCommandNoWindow(const std::string& command) {
-    STARTUPINFOA si;
-    PROCESS_INFORMATION pi;
+#ifdef _WIN32
+    /* Windows */
     SECURITY_ATTRIBUTES sa;
     HANDLE hStdOutRead, hStdOutWrite;
     std::string result;
@@ -124,6 +173,25 @@ std::string executeCommandNoWindow(const std::string& command) {
     CloseHandle(pi.hThread);
 
     return result;
+#else
+    /* linux */
+    std::string result;
+    std::array<char, 256> buffer{};
+
+    // redirect stderr / stdout
+    std::string fullCmd = command + " 2>&1";
+    FILE* pipe = popen(fullCmd.c_str(), "r");
+    if (!pipe) {
+        perror("popen");
+        return "";
+    }
+
+    while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe)) {
+        result.append(buffer.data());
+    }
+
+    (void)pclose(pipe);
+
+    return result;
+#endif
 }
-
-
