@@ -11,7 +11,7 @@ on:
 env:
   BRLCAD_VERSION: "7.40.2"
   BRLCAD_TAG: "rel-7-40-2"
-  QT_VERSION: "6.*"
+  QT_VERSION: "6.9.0"
 
 jobs:
   build:
