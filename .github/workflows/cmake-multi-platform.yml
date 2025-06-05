@@ -11,6 +11,7 @@ on:
 env:
   BRLCAD_VERSION: "7.40.2"
   BRLCAD_TAG: "rel-7-40-2"
+  QT_VERSION: "6.*"
 
 jobs:
   build:
@@ -66,7 +67,7 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v4.1.1
       with:
-        version: '6.9.0' # TODO: change this back to pull lastest 6.*
+        version: ${{ env.QT_VERSION }}
 
     - name: Install BRL-CAD (Windows)
       if: runner.os == 'Windows'
