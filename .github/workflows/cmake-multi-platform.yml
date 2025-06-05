@@ -80,7 +80,17 @@ jobs:
       run: |
         echo 'CMAKE_PREFIX_PATH="C:/Program Files/BRL-CAD 7.40.2"' >> $GITHUB_ENV
         echo 'BRLCAD_ROOT="C:/Program Files/BRL-CAD 7.40.2"' >> $GITHUB_ENV
-    
+
+    - name: Install BRL-CAD (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        wget "https://github.com/BRL-CAD/brlcad/releases/download/rel-7-40-2/BRL-CAD_7.40.2_Linux_x86_64.tar.gz" -O brlcad.tar.gz
+        mkdir -p $HOME/brlcad
+        tar -xzf brlcad.tar.gz -C $HOME/brlcad --strip-components=1
+        echo "BRLCAD_ROOT=$HOME/brlcad" >> $GITHUB_ENV
+        echo "CMAKE_PREFIX_PATH=$HOME/brlcad" >> $GITHUB_ENV
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
