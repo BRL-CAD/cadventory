@@ -53,6 +53,7 @@ jobs:
             c_compiler: cl
           - os: macos-latest
             c_compiler: cl
+          - os: macos-latest  # FIXME: temporarily disable macos until BRLCAD download is up
 
     steps:
     - uses: actions/checkout@v4
@@ -85,6 +86,16 @@ jobs:
       shell: bash
       run: |
         wget "https://github.com/BRL-CAD/brlcad/releases/download/${{ env.BRLCAD_TAG }}/BRL-CAD_${{ env.BRLCAD_VERSION }}_Linux_x86_64.tar.gz" -O brlcad.tar.gz
+        mkdir -p $HOME/brlcad
+        tar -xzf brlcad.tar.gz -C $HOME/brlcad --strip-components=1
+        echo "BRLCAD_ROOT=$HOME/brlcad" >> $GITHUB_ENV
+        echo "CMAKE_PREFIX_PATH=$HOME/brlcad" >> $GITHUB_ENV
+
+    - name: Install BRL-CAD (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        curl -L -o brlcad.tar.gz "https://github.com/BRL-CAD/brlcad/releases/download/${{ env.BRLCAD_TAG }}/BRL-CAD_${{ env.BRLCAD_VERSION }}_macos.tar.gz"
         mkdir -p $HOME/brlcad
         tar -xzf brlcad.tar.gz -C $HOME/brlcad --strip-components=1
         echo "BRLCAD_ROOT=$HOME/brlcad" >> $GITHUB_ENV
