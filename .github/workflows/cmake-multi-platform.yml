@@ -79,8 +79,8 @@ jobs:
         Invoke-WebRequest -Uri "https://github.com/BRL-CAD/brlcad/releases/download/${{ env.BRLCAD_TAG }}/BRL-CAD_${{ env.BRLCAD_VERSION }}_win64.exe" -OutFile "brlcad-installer.exe"
         # Run the installer silently
         Start-Process -FilePath ".\brlcad-installer.exe" -ArgumentList "/S" -Wait
-        echo 'CMAKE_PREFIX_PATH="C:/Program Files/BRL-CAD ${{ env.BRLCAD_VERSION }}"' >> $GITHUB_ENV
-        echo 'BRLCAD_ROOT="C:/Program Files/BRL-CAD ${{ env.BRLCAD_VERSION }}"' >> $GITHUB_ENV
+        echo 'CMAKE_PREFIX_PATH="C:/Program Files/BRL-CAD ${{ env.BRLCAD_VERSION }}"' >> $env:GITHUB_ENV
+        echo 'BRLCAD_ROOT="C:/Program Files/BRL-CAD ${{ env.BRLCAD_VERSION }}"' >> $env:GITHUB_ENV
 
     - name: Install BRL-CAD (Linux)
       if: runner.os == 'Linux'
