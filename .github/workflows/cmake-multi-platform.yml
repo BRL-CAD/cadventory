@@ -64,20 +64,14 @@ jobs:
       with:
         version: '6.9.0' # TODO: change this back to pull lastest 6.*
 
-    - name: Install BRL-CAD (Windows only)
+    - name: Install BRL-CAD (Windows)
       if: runner.os == 'Windows'
       shell: powershell
       run: |
         # Download BRL-CAD installer (.exe) from GitHub Releases
         Invoke-WebRequest -Uri "https://github.com/BRL-CAD/brlcad/releases/download/rel-7-40-2/BRL-CAD_7.40.2_win64.exe" -OutFile "brlcad-installer.exe"
-    
         # Run the installer silently
         Start-Process -FilePath ".\brlcad-installer.exe" -ArgumentList "/S" -Wait
-
-    - name: Set BRLCAD_ROOT and CMAKE_PREFIX_PATH (Windows only)
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
         echo 'CMAKE_PREFIX_PATH="C:/Program Files/BRL-CAD 7.40.2"' >> $GITHUB_ENV
         echo 'BRLCAD_ROOT="C:/Program Files/BRL-CAD 7.40.2"' >> $GITHUB_ENV
 
