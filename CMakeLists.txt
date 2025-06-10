@@ -240,5 +240,5 @@ if(WIN32)
 endif()
 
 # Testing
-# enable_testing()
-# add_subdirectory(src/tests)
+enable_testing()
+add_subdirectory(src/tests)
