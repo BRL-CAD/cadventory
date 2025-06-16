@@ -208,6 +208,9 @@ private slots:
         QSignalSpy directoryLoadedSpy(&fileSystemModel, &QFileSystemModel::directoryLoaded);
         fileSystemModel.setRootPath(dirPath);
 
+        // qt is really slow to index new files on windows. Add a slight delay
+        QThread::msleep(2000);
+
         // Wait for the directoryLoaded signal
         QVERIFY(directoryLoadedSpy.wait());
 
