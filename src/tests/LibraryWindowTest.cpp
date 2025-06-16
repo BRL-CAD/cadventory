@@ -24,7 +24,7 @@ class TestLibraryWindowGUI : public QObject
 private slots:
     void initTestCase();
     void testLibraryWindowVisible();
-    void testAddLibraryButton();
+    void testLibraryHomeButton();
     void cleanupTestCase();
 
 private:
@@ -44,14 +44,15 @@ void TestLibraryWindowGUI::testLibraryWindowVisible()
     QVERIFY(libraryWindow->isVisible());
 }
 
-// Example test for addLibraryButton existence and functionality
-void TestLibraryWindowGUI::testAddLibraryButton()
+// Test for Library's 'home' button existence and functionality
+void TestLibraryWindowGUI::testLibraryHomeButton()
 {
-    QPushButton* addButton = libraryWindow->findChild<QPushButton*>("addLibraryButton");
+    QPushButton* addButton = libraryWindow->findChild<QPushButton*>("backButton");
     QVERIFY(addButton != nullptr);
     QTest::mouseClick(addButton, Qt::LeftButton);
 
-    // Check additional expected behaviors after button click, as applicable
+    // library window should go away after we click the home button
+    QVERIFY(!libraryWindow->isVisible());
 }
 
 // Clean up after tests
