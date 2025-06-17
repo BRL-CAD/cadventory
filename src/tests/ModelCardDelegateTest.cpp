@@ -99,6 +99,7 @@ private slots:
         try {
             // Create a spy for the signal
             QSignalSpy spy(&delegate, &ModelCardDelegate::modelViewClicked);
+            QVERIFY(spy.isValid());
 
             // Trigger the editor event
             QVERIFY(delegate.editorEvent(&mouseEvent, &model, option, index));
