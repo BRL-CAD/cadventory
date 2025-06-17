@@ -79,15 +79,19 @@ private slots:
 
         ModelCardDelegate delegate;
 
+        QStyleOptionViewItem option;
+        option.rect = QRect(0, 0, 300, 100);
+
+        // Make sure we click in the center of our option
+        QRect iconArea = delegate.iconRect(option);
+        QPoint mousePos = iconArea.center();
         QMouseEvent mouseEvent(
             QEvent::MouseButtonRelease,  // Event type
-            QPoint(290, 20),             // Mouse position
+            mousePos,                    // Mouse position
             Qt::LeftButton,              // Button clicked
             Qt::LeftButton,              // Button state
             Qt::NoModifier               // No keyboard modifier
         );
-        QStyleOptionViewItem option;
-        option.rect = QRect(0, 0, 300, 100);
 
         // Verify event coordinates fall within the option rect
         QVERIFY(option.rect.contains(mouseEvent.pos()));
