@@ -18,11 +18,6 @@
 #include "../ProcessGFiles.h"
 #include "../GeometryBrowserDialog.h"
 
-// const std::string TEST_LIBRARY_PATH = "temp_test_library";  // Base path for testing
-
-// void setupTestLibraryPath() {
-//     std::filesystem::create_directories(TEST_LIBRARY_PATH + "/.cadventory");
-// }
 
 class MainWindowTest : public QObject {
     Q_OBJECT
@@ -43,8 +38,18 @@ private:
 };
 
 void MainWindowTest::initTestCase() {
-    //setupTestLibraryPath();  // Ensure test directory structure is set up
+    // set org and application name since QSettings uses these
+    QCoreApplication::setOrganizationName("cadventory_MWT");
+    QCoreApplication::setApplicationName("MainWindowTest");
 
+    // let qt make our tempdir
+    QString tempPath = QDir::tempPath();
+
+    // use ini in tempdir for easier reproducability and plaintext debugging
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, tempPath);
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+
+    // zero settings and create our main window
     QSettings settings;
     settings.clear();
     settings.sync();
@@ -53,7 +58,12 @@ void MainWindowTest::initTestCase() {
 
 void MainWindowTest::cleanupTestCase() {
     delete mainWindow;
-    //std::filesystem::remove_all(TEST_LIBRARY_PATH);  // Clean up test directory after tests
+
+    // clean up test directory (ie where we've written settings)
+    QSettings settings;
+    QDir settingsDir = QFileInfo(settings.fileName()).dir();
+    if (settingsDir.exists())
+	settingsDir.removeRecursively();
 }
 
 void MainWindowTest::testInitialization() {
