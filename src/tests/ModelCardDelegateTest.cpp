@@ -28,13 +28,13 @@ private slots:
         // Initialize a valid QPixmap for the painter
         QPixmap pixmap(300, 100);
         if (pixmap.isNull()) {
-            FAIL("QPixmap initialization failed.");
+            QFAIL("QPixmap initialization failed.");
         }
         pixmap.fill(Qt::white); // Ensure the pixmap is filled with a valid color
 
         QPainter painter(&pixmap);
         if (!painter.isActive()) {
-            FAIL("QPainter initialization failed.");
+            QFAIL("QPainter initialization failed.");
         }
 
         QStyleOptionViewItem option;
@@ -43,15 +43,15 @@ private slots:
         try {
             // Perform painting
             delegate.paint(&painter, option, index);
-            REQUIRE(true); // Pass if no exception is thrown
+            QVERIFY(true); // Pass if no exception is thrown
         } catch (const std::exception& e) {
-            FAIL_CHECK(std::string("Exception during paint: ") + e.what());
+            QFAIL(qPrintable(QString("Exception during paint: ") + e.what()));
         } catch (...) {
-            FAIL_CHECK("Unknown exception during paint.");
+            QFAIL("Unknown exception during paint.");
         }
 
         // Verify the pixmap has been modified by the paint operation
-        REQUIRE(!pixmap.isNull());
+        QVERIFY(!pixmap.isNull());
     }
 
     // Test size hint logic
@@ -97,15 +97,15 @@ private slots:
             QSignalSpy spy(&delegate, &ModelCardDelegate::modelViewClicked);
 
             // Trigger the editor event
-            REQUIRE(delegate.editorEvent(&mouseEvent, &model, option, index));
+            QVERIFY(delegate.editorEvent(&mouseEvent, &model, option, index));
 
             // Verify the signal was emitted with the correct data
-            REQUIRE(spy.count() == 1);
+            QVERIFY(spy.count() == 1);
             QCOMPARE(spy.takeFirst().at(0).toInt(), 123);
         } catch (const std::exception& e) {
-            FAIL_CHECK(std::string("Exception during editorEvent: ") + e.what());
+            QFAIL(qPrintable(QString("Exception during editorEvent: ") + e.what()));
         } catch (...) {
-            FAIL_CHECK("Unknown exception during editorEvent.");
+            QFAIL("Unknown exception during editorEvent.");
         }
     }
 };
