@@ -6,30 +6,13 @@
 #include <filesystem>
 #include <memory>
 
-class ModelTestFixture {
-public:
-    ModelTestFixture() {
-        auto uuid = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-        tempDir = std::filesystem::temp_directory_path() / ("cadventory_ModelTest_" + uuid);
-        std::filesystem::remove_all(tempDir);   // make sure dir is empty (this is safe even if dir doesn't exist yet)
-        std::filesystem::create_directories(tempDir);
+#include "ModelTestFixture.h"
 
-        model = std::make_unique<Model>(tempDir.string());
-    }
-
-    ~ModelTestFixture() {
-        model.reset();  // ensure our model is cleaned up before removing tempDir
-        std::filesystem::remove_all(tempDir);
-    }
-
-    std::filesystem::path tempDir;
-    std::unique_ptr<Model> model;
-};
-
+const std::string TEST_NAME = "cadventory_ModelTest";
 
 // Tests for initializing the Model and performing basic CRUD operations
 TEST_CASE("Model Initialization and CRUD Operations", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Test if the database and its supporting directories are created successfully
     SECTION("Database Initialization") {
@@ -65,7 +48,7 @@ TEST_CASE("Model Initialization and CRUD Operations", "[Model]") {
 
 // Tests for verifying data roles and utility functions
 TEST_CASE("Model Data Roles and Utility Functions", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     ModelData testModel = {0, "RoleTest", "./path/to/file", "{}", "Role Title", {}, "Author", "/file/path", "Library", true, false, false, {}};
     REQUIRE(fixture.model->insertModel(testModel) == true);
@@ -89,7 +72,7 @@ TEST_CASE("Model Data Roles and Utility Functions", "[Model]") {
 
 // Tests for managing objects associated with models
 TEST_CASE("Object Management and Transactions", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     ModelData testModel = {0, "ObjectTest", "./path/to/file", "{}", "Object Title", {}, "Author", "/file/path", "Library", false, false, false, {}};
     REQUIRE(fixture.model->insertModel(testModel) == true);
@@ -142,7 +125,7 @@ TEST_CASE("Object Management and Transactions", "[Model]") {
 
 // Test cases for advanced model features like handling tags
 TEST_CASE("Advanced Model Features", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Verify adding and retrieving tags for a model
     SECTION("Handle Tags") {
@@ -160,7 +143,7 @@ TEST_CASE("Advanced Model Features", "[Model]") {
 
 // Test cases for hashing functionality in the Model class
 TEST_CASE("Model: Hashing Functionality", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Test hashing a valid file
     SECTION("Hashing a Valid File") {
@@ -195,7 +178,7 @@ TEST_CASE("Model: Hashing Functionality", "[Model]") {
 
 // Test cases for printing model details to output
 TEST_CASE("Model: Print Functionality", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Ensure the printModel function runs without crashing
     SECTION("Print Model") {
@@ -206,7 +189,7 @@ TEST_CASE("Model: Print Functionality", "[Model]") {
 
 // Test cases for refreshing data and checking roles
 TEST_CASE("Model: Refresh Data and Roles", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Verify that refreshing model data does not throw errors
     SECTION("Refresh Model Data") {
@@ -223,7 +206,7 @@ TEST_CASE("Model: Refresh Data and Roles", "[Model]") {
 
 // Test cases for setting data and checking item flags
 TEST_CASE("Model: Set Data and Flags", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     ModelData testModel = {0, "SelectableModel", "./file", "{}", "Title", {}, "Author", "/path", "Library", false, false, false, {}};
     REQUIRE(fixture.model->insertModel(testModel));
@@ -261,7 +244,7 @@ TEST_CASE("Model: Set Data and Flags", "[Model]") {
 
 // Test case for retrieving models marked as "selected"
 TEST_CASE("Model: Get Selected Models", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Insert sample models into the database
     ModelData model1 = {0, "Model1", "./file1", "{}", "Title1", {}, "Author1", "/path1", "Library1", true, false, false, {}};
@@ -279,7 +262,7 @@ TEST_CASE("Model: Get Selected Models", "[Model]") {
 
 // Test case for updating the parent ID of an object
 TEST_CASE("Model: Update Object Parent ID", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Insert a sample object into the database
     ObjectData object = {0, 1, "Object", -1, false}; // Object with no parent initially
@@ -297,7 +280,7 @@ TEST_CASE("Model: Update Object Parent ID", "[Model]") {
 
 // Test case for deleting and recreating database tables
 TEST_CASE("Model: Delete Tables", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Verify that tables can be deleted and recreated without errors
     SECTION("Successfully Delete and Recreate Tables") {
@@ -308,7 +291,7 @@ TEST_CASE("Model: Delete Tables", "[Model]") {
 
 // Test case for retrieving all tags in the database
 TEST_CASE("Model: Get All Tags", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Insert sample tags into the database
     REQUIRE(fixture.model->addTagToModel(1, "Tag1") == true); // Add "Tag1" to model with ID 1
@@ -325,7 +308,7 @@ TEST_CASE("Model: Get All Tags", "[Model]") {
 
 // Test case for removing tags from a model
 TEST_CASE("Model: Remove Tags from Model", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Insert a sample model and add tags to it
     ModelData modelData = {0, "ModelWithTags", "./file", "{}", "Title", {}, "Author", "/path", "Library", false, false, false, {}};
@@ -355,7 +338,7 @@ TEST_CASE("Model: Remove Tags from Model", "[Model]") {
 
 // Test case for getting and setting model properties
 TEST_CASE("Model: Get and Set Properties", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Insert a sample model into the database
     ModelData modelData = {0, "PropertyModel", "./file", "{}", "Title", {}, "Author", "/path", "Library", false, false, false, {}};
@@ -387,7 +370,7 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
 
 // Test case for retrieving models marked as "included"
 TEST_CASE("Model: Get Included Models", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Insert sample models into the database
     ModelData model1 = {0, "IncludedModel1", "./file1", "{}", "Title1", {}, "Author1", "/path1", "Library1", false, false, true, {}};
@@ -415,7 +398,7 @@ TEST_CASE("Model: Get Included Models", "[Model]") {
 
 // Test case for checking if a file is included in the model database
 TEST_CASE("Model: Is File Included", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Insert a sample model into the database
     ModelData modelData = {0, "IncludedFileModel", "./file_path", "{}", "Title", {}, "Author", "/path", "Library", false, false, true, {}};
@@ -434,7 +417,7 @@ TEST_CASE("Model: Is File Included", "[Model]") {
 
 // Test case for retrieving models that are included but not processed
 TEST_CASE("Model: Get Included Not Processed Models", "[Model]") {
-    ModelTestFixture fixture;
+    ModelTestFixture fixture(TEST_NAME);
 
     // Insert sample models into the database
     ModelData model1 = {0, "IncludedNotProcessed1", "./file1", "{}", "Title1", {}, "Author1", "/path1", "Library1", false, false, true, {}};
