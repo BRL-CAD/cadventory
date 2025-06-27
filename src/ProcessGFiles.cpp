@@ -28,95 +28,71 @@ ProcessGFiles::ProcessGFiles(Model* model)
 {
 }
 
-void ProcessGFiles::processGFile(const ModelData& modelData)
+bool ProcessGFiles::processGFile(const ModelData& modelData)
 {
-    // Use truncated path for debug output only.
-    std::string displayPath = truncatePath(modelData.file_path);
-    qDebug() << "[ProcessGFiles::processGFile] Processing model with ID:" << modelData.id
-        << "and file path:" << QString::fromStdString(displayPath);
-
-    // Ensure file path is not empty
+    // Ensure we have a file path
     if (modelData.file_path.empty()) {
         qDebug() << "[ProcessGFiles::processGFile] No file path provided. Aborting.";
-        return;
+        return false;
     }
 
-    // Open the BRL-CAD database using the full path.
+    // Attempt to open the BRL-CAD database
     const char* db_filename = modelData.file_path.c_str();
-    struct ged* gedp = ged_open("db", db_filename, 0);
-    if (gedp == GED_NULL) {
-        qDebug() << "[ProcessGFiles::processGFile] Error: Unable to open BRL-CAD database at path:"
-            << QString::fromStdString(displayPath);
-        return;
+    std::unique_ptr<struct ged, decltype(&ged_close)> gedp(
+        ged_open("db", db_filename, 0),
+        ged_close
+    );
+    if (!gedp) {
+        qDebug() << "[ProcessGFiles::processGFile] Unable to open BRL-CAD database at path:"
+            << QString::fromStdString(modelData.file_path);
+        return false;
     }
 
-    // Make a copy of modelData to modify
+    // Create a working copy of the modelData
     ModelData updatedModelData = modelData;
-    updatedModelData.is_processed = true;
 
-    extractTitle(updatedModelData, gedp);
+    // Extract title
+    extractTitle(updatedModelData, gedp.get());
     qDebug() << "[ProcessGFiles::processGFile] Title extracted:" << QString::fromStdString(updatedModelData.title);
 
-    // Update the model in the database with the extracted title.
-    if (!model->updateModel(updatedModelData.id, updatedModelData)) {
-        qDebug() << "[ProcessGFiles::processGFile] Error: Could not update model in database for ID:"
-            << updatedModelData.id;
-        ged_close(gedp);
-        return;
-    }
-    extractObjects(updatedModelData, gedp);
-
+    // Extract object data
+    extractObjects(updatedModelData, gedp.get());
     std::vector<ObjectData> allObjects = model->getObjectsForModel(updatedModelData.id);
     if (allObjects.empty()) {
-        qDebug() << "[ProcessGFiles::processGFile] No objects found for model ID:" << updatedModelData.id
-            << ". Skipping thumbnail generation.";
-        ged_close(gedp);
-        return;
+        qDebug() << "[ProcessGFiles::processGFile] No objects found for model ID:" << updatedModelData.id;
+        return false;
     }
 
-    qDebug() << "[ProcessGFiles::processGFile] Attempting thumbnail generation for model ID:" << updatedModelData.id;
-
-    std::vector<ObjectData> selectedObjects = model->getSelectedObjectsForModel(updatedModelData.id);
-
+    // Attempt to determine which object should be our thumbnail
     std::string objectNameForThumbnail;
+    std::vector<ObjectData> selectedObjects = model->getSelectedObjectsForModel(updatedModelData.id);
     if (!selectedObjects.empty()) {
-        const ObjectData& selectedObject = selectedObjects.front();
-        objectNameForThumbnail = selectedObject.name;
-        qDebug() << "[ProcessGFiles::processGFile] Found selected object. Using object named:"
-            << QString::fromStdString(objectNameForThumbnail) << "for thumbnail.";
-    }
-    else {
-        if (!allObjects.empty()) {
-            objectNameForThumbnail = "all";
-            qDebug() << "[ProcessGFiles::processGFile] No specific object selected. Defaulting to 'all'.";
-        }
-        else {
-            qDebug() << "[ProcessGFiles::processGFile] No objects available for thumbnail generation.";
-            ged_close(gedp);
-            return;
-        }
-    }
+        // use first selected object
+        objectNameForThumbnail = selectedObjects.front().name;
+    } else {
+        // punt to see if the model has an 'all' object.
+        // if not, just use the first object we found for the thumbnail
+        bool hasAll = std::any_of(allObjects.begin(), allObjects.end(),
+                                  [](const ObjectData& obj) { return obj.name == "all"; });
 
-    bool thumbnailGenerated = generateThumbnail(updatedModelData, objectNameForThumbnail);
+        objectNameForThumbnail = hasAll ? "all" : allObjects.front().name;
+    }
+    qDebug() << "[ProcessGFiles::processGFile] Using \'" << objectNameForThumbnail << "\' for thumbnail.";
 
-    if (!thumbnailGenerated) {
+    // Attempt to generate our thumbnail
+    if (!generateThumbnail(updatedModelData, objectNameForThumbnail)) {
         qDebug() << "[ProcessGFiles::processGFile] Thumbnail generation failed for model ID:" << updatedModelData.id;
-    }
-    else {
-        qDebug() << "[ProcessGFiles::processGFile] Thumbnail generated successfully for model ID:" << updatedModelData.id
-            << ". Updating model data in the database.";
-        if (!model->updateModel(updatedModelData.id, updatedModelData)) {
-            qDebug() << "[ProcessGFiles::processGFile] Error updating model thumbnail in database for ID:"
-                << updatedModelData.id;
-        }
-        else {
-            qDebug() << "[ProcessGFiles::processGFile] Successfully updated model thumbnail for model ID:" << updatedModelData.id;
-        }
+        // Not a hard fail, move on
     }
 
-    ged_close(gedp);
-    // Use the truncated version for the final debug output.
-    qDebug() << "[ProcessGFiles::processGFile] Completed processing for path:" << QString::fromStdString(truncatePath(updatedModelData.file_path));
+    // Update our model
+    updatedModelData.is_processed = true;
+    if (!model->updateModel(updatedModelData.id, updatedModelData)) {
+        qDebug() << "[ProcessGFiles::processGFile] Filed to update model in database for model ID:" << updatedModelData.id;
+        return false;
+    }
+
+    return true;
 }
 
 void ProcessGFiles::extractTitle(ModelData& modelData, struct ged* gedp)
