@@ -114,8 +114,9 @@ function(add_cadventory_test)
     target_link_libraries(${TEST_NAME} PRIVATE ${COMMON_LIBRARIES})
     target_include_directories(${TEST_NAME} PRIVATE ${COMMON_INCLUDE_DIRECTORIES})
 
-    # Define BRLCAD_BUILD for use in the source code
-    target_compile_definitions(${TEST_NAME} PRIVATE BRLCAD_BUILD="${BRLCAD_ROOT}" RT_DLL_IMPORTS)
+    # Define BRLCAD_BUILD for use in the source code,
+    # Define TEST_SRC_DIR for source code that is relying on using files in the test dir (such as a .g)
+    target_compile_definitions(${TEST_NAME} PRIVATE BRLCAD_BUILD="${BRLCAD_ROOT}" RT_DLL_IMPORTS TEST_SRC_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\")
 
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
 endfunction()
