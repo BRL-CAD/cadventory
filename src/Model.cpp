@@ -310,9 +310,10 @@ bool Model::updateModel(int id, const ModelData& modelData) {
 
     // make sure we have an existing model to update
     // NOTE: it's the callers responsibility to manage creation vs updates
-    ModelData existingModel = getModelById(id);
-    if (existingModel.id != id)
+    auto result = getModelById(id);
+    if (!result.has_value() || result.value().id != id)
         return false;
+    ModelData existingModel = *result;
 
     // check for file_path conflicts
     if (filePathExists(modelData.file_path) && existingModel.file_path != modelData.file_path) {
@@ -475,50 +476,56 @@ bool Model::modelExists(int id) {
   return count > 0;
 }
 
-ModelData Model::getModelById(int id) {
-  std::string sql = R"(
+std::optional<ModelData> Model::getModelById(int id) {
+    std::string sql = R"(
         SELECT id, short_name, primary_file, override_info, title, thumbnail, author, file_path, library_name, is_selected, is_processed, is_included
         FROM models WHERE id = ?;
     )";
-  sqlite3_stmt* stmt;
-  ModelData model;
-  std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
-  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
-    sqlite3_bind_int(stmt, 1, id);
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-      model.id = sqlite3_column_int(stmt, 0);
-      model.short_name =
-          reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-      model.primary_file =
-          reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-      model.override_info =
-          reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-      model.title = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+    sqlite3_stmt* stmt = NULL;
+    std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
-      const void* blob = sqlite3_column_blob(stmt, 5);
-      int blob_size = sqlite3_column_bytes(stmt, 5);
-      if (blob && blob_size > 0) {
-        model.thumbnail.assign(static_cast<const char*>(blob),
-                               static_cast<const char*>(blob) + blob_size);
-      }
-
-      model.author =
-          reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
-      model.file_path =
-          reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
-      model.library_name =
-          reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
-      model.is_selected = sqlite3_column_int(stmt, 9) != 0;
-      model.is_processed = sqlite3_column_int(stmt, 10) != 0;
-      model.is_included = sqlite3_column_int(stmt, 11) != 0;
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cerr << "SQL prepare error in getModelById: " << sqlite3_errmsg(db) << std::endl;
+        return std::nullopt;
     }
-    sqlite3_finalize(stmt);
-  } else {
-    std::cerr << "Failed to select model: " << sqlite3_errmsg(db) << std::endl;
-  }
 
-  return model;
+    sqlite3_bind_int(stmt, 1, id);
+    ModelData model;
+
+    if (sqlite3_step(stmt) != SQLITE_ROW) {
+        std::cerr << "Failed to select model: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_finalize(stmt);
+        return std::nullopt;
+    }
+
+    auto getTextHelper = [](sqlite3_stmt* s, int col) -> std::string {
+        const unsigned char* text = sqlite3_column_text(s, col);
+        return text ? reinterpret_cast<const char*>(text) : "";
+    };
+
+    model.id            = sqlite3_column_int(stmt, 0);
+    model.short_name    = getTextHelper(stmt, 1);
+    model.primary_file  = getTextHelper(stmt, 2);
+    model.override_info = getTextHelper(stmt, 3);
+    model.title         = getTextHelper(stmt, 4);
+
+    const void* blob = sqlite3_column_blob(stmt, 5);
+    int blob_size = sqlite3_column_bytes(stmt, 5);
+    if (blob && blob_size > 0) {
+        model.thumbnail.assign(static_cast<const char*>(blob),
+                                static_cast<const char*>(blob) + blob_size);
+    }
+
+    model.author        = getTextHelper(stmt, 6);
+    model.file_path     = getTextHelper(stmt, 7);
+    model.library_name  = getTextHelper(stmt, 8);
+    model.is_selected   = sqlite3_column_int(stmt, 9) != 0;
+    model.is_processed  = sqlite3_column_int(stmt, 10) != 0;
+    model.is_included   = sqlite3_column_int(stmt, 11) != 0;
+
+    sqlite3_finalize(stmt);
+    return model;
 }
 
 ModelData Model::getModelByFilePath(const std::string& filePath) {

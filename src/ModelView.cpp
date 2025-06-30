@@ -20,7 +20,7 @@
 ModelView::ModelView(int modelId, Model* model, QWidget* parent)
     : QDialog(parent), modelId(modelId), model(model) {
   ui.setupUi(this);
-  currModel = model->getModelById(modelId);
+  currModel = model->getModelById(modelId).value_or(ModelData{});
 
   geometryBrowser = new GeometryBrowserDialog(modelId, model, this);
   geometryBrowser->setWindowFlags(Qt::Widget);

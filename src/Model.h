@@ -81,8 +81,8 @@ public:
     bool deleteTables();
     void resetDatabase();
 
-    // Getters
-    ModelData getModelById(int id);
+    // Getters (returns ModelData or std::nullopt on failure)
+    std::optional<ModelData> getModelById(int id);
 
     // Utility methods
     int hashModel(const std::string& modelDir);

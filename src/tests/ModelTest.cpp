@@ -32,7 +32,8 @@ TEST_CASE("Model Initialization and CRUD Operations", "[Model]") {
         REQUIRE(fixture.model->updateModel(fetchedModel.id, fetchedModel) == true);
 
         auto updatedModel = fixture.model->getModelById(fetchedModel.id);
-        REQUIRE(updatedModel.short_name == "UpdatedModel");
+        REQUIRE(updatedModel.has_value());
+        REQUIRE(updatedModel.value().short_name == "UpdatedModel");
     }
 
     // Test deleting a model and verifying its deletion
