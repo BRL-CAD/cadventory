@@ -85,14 +85,20 @@ bool ProcessGFiles::processGFile(const ModelData& modelData)
         // Not a hard fail, move on
     }
 
-    // Update our model
+    // Create or update our model
     updatedModelData.is_processed = true;
-    if (!model->updateModel(updatedModelData.id, updatedModelData)) {
-        qDebug() << "[ProcessGFiles::processGFile] Filed to update model in database for model ID:" << updatedModelData.id;
-        return false;
+    auto existing = model->getModelById(updatedModelData.id);
+    bool success = false;
+    if (existing.has_value()) {
+        success = model->updateModel(updatedModelData.id, updatedModelData);
+    } else {
+        success = model->insertModel(updatedModelData);
+    }
+    if (!success) {
+        qDebug() << "[ProcessGFiles::processGFile] Failed to process in database for model ID:" << updatedModelData.id;
     }
 
-    return true;
+    return success;
 }
 
 void ProcessGFiles::extractTitle(ModelData& modelData, struct ged* gedp)
