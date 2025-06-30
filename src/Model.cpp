@@ -306,7 +306,29 @@ bool Model::filePathExists(const std::string& file_path) {
 }
 
 bool Model::updateModel(int id, const ModelData& modelData) {
-  std::string sql = R"(
+    std::lock_guard<std::recursive_mutex> lock(db_mutex);
+
+    // make sure we have an existing model to update
+    // NOTE: it's the callers responsibility to manage creation vs updates
+    ModelData existingModel = getModelById(id);
+    if (existingModel.id != id)
+        return false;
+
+    // check for file_path conflicts
+    if (filePathExists(modelData.file_path) && existingModel.file_path != modelData.file_path) {
+        std::cerr << "Another model with file_path " << modelData.file_path
+                  << " already exists." << std::endl;
+        return false;
+    }
+
+    // ensure short_name is unique if changed
+    std::string short_name = modelData.short_name;
+    int suffix = 1;
+    while (shortNameExists(short_name) && existingModel.short_name != short_name) {
+        short_name = modelData.short_name + "_" + std::to_string(suffix++);
+    }
+
+    std::string sql = R"(
         UPDATE models SET
             short_name = ?,
             primary_file = ?,
@@ -322,52 +344,17 @@ bool Model::updateModel(int id, const ModelData& modelData) {
         WHERE id = ?;
     )";
 
-  // Remove existing tags for the model
-  std::string sqlDeleteTags = "DELETE FROM model_tags WHERE model_id = ?;";
-  sqlite3_stmt* deleteStmt;
-  if (sqlite3_prepare_v2(db, sqlDeleteTags.c_str(), -1, &deleteStmt, nullptr) ==
-      SQLITE_OK) {
-    sqlite3_bind_int(deleteStmt, 1, id);
-    if (sqlite3_step(deleteStmt) != SQLITE_DONE) {
-      std::cerr << "Failed to delete existing tags: " << sqlite3_errmsg(db)
-                << std::endl;
+    // prepare stmt
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cerr << "SQL error in updateModel: " << sqlite3_errmsg(db) << std::endl;
+        return false;
     }
-    sqlite3_finalize(deleteStmt);
-  } else {
-    std::cerr << "SQL error in delete existing tags: " << sqlite3_errmsg(db)
-              << std::endl;
-  }
 
-  // Insert new tags for the model
-  for (const auto& tag : modelData.tags) {
-    addTagToModel(id, tag);
-  }
-
-  sqlite3_stmt* stmt;
-  std::lock_guard<std::recursive_mutex> lock(db_mutex);
-
-  // Ensure short_name is unique if it's changed
-  std::string short_name = modelData.short_name;
-  int suffix = 1;
-  while (shortNameExists(short_name) &&
-         getModelById(id).short_name != short_name) {
-    short_name = modelData.short_name + "_" + std::to_string(suffix++);
-  }
-
-  // Ensure file_path is unique if it's changed
-  if (filePathExists(modelData.file_path) &&
-      getModelById(id).file_path != modelData.file_path) {
-    std::cerr << "Another model with file_path " << modelData.file_path
-              << " already exists." << std::endl;
-    return false;
-  }
-
-  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+    // bind values
     sqlite3_bind_text(stmt, 1, short_name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, modelData.primary_file.c_str(), -1,
-                      SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 3, modelData.override_info.c_str(), -1,
-                      SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, modelData.primary_file.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, modelData.override_info.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 4, modelData.title.c_str(), -1, SQLITE_STATIC);
 
     if (!modelData.thumbnail.empty()) {
@@ -380,38 +367,53 @@ bool Model::updateModel(int id, const ModelData& modelData) {
 
     sqlite3_bind_text(stmt, 6, modelData.author.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 7, modelData.file_path.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 8, modelData.library_name.c_str(), -1,
-                      SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 8, modelData.library_name.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_int(stmt, 9, modelData.is_selected ? 1 : 0);
     sqlite3_bind_int(stmt, 10, modelData.is_processed ? 1 : 0);
     sqlite3_bind_int(stmt, 11, modelData.is_included ? 1 : 0);
     sqlite3_bind_int(stmt, 12, id);
 
+    // do the sql update
     int rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-      std::cerr << "Update model failed: " << sqlite3_errmsg(db) << std::endl;
-      sqlite3_finalize(stmt);
-      return false;
+        std::cerr << "Update model failed: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_finalize(stmt);
+        return false;
     }
     sqlite3_finalize(stmt);
 
-    // Update the models vector
+    // ensure tags are updated too
+    // first, delete old tags
+    std::string sqlDeleteTags = "DELETE FROM model_tags WHERE model_id = ?;";
+    sqlite3_stmt* deleteStmt = nullptr;
+    if (sqlite3_prepare_v2(db, sqlDeleteTags.c_str(), -1, &deleteStmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(deleteStmt, 1, id);
+        if (sqlite3_step(deleteStmt) != SQLITE_DONE) {
+            std::cerr << "Failed to delete existing tags: " << sqlite3_errmsg(db) << std::endl;
+        }
+
+        sqlite3_finalize(deleteStmt);
+    } else {
+        std::cerr << "SQL error in delete existing tags: " << sqlite3_errmsg(db) << std::endl;
+    }
+    // then, add the new tags
+    for (const auto& tag : modelData.tags) {
+        addTagToModel(id, tag);
+    }
+
+    // update the models vector in memory
     for (int row = 0; row < static_cast<int>(models.size()); ++row) {
-      if (models[row].id == id) {
-        models[row] = modelData;
-        models[row].short_name = short_name;
-        QModelIndex modelIndex = index(row);
-        emit dataChanged(modelIndex, modelIndex);
-        break;
-      }
+        if (models[row].id == id) {
+            models[row] = modelData;
+            models[row].short_name = short_name;    // we might've changed short_name for collision avoidance
+
+            QModelIndex modelIndex = index(row);
+            emit dataChanged(modelIndex, modelIndex);
+            break;
+        }
     }
 
     return true;
-  } else {
-    std::cerr << "SQL error in updateModel: " << sqlite3_errmsg(db)
-              << std::endl;
-    return false;
-  }
 }
 
 bool Model::deleteModel(int id) {
