@@ -290,7 +290,6 @@ void ProcessGFiles::insertChildObjects(ModelData& modelData, struct ged* gedp, c
     qDebug() << "[ProcessGFiles::insertChildObjects] Completed for parent object ID:" << parentObjData.object_id << "Name:" << QString::fromStdString(parentObjData.name);
 }
 
-
 void db_tree_list_comb_children(const union tree* tree, std::vector<std::string>& children) {
     if (!tree) return;
 
@@ -311,10 +310,6 @@ void db_tree_list_comb_children(const union tree* tree, std::vector<std::string>
         break;
     }
 }
-
-
-
-
 
 bool ProcessGFiles::generateThumbnail(ModelData& modelData, const std::string& selected_object_name)
 {
@@ -418,94 +413,85 @@ bool ProcessGFiles::generateThumbnail(ModelData& modelData, const std::string& s
     return true;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 std::tuple<bool, std::string, std::string> ProcessGFiles::generateGistReport(const std::string& inputFilePath, const std::string& outputFilePath, const std::string& primary_obj, const std::string& label)
 {
-    std::string gistCommand;
-    std::string errorMessage;
+    // helper lambda for logging and returning a failed run
+    auto returnFail = [inputFilePath, outputFilePath, primary_obj, label](const std::string err, const std::string cmd) -> std::tuple<bool, std::string, std::string> {
+        // use truncated path for debug display?
+        qDebug() << "[ProcessGFiles::generateGistReport] Started for inputFilePath:" << QString::fromStdString(truncatePath(inputFilePath))
+                 << ", outputFilePath:" << QString::fromStdString(truncatePath(outputFilePath))
+                 << ", primary_obj:" << QString::fromStdString(primary_obj)
+                 << ", label:" << QString::fromStdString(label);
 
-    // Use truncated paths for debug display.
-    qDebug() << "[ProcessGFiles::generateGistReport] Started for inputFilePath:" << QString::fromStdString(truncatePath(inputFilePath))
-        << ", outputFilePath:" << QString::fromStdString(truncatePath(outputFilePath))
-        << ", primary_obj:" << QString::fromStdString(primary_obj)
-        << ", label:" << QString::fromStdString(label);
+        if (!cmd.empty())
+            qDebug() << "[ProcessGFiles::generateGistReport] Run gist command: " << QString::fromStdString(cmd);
 
-    QFileInfo inputFile(QString::fromStdString(inputFilePath));
-    if (!inputFile.exists()) {
-        errorMessage = "Input file does not exist: " + inputFilePath;
-        qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
-        return { false, errorMessage, "" };
-    }
+        qWarning() << "[ProcessGFiles::generateGistReport]" << QString:: fromStdString(err);
+        return { false, err, cmd };
+    };
 
+    // check for gist executable
     QString gistExecutable = QStringLiteral(GIST_EXECUTABLE_PATH);
+    if (gistExecutable.isEmpty())
+        return returnFail("Cannot find gist executable", "");
+
+    // check inputFile
+    QFileInfo inputFile(QString::fromStdString(inputFilePath));
+    if (!inputFile.exists())
+        return returnFail("Input file does not exist: " + inputFilePath, "");
+
+    // build up arguments list
+    // TODO: the ProcessGFiles class has access to the model - extract everything we can instead of expecting the caller to re-access to pass
     QStringList arguments;
-
     arguments << QString::fromStdString(inputFilePath)
-        << "-o" << QString::fromStdString(outputFilePath) << "-Z";
+              << "-o" << QString::fromStdString(outputFilePath);
+    // re-use previous renders if found
+    arguments << "-Z";
+    // supplied primary 'top' object
+    if (!primary_obj.empty())
+        arguments << "-t" << QString::fromStdString(primary_obj);
+    // supplied classification label
+    if (!label.empty())
+        arguments << "-c" << QString::fromStdString(label);
 
+    // string version of command to be run (only used for debugging - QProcess has the 'real' command)
+    std::string gistCommand = gistExecutable.toStdString() + " " + arguments.join(" ").toStdString();
 
-    gistCommand = gistExecutable.toStdString() + " " + arguments.join(" ").toStdString();
-    qDebug() << "[ProcessGFiles::generateGistReport] Running gist command:" << QString::fromStdString(gistCommand);
-
-    QSettings settings;
-    int timeLimitMs = settings.value("gistReportTimer", 10000).toInt() * 1000;
-
+    // build our process to be run
     QProcess process;
     process.setProgram(gistExecutable);
     process.setArguments(arguments);
-    process.setProcessChannelMode(QProcess::MergedChannels);
+    process.setProcessChannelMode(QProcess::MergedChannels);    // merge stdout and stderr log
 
+    // misc process settings
+    QSettings settings;
+    int timeoutMs = settings.value("gistReportTimeoutSec", 120).toInt() * 1000; // 120 sec timeout default
+
+    // start
     process.start();
-    if (!process.waitForStarted()) {
-        errorMessage = "Failed to start the gist process for command: " + gistCommand;
-        qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
-        return { false, errorMessage, gistCommand };
-    }
-
-    bool finishedInTime = process.waitForFinished(timeLimitMs);
-
-    if (!finishedInTime) {
-        // The process did not finish in the allotted time
-        errorMessage = "Gist command timed out after " + std::to_string(timeLimitMs / 1000) + " seconds.";
-        qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
+    if (!process.waitForStarted())
+        return returnFail("Failed to start the gist process", gistCommand);
+    
+    // check timeout
+    if (!process.waitForFinished(timeoutMs)) {
         process.kill();
         process.waitForFinished();
-        return { false, errorMessage, gistCommand };
+        return returnFail("Gist command timed out after " + std::to_string(timeoutMs / 1000) + " seconds", gistCommand);
     }
 
-    int exitCode = process.exitCode();
-    if (exitCode != 0) {
-        errorMessage = "The gist process finished with a non-zero exit code: " + std::to_string(exitCode);
-        std::string processOutput = process.readAllStandardOutput().toStdString();
-        qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
-        qDebug() << "[ProcessGFiles::generateGistReport] Process output:" << QString::fromStdString(processOutput);
-        return { false, processOutput, gistCommand };
+    // check exit code
+    if (process.exitStatus() != QProcess::NormalExit) {
+        std::string error = "Gist exited with exit code: " + std::to_string(process.exitCode());
+        error += "\nProcess output: \'" + process.readAll().toStdString() + "\'";
+        return returnFail(error, gistCommand);
     }
 
-    // Check if the output file was generated
+    // check output file
     QFileInfo outputFile(QString::fromStdString(outputFilePath));
-    if (!outputFile.exists() || outputFile.size() == 0) {
-        errorMessage = "Output file not generated or empty at path: " + outputFilePath;
-        qDebug() << "[ProcessGFiles::generateGistReport]" << QString::fromStdString(errorMessage);
-        return { false, errorMessage, gistCommand };
-    }
+    if (!outputFile.exists() || outputFile.size() == 0)
+        return returnFail("Output file not generated or empty at path: " + outputFilePath, gistCommand);
 
-    qDebug() << "[ProcessGFiles::generateGistReport] Gist report generated successfully for file:"
-        << QString::fromStdString(truncatePath(inputFilePath))
-        << "Output path:" << QString::fromStdString(truncatePath(outputFilePath));
 
+    // everything's good
     return { true, "", gistCommand };
 }
