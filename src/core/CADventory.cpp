@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include <QCoreApplication>
 #include <QPixmap>
 #include <QTimer>
 #include <QString>
@@ -15,33 +16,34 @@
 #include "FilesystemIndexer.h"
 
 
-CADventory::CADventory(int &argc, char *argv[]) : QApplication (argc, argv), window(nullptr), splash(nullptr), loaded(false), gui(true)
+CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(parent)
 {
-	// instantiate the model tagging object
-	this->modelTagging = new ModelTagging();
+    // app-wide metadata
+    QCoreApplication::setOrganizationName("BRL-CAD");
+    QCoreApplication::setOrganizationDomain("brlcad.org");
+    QCoreApplication::setApplicationName("CADventory");
+    // TODO: set our version using config.h
+    QCoreApplication::setApplicationVersion("0.2.0");
 
-    setOrganizationName("BRL-CAD");
-    setOrganizationDomain("brlcad.org");
-    setApplicationName("CADventory");
-    setApplicationVersion("0.2.0");
+    // instantiate the model tagging object
+    this->modelTagging = new ModelTagging();
 
-    QString appName = QCoreApplication::applicationName();
-    QString appVersion = QCoreApplication::applicationVersion();
+    /*QString appName = QCoreApplication::applicationName();
+    QString appVersion = QCoreApplication::applicationVersion();*/
 
     // ANSI escape codes for underlining and reset
-    QString underlineStart = "\033[4m";
-    QString underlineEnd = "\033[0m";
+    /*QString underlineStart = "\033[4m";
+    QString underlineEnd = "\033[0m";*/
 
-  // if any arg is specified, assume CLI-mode
-  if (argc > 1) {
+    // if any arg is specified, assume CLI-mode
+    if (argc > 1) {
+        this->gui = false;
+        connect(this, &CADventory::indexingComplete, qApp, &QCoreApplication::quit);
 
-    this->gui = false;
-    connect(this, &CADventory::indexingComplete, this, &QCoreApplication::quit);
-
-    // could be separate setting, but let CLI-mode also wipe out all settings
-    QSettings settings;
-    settings.clear();
-    settings.sync();
+        // could be separate setting, but let CLI-mode also wipe out all settings
+        QSettings settings;
+        settings.clear();
+        settings.sync();
     }
 }
 
@@ -50,9 +52,9 @@ CADventory::~CADventory()
 {
     qDebug() << "CADventory destructor called - cleaning up resources";
 
+    // shutdown ollama if we started it
     if (m_ollamaProcess) {
         qDebug() << "Terminating Ollama server...";
-
         m_ollamaProcess->terminate();
 
         if (!m_ollamaProcess->waitForFinished(3000)) {
@@ -66,34 +68,50 @@ CADventory::~CADventory()
         qDebug() << "Ollama server terminated with exit code:" << m_ollamaProcess->exitCode();
         delete m_ollamaProcess;
         m_ollamaProcess = nullptr;
-    }
-    else {
+    } else {
         qDebug() << "No Ollama process to terminate";
     }
-  delete window;
-  delete splash;
 
-  delete modelTagging;
+    delete window;
+    delete splash;
+    delete modelTagging;
+}
+
+void CADventory::run() {
+    // slight delay to let the splash screen settle
+    QTimer::singleShot(250, this, [this]() {
+        std::string home = QDir::homePath().toStdString();
+
+        // if we didn't get a homestr, start in the current dir
+        if (home.empty())
+            home = ".";
+
+        // start indexing
+        this->indexDirectory(home.c_str());
+    });
 }
 
 bool CADventory::startOllamaServer() {
-	if (m_ollamaProcess) {
-		qDebug() << "Ollama server is already running.";
-		return true;
-	}
-	m_ollamaProcess = new QProcess(this);
-	m_ollamaProcess->setProgram(getModelTagging()->getOllamaPath());
-	m_ollamaProcess->setArguments(QStringList() << "serve");
-	connect(m_ollamaProcess, &QProcess::readyReadStandardOutput, [this]() {
-		QString output = m_ollamaProcess->readAllStandardOutput();
-		qDebug() << "Ollama server output:" << output;
-		});
-	connect(m_ollamaProcess, &QProcess::readyReadStandardError, [this]() {
-		QString error = m_ollamaProcess->readAllStandardError();
-		qDebug() << "Ollama server error:" << error;
-		});
-	m_ollamaProcess->start();
-	return true;
+    if (m_ollamaProcess) {
+        qDebug() << "Ollama server is already running.";
+        return true;
+    }
+
+    m_ollamaProcess = new QProcess(this);
+    m_ollamaProcess->setProgram(getModelTagging()->getOllamaPath());
+    m_ollamaProcess->setArguments(QStringList() << "serve");
+
+    connect(m_ollamaProcess, &QProcess::readyReadStandardOutput, [this]() {
+	    QString output = m_ollamaProcess->readAllStandardOutput();
+	    qDebug() << "Ollama server output:" << output;
+	    });
+    connect(m_ollamaProcess, &QProcess::readyReadStandardError, [this]() {
+	    QString error = m_ollamaProcess->readAllStandardError();
+	    qDebug() << "Ollama server error:" << error;
+	    });
+
+    m_ollamaProcess->start();
+    return true;
 }
 
 void CADventory::checkAndSetupModels() {
@@ -168,114 +186,124 @@ void CADventory::checkAndSetupModels() {
 
 void CADventory::initMainWindow()
 {
-  window = new MainWindow();
+    window = new MainWindow();
 
-  connect(this, &CADventory::indexingComplete, static_cast<MainWindow*>(window), &MainWindow::updateStatusLabel);
+    connect(this, &CADventory::indexingComplete, static_cast<MainWindow*>(window), &MainWindow::updateStatusLabel);
 
-  window->show();
-  QSplashScreen *splat = dynamic_cast<QSplashScreen*>(splash);
-  if (splat) {
-    splat->finish(window);
-    delete splat;
-  } else {
-    QDialog *diag = static_cast<QDialog*>(splash);
-    delete diag;
-  }
+    window->show();
 
-  splash = nullptr;
-  qInfo() << "Done loading.";
+    // teardown splash / startup dialog
+    if (QSplashScreen *splat = qobject_cast<QSplashScreen*>(splash)) {
+        splat->finish(window);
+        delete splat;
+    } else {
+        QDialog *diag = static_cast<QDialog*>(splash);
+        delete diag;
+    }
 
-  QTimer::singleShot(500, this, &CADventory::checkAndSetupModels);
+    // sanity
+    splash = nullptr;
+    qInfo() << "Done loading.";
+
+    QTimer::singleShot(500, this, &CADventory::checkAndSetupModels);
 }
 
 
 void CADventory::showSplash()
 {
-  if (!this->gui)
-    return;
+    if (!this->gui)
+        return;
 
-  /* first look rel to binary */
-  QString relativePathToBinary = QCoreApplication::applicationDirPath() + "/../share/splash.png";
-  /* alternatively look rel to cwd */
-  QString fallbackPath = QDir::current().absoluteFilePath("../src/splash.png");
+    // load splash image
+    /* first look rel to binary */
+    QString relativePathToBinary = QCoreApplication::applicationDirPath() + "/../share/splash.png";
+    /* alternatively look rel to cwd */
+    QString fallbackPath = QDir::current().absoluteFilePath("../src/splash.png");
 
-  QPixmap pixmap;
-  if (QFile::exists(relativePathToBinary)) {
-    pixmap.load(relativePathToBinary);
-  } else if (QFile::exists(fallbackPath)) {
-    pixmap.load(fallbackPath);
-  }
+    QPixmap pixmap;
+    if (QFile::exists(relativePathToBinary)) {
+        pixmap.load(relativePathToBinary);
+    } else if (QFile::exists(fallbackPath)) {
+        pixmap.load(fallbackPath);
+    }
 
-  if (pixmap.isNull()) {
-    // pixmap = QPixmap(512, 512);
-    // pixmap.fill(Qt::black);
-    splash = new SplashDialog();
-  } else {
-    splash = new QSplashScreen(pixmap);
-    static_cast<QSplashScreen*>(splash)->showMessage("Loading... please wait.", Qt::AlignLeft, Qt::black);
-  }
-  splash->show();
-  // ensure the splash is displayed immediately
-  this->processEvents();
+    if (pixmap.isNull()) {
+        // TODO: do we want a black screen fallback if the pixmap fails?
+        // pixmap = QPixmap(512, 512);
+        // pixmap.fill(Qt::black);
+        splash = new SplashDialog();
+    } else {
+        splash = new QSplashScreen(pixmap);
+        static_cast<QSplashScreen*>(splash)->showMessage("Loading... please wait.", Qt::AlignLeft, Qt::black);
+    }
+    splash->show();
+
+    // ensure the splash is displayed immediately
+    QCoreApplication::processEvents();
 }
 
 
 void CADventory::indexDirectory(const char *path)
 {
-  qInfo() << "Indexing...";
-  FilesystemIndexer f = FilesystemIndexer(path);
+    qInfo() << "Indexing...";
+    FilesystemIndexer f(path);
 
-  f.setProgressCallback([this](const std::string& msg) {
-    static size_t counter = 0;
-    static const int MAX_MSG = 80;
+    f.setProgressCallback([this](const std::string& msg) {
+        static size_t counter = 0;
+        static const int MAX_MSG = 80;
 
-    /* NOTE: only displaying every 1000 directories */
-    if (counter++ % 1000 == 0) {
-      if (splash) {
-        std::string message = msg;
-        if (message.size() > MAX_MSG-3) {
-          message.resize(MAX_MSG-3);
-          message.append("...");
+        /* NOTE: only displaying every 1000 directories */
+        if (counter++ % 1000 == 0 && splash) {
+            std::string message = msg;
+
+            // fill in '...' if we're at our max message size
+            if (message.size() > MAX_MSG - 3) {
+                message.resize(MAX_MSG - 3);
+                message.append("...");
+            }
+
+            if (QSplashScreen* sc = qobject_cast<QSplashScreen*>(splash))
+                sc->showMessage(QString::fromStdString(message), Qt::AlignLeft, Qt::white);
+
+            QCoreApplication::processEvents(); // keep UI responsive
         }
-        QSplashScreen* sc = dynamic_cast<QSplashScreen*>(splash);
-        if (sc)
-          sc->showMessage(QString::fromStdString(message), Qt::AlignLeft, Qt::white);
-        QApplication::processEvents(); // keep UI responsive
-      }
+    });
+
+    f.indexDirectory(path);
+    qInfo() << "... (found" << f.indexed() << "files) indexing done.";
+
+    // TODO: we probably want to define these somewhere higher up as we expand support to more file types
+    std::vector<std::string> geometryfilesuffixes{".g"};
+    std::vector<std::string> imgfilesuffixes{".png", ".jpg", ".gif"};
+
+    qInfo() << "Scanning...";
+    std::vector<std::string> geometryfiles = f.findFilesWithSuffixes(geometryfilesuffixes);
+    std::vector<std::string> imgfiles = f.findFilesWithSuffixes(imgfilesuffixes);
+    qInfo() << "...scanning done.";
+
+    qInfo() << "Found" << geometryfiles.size() << "geometry files";
+    qInfo() << "Found" << imgfiles.size() << "image files";
+
+    for (const auto& file : geometryfiles) {
+        qInfo() << "Geometry: " + QString::fromStdString(file);
     }
-  });
-
-  f.indexDirectory(path);
-  qInfo() << "... (found" << f.indexed() << "files) indexing done.";
-
-  std::vector<std::string> gfilesuffixes{".g"};
-  std::vector<std::string> imgfilesuffixes{".png", ".jpg", ".gif"};
-
-  qInfo() << "Scanning...";
-  std::vector<std::string> gfiles = f.findFilesWithSuffixes(gfilesuffixes);
-  std::vector<std::string> imgfiles = f.findFilesWithSuffixes(imgfilesuffixes);
-  qInfo() << "...scanning done.";
-
-  qInfo() << "Found" << gfiles.size() << "geometry files";
-  qInfo() << "Found" << imgfiles.size() << "image files";
-
-  for (const auto& file : gfiles) {
-    qInfo() << "Geometry: " + QString::fromStdString(file);
-  }
+    // TODO: improve logging options verbosity
 #if 0
   for (const auto& file : imgfiles) {
     qInfo() << "Image: " + QString::fromStdString(file);
   }
 #endif
 
-  loaded = true;
-  initMainWindow();
+    loaded = true;
+    initMainWindow();
 
-  // update the main window
-  QString message = QString("Indexed " + QString::number(f.indexed()) + " files (" + QString::number(gfiles.size()) + " geometry, " + QString::number(imgfiles.size()) + " images)");
+    // update the main window
+    QString message = QString("Indexed %1 files (%2 geometry, %3 images)")
+                        .arg(f.indexed())
+                        .arg(geometryfiles.size())
+                        .arg(imgfiles.size());
 
-  emit indexingComplete(message.toUtf8().constData());
-
+    emit indexingComplete(message.toUtf8().constData());
 }
 
 
