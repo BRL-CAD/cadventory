@@ -42,58 +42,67 @@ else()
 endif()
 
 set(SRCS
-  src/CADventory.cpp
-  src/FilesystemIndexer.cpp
-  src/MainWindow.cpp
-  src/SplashDialog.cpp
-  src/Model.cpp
-  src/Library.cpp
-  src/LibraryWindow.cpp
-  src/ProcessGFiles.cpp
-  src/IndexingWorker.cpp
-  src/ModelCardDelegate.cpp
-  src/ModelFilterProxyModel.cpp
-  src/GeometryBrowserDialog.cpp
-  src/ReportGenerationWindow.cpp
-  src/main.cpp
-  src/ReportGeneratorWorker.cpp
-  src/SettingWindow.cpp
-  src/ModelView.cpp
-  src/FileSystemModelWithCheckboxes.cpp
-  src/FileSystemFilterProxyModel.cpp
-  src/ModelTagging.cpp
-  src/ModelParser.cpp
-  src/executeCommand.cpp
+  src/core/CADventory.cpp
+  src/core/executeCommand.cpp
+  src/core/main.cpp
+
+  src/domain/library/FilesystemIndexer.cpp
+  src/domain/library/Library.cpp
+  src/domain/model/Model.cpp
+  src/domain/model/ModelTagging.cpp
+  src/domain/model/ModelParser.cpp
+  src/domain/processing/IndexingWorker.cpp
+  src/domain/processing/ProcessGFiles.cpp
+  src/domain/processing/ReportGeneratorWorker.cpp
+
+  src/ui/filesystem/FileSystemModelWithCheckboxes.cpp
+  src/ui/filesystem/FileSystemFilterProxyModel.cpp
+  src/ui/filesystem/ModelFilterProxyModel.cpp
+  src/ui/widgets/GeometryBrowserDialog.cpp
+  src/ui/widgets/ModelCardDelegate.cpp
+  src/ui/widgets/ModelView.cpp
+  src/ui/windows/LibraryWindow.cpp
+  src/ui/windows/MainWindow.cpp
+  src/ui/windows/ReportGenerationWindow.cpp
+  src/ui/windows/SettingWindow.cpp
+  src/ui/windows/SplashDialog.cpp
 )
 
 set(UIS
-  src/librarywindow.ui
-  src/mainwindow.ui
-  src/splash.ui
-  src/reportgenerationwindow.ui
-  src/SettingWindow.ui
-  src/modelview.ui
+  src/ui/widgets/modelview.ui
+
+  src/ui/windows/librarywindow.ui
+  src/ui/windows/mainwindow.ui
+  src/ui/windows/reportgenerationwindow.ui
+  src/ui/windows/SettingWindow.ui
+  src/ui/windows/splash.ui
 )
 
 set(HEADERS
-  src/LibraryWindow.h
-  src/MainWindow.h
-  src/Library.h
-  src/Model.h
-  src/ProcessGFiles.h
-  src/IndexingWorker.h
-  src/ModelCardDelegate.h
-  src/ModelFilterProxyModel.h
-  src/GeometryBrowserDialog.h
-  src/ReportGenerationWindow.h
-  src/ReportGeneratorWorker.h
-  src/SettingWindow.h
-  src/FileSystemModelWithCheckboxes.h
-  src/FileSystemFilterProxyModel.h
-  src/ModelTagging.h
-  src/ModelParser.h
-  src/executeCommand.h
-  src/ModelMetadata.h
+  src/core/CADventory.h
+  src/core/executeCommand.h
+
+  src/domain/library/FilesystemIndexer.h
+  src/domain/library/Library.h
+  src/domain/model/Model.h
+  src/domain/model/ModelMetadata.h
+  src/domain/model/ModelParser.h
+  src/domain/model/ModelTagging.h
+  src/domain/processing/IndexingWorker.h
+  src/domain/processing/ProcessGFiles.h
+  src/domain/processing/ReportGeneratorWorker.h
+
+  src/ui/filesystem/FileSystemFilterProxyModel.h
+  src/ui/filesystem/FileSystemModelWithCheckboxes.h
+  src/ui/filesystem/ModelFilterProxyModel.h
+  src/ui/widgets/GeometryBrowserDialog.h
+  src/ui/widgets/ModelCardDelegate.h
+  src/ui/widgets/ModelView.h
+  src/ui/windows/LibraryWindow.h
+  src/ui/windows/MainWindow.h
+  src/ui/windows/ReportGenerationWindow.h
+  src/ui/windows/SettingWindow.h
+  src/ui/windows/SplashDialog.h
 )
 
 set(CMAKE_AUTORCC ON)
@@ -105,8 +114,20 @@ qt_add_executable(cadventory WIN32
   images.qrc
 )
 
+# Expect .h files in all directories under src/
+set(SRC_INCLUDE_DIRECTORIES
+    ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/src/domain
+    ${CMAKE_SOURCE_DIR}/src/domain/library
+    ${CMAKE_SOURCE_DIR}/src/domain/model
+    ${CMAKE_SOURCE_DIR}/src/domain/processing
+    ${CMAKE_SOURCE_DIR}/src/ui
+    ${CMAKE_SOURCE_DIR}/src/ui/filesystem
+    ${CMAKE_SOURCE_DIR}/src/ui/widgets
+    ${CMAKE_SOURCE_DIR}/src/ui/windows
+)
 # Note dependencies and include directories
-target_include_directories(cadventory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(cadventory PRIVATE ${SRC_INCLUDE_DIRECTORIES})
 
 if (DEFINED CADVENTORY_USE_SQLITE)
   target_link_libraries(cadventory PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui Qt6::Concurrent ${SQLITE_LIBRARY})
@@ -152,7 +173,7 @@ if(NOT EXISTS "${MGED_EXECUTABLE}" OR NOT EXISTS "${RT_EXECUTABLE}" OR NOT EXIST
 endif()
 
 configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/config.h.in"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/core/config.h.in"
   "${CMAKE_CURRENT_BINARY_DIR}/config.h"
 )
 

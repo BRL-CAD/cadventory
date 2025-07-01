@@ -66,9 +66,19 @@ set(COMMON_LIBRARIES
 )
 
 set(COMMON_INCLUDE_DIRECTORIES
-    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/src/domain
+    ${CMAKE_SOURCE_DIR}/src/domain/library
+    ${CMAKE_SOURCE_DIR}/src/domain/model
+    ${CMAKE_SOURCE_DIR}/src/domain/processing
+    ${CMAKE_SOURCE_DIR}/src/ui
+    ${CMAKE_SOURCE_DIR}/src/ui/filesystem
+    ${CMAKE_SOURCE_DIR}/src/ui/widgets
+    ${CMAKE_SOURCE_DIR}/src/ui/windows
+
     ${CMAKE_BINARY_DIR}
     ${CMAKE_BINARY_DIR}/src
+
     ${BRLCAD_INCLUDE_DIRS}
 )
 
@@ -127,80 +137,80 @@ add_cadventory_test(
     NAME ModelTest
     SOURCES
         ModelTest.cpp
-        ../Model.cpp
+        ../domain/model/Model.cpp
 )
 
 add_cadventory_test(
     NAME LibraryTest
     SOURCES
         LibraryTest.cpp
-        ../Library.cpp
-        ../Model.cpp
-        ../FilesystemIndexer.cpp
+        ../domain/library/Library.cpp
+        ../domain/library/FilesystemIndexer.cpp
+        ../domain/model/Model.cpp
 )
 
 add_cadventory_test(
     NAME FilesystemIndexerTest
     SOURCES
         FilesystemIndexerTest.cpp
-        ../FilesystemIndexer.cpp
+        ../domain/library/FilesystemIndexer.cpp
 )
 
 add_cadventory_test(
     NAME FilesystemIndexerPerfTest
     SOURCES
         FilesystemIndexerPerfTest.cpp
-        ../FilesystemIndexer.cpp
+        ../domain/library/FilesystemIndexer.cpp
 )
 
 add_cadventory_test(
     NAME GeometryBrowserDialogTest
     SOURCES
         GeometryBrowserDialogTest.cpp
-        ../GeometryBrowserDialog.cpp
-        ../Model.cpp
+        ../ui/widgets/GeometryBrowserDialog.cpp
+        ../domain/model/Model.cpp
 )
 
 add_cadventory_test(
     NAME FileSystemModelWithCheckboxesTest
     SOURCES
         FileSystemModelWithCheckboxesTest.cpp
-        ../FileSystemModelWithCheckboxes.cpp
-        ../Model.cpp
+        ../ui/filesystem/FileSystemModelWithCheckboxes.cpp
+        ../domain/model/Model.cpp
 )
 
 add_cadventory_test(
     NAME FileSystemFilterProxyModelTest
     SOURCES
         FileSystemFilterProxyModelTest.cpp
-        ../FileSystemFilterProxyModel.cpp
+        ../ui/filesystem/FileSystemFilterProxyModel.cpp
 )
 
 add_cadventory_test(
     NAME ProcessGFilesTest
     SOURCES
         ProcessGFilesTest.cpp
-        ../ProcessGFiles.cpp
-        ../Model.cpp
+        ../domain/processing/ProcessGFiles.cpp
+        ../domain/model/Model.cpp
 )
 
 add_cadventory_test(
     NAME IndexingWorkerTest
     SOURCES
         IndexingWorkerTest.cpp
-        ../IndexingWorker.cpp
-        ../Library.cpp
-        ../Model.cpp
-        ../ProcessGFiles.cpp
-        ../FilesystemIndexer.cpp
+        ../domain/processing/IndexingWorker.cpp
+        ../domain/processing/ProcessGFiles.cpp
+        ../domain/library/Library.cpp
+        ../domain/library/FilesystemIndexer.cpp
+        ../domain/model/Model.cpp
 )
 
 add_cadventory_test(
     NAME ModelCardDelegateTest
     SOURCES
         ModelCardDelegateTest.cpp
-        ../ModelCardDelegate.cpp
-        ../Model.cpp
+        ../ui/widgets/ModelCardDelegate.cpp
+        ../domain/model/Model.cpp
 )
 
 # For tests requiring UI and resources
@@ -208,68 +218,68 @@ add_cadventory_test(
     NAME MainWindowTest
     SOURCES
         MainWindowTest.cpp
-        ../MainWindow.cpp
-        ../LibraryWindow.cpp
-        ../Library.cpp
-        ../Model.cpp
-        ../ProcessGFiles.cpp
-        ../IndexingWorker.cpp
-        ../FilesystemIndexer.cpp
-        ../ModelCardDelegate.cpp
-        ../GeometryBrowserDialog.cpp
-        ../ReportGenerationWindow.cpp
-        ../ReportGeneratorWorker.cpp
-        ../ModelFilterProxyModel.cpp
-        ../ModelView.cpp
-        ../ModelTagging.cpp
-        ../ModelParser.cpp
-        ../executeCommand.cpp
-        ../FileSystemModelWithCheckboxes.cpp
-        ../FileSystemFilterProxyModel.cpp
-        ../SettingWindow.cpp
+        ../core/executeCommand.cpp
+        ../domain/processing/ProcessGFiles.cpp
+        ../domain/processing/IndexingWorker.cpp
+        ../domain/processing/ReportGeneratorWorker.cpp
+        ../domain/library/FilesystemIndexer.cpp
+        ../domain/library/Library.cpp
+        ../domain/model/Model.cpp
+        ../domain/model/ModelTagging.cpp
+        ../domain/model/ModelParser.cpp
+        ../ui/windows/MainWindow.cpp
+        ../ui/windows/LibraryWindow.cpp
+        ../ui/windows/ReportGenerationWindow.cpp
+        ../ui/windows/SettingWindow.cpp
+        ../ui/widgets/ModelCardDelegate.cpp
+        ../ui/widgets/GeometryBrowserDialog.cpp
+        ../ui/widgets/ModelView.cpp
+        ../ui/filesystem/ModelFilterProxyModel.cpp
+        ../ui/filesystem/FileSystemModelWithCheckboxes.cpp
+        ../ui/filesystem/FileSystemFilterProxyModel.cpp
         # UI files
-        ../mainwindow.ui
-        ../librarywindow.ui
-        ../reportgenerationwindow.ui
-        ../SettingWindow.ui
-        ../modelview.ui
+        ../ui/windows/mainwindow.ui
+        ../ui/windows/librarywindow.ui
+        ../ui/windows/reportgenerationwindow.ui
+        ../ui/windows/SettingWindow.ui
+        ../ui/widgets/modelview.ui
         # Resource files
         ${CMAKE_SOURCE_DIR}/images.qrc
         # FIXME: for some reason AUTOMOC wont resolve CADventory::Q_OBJECT so explicitly pass in the header
-        ../CADventory.h
+        ../core/CADventory.h
 )
 
 add_cadventory_test(
     NAME LibraryWindowTest
     SOURCES
         LibraryWindowTest.cpp
-        ../LibraryWindow.cpp
-        ../MainWindow.cpp               # Include MainWindow.cpp
-        ../Library.cpp
-        ../Model.cpp
-        ../ProcessGFiles.cpp
-        ../IndexingWorker.cpp
-        ../FilesystemIndexer.cpp
-        ../ModelCardDelegate.cpp
-        ../GeometryBrowserDialog.cpp
-        ../ReportGenerationWindow.cpp
-        ../ReportGeneratorWorker.cpp
-        ../ModelFilterProxyModel.cpp
-        ../ModelView.cpp
-        ../ModelTagging.cpp
-        ../ModelParser.cpp
-        ../executeCommand.cpp
-        ../FileSystemModelWithCheckboxes.cpp
-        ../FileSystemFilterProxyModel.cpp
-        ../SettingWindow.cpp
+        ../core/executeCommand.cpp
+        ../domain/processing/ProcessGFiles.cpp
+        ../domain/processing/IndexingWorker.cpp
+        ../domain/processing/ReportGeneratorWorker.cpp
+        ../domain/library/FilesystemIndexer.cpp
+        ../domain/library/Library.cpp
+        ../domain/model/Model.cpp
+        ../domain/model/ModelTagging.cpp
+        ../domain/model/ModelParser.cpp
+        ../ui/windows/MainWindow.cpp
+        ../ui/windows/LibraryWindow.cpp
+        ../ui/windows/ReportGenerationWindow.cpp
+        ../ui/windows/SettingWindow.cpp
+        ../ui/widgets/ModelCardDelegate.cpp
+        ../ui/widgets/GeometryBrowserDialog.cpp
+        ../ui/widgets/ModelView.cpp
+        ../ui/filesystem/ModelFilterProxyModel.cpp
+        ../ui/filesystem/FileSystemModelWithCheckboxes.cpp
+        ../ui/filesystem/FileSystemFilterProxyModel.cpp
         # UI files
-        ../mainwindow.ui
-        ../librarywindow.ui
-        ../reportgenerationwindow.ui
-        ../SettingWindow.ui
-        ../modelview.ui
+        ../ui/windows/mainwindow.ui
+        ../ui/windows/librarywindow.ui
+        ../ui/windows/reportgenerationwindow.ui
+        ../ui/windows/SettingWindow.ui
+        ../ui/widgets/modelview.ui
         # Resource files
         ${CMAKE_SOURCE_DIR}/images.qrc
         # FIXME: for some reason AUTOMOC wont resolve CADventory::Q_OBJECT so explicitly pass in the header
-        ../CADventory.h
+        ../core/CADventory.h
 )

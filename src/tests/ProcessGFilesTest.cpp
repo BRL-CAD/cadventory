@@ -1,6 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
-#include "../ProcessGFiles.h"
-#include "../Model.h"
+#include "ProcessGFiles.h"
+#include "Model.h"
 #include <filesystem>
 #include <memory>
 #include <QDir>

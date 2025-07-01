@@ -5,17 +5,17 @@
 #include <QDir>
 #include <QTemporaryDir>
 
-#include "../MainWindow.h"
-#include "../LibraryWindow.h"
-#include "../Library.h"
-#include "../Model.h"
-#include "../ModelFilterProxyModel.h"
-#include "../ModelCardDelegate.h"
-#include "../IndexingWorker.h"
-#include "../FilesystemIndexer.h"
-#include "../ProcessGFiles.h"
-#include "../GeometryBrowserDialog.h"
-#include "../ReportGenerationWindow.h"
+#include "MainWindow.h"
+#include "LibraryWindow.h"
+#include "Library.h"
+#include "Model.h"
+#include "ModelFilterProxyModel.h"
+#include "ModelCardDelegate.h"
+#include "IndexingWorker.h"
+#include "FilesystemIndexer.h"
+#include "ProcessGFiles.h"
+#include "GeometryBrowserDialog.h"
+#include "ReportGenerationWindow.h"
 
 class TestLibraryWindowGUI : public QObject
 {
