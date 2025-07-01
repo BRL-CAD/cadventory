@@ -111,7 +111,7 @@ qt_add_executable(cadventory WIN32
   ${SRCS}
   ${UIS}
   ${HEADERS}
-  images.qrc
+  src/assets/images.qrc
 )
 
 # Expect .h files in all directories under src/

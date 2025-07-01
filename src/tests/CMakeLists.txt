@@ -244,7 +244,7 @@ add_cadventory_test(
         ../ui/windows/SettingWindow.ui
         ../ui/widgets/modelview.ui
         # Resource files
-        ${CMAKE_SOURCE_DIR}/images.qrc
+        ${CMAKE_SOURCE_DIR}/src/assets/images.qrc
         # FIXME: for some reason AUTOMOC wont resolve CADventory::Q_OBJECT so explicitly pass in the header
         ../core/CADventory.h
 )
@@ -279,7 +279,7 @@ add_cadventory_test(
         ../ui/windows/SettingWindow.ui
         ../ui/widgets/modelview.ui
         # Resource files
-        ${CMAKE_SOURCE_DIR}/images.qrc
+        ${CMAKE_SOURCE_DIR}/src/assets/images.qrc
         # FIXME: for some reason AUTOMOC wont resolve CADventory::Q_OBJECT so explicitly pass in the header
         ../core/CADventory.h
 )

@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/">
+        <file>brlcad_logo.png</file>
+        <file>hierarchy_icon.png</file>
+        <file>gear_icon.png</file>
+        <file>settings_icon.png</file>
+        <file>pencil.svg</file>
+        <file>settings.svg</file>
+        <file>pencil-line.svg</file>
+        <file>notebook-pen.svg</file>
+        <file>file-sliders.svg</file>
+    </qresource>
+</RCC>
