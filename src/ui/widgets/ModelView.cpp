@@ -9,7 +9,7 @@
 #include "GeometryBrowserDialog.h"
 #include "ui_modelview.h"
 #include "CADventory.h"
-#include "ModelTagging.h"
+#include "AIModelTagging.h"
 
 #include <QtConcurrent>     
 #include <QFuture>          
@@ -165,47 +165,40 @@ void ModelView::onOkClicked() {
 }
 
 void ModelView::onCancelTagGenerationClicked() {
-    CADventory* app = qobject_cast<CADventory*>(QCoreApplication::instance());
-    ModelTagging* modelTagging = app->getModelTagging();
-    modelTagging->cancelTagGeneration();  
-    ui.tagStatusLabel->setText("Process canceled.");
+    // get our AI tagger
+    AIModelTagging* tagger = CADventory::instance()->getTagger();
+
+    // signal cancel
+    tagger->cancel();
+
+    // ui updates
+    ui.tagStatusLabel->setText("Tagging canceled.");
     ui.cancelTagButton->setVisible(false);
-	ui.generateTagsButton->setEnabled(true);
+    ui.generateTagsButton->setEnabled(true);
     ui.generateTagsButton->setVisible(true);
 }
 
 void ModelView::onGenerateTagsClicked() {
-    // generate tags
-	CADventory* app = qobject_cast<CADventory*>(QCoreApplication::instance());
-    ModelTagging* modelTagging = app->getModelTagging();
-    QString filepath = QString::fromStdString(currModel.file_path);
+    // get our AI tagger
+    AIModelTagging* tagger = CADventory::instance()->getTagger();
 
-    //check for ollama
-    if (!modelTagging->checkOllamaAvailability()) {
-        QMessageBox::critical(this, "Missing Dependency", "Ollama is not installed or not available in PATH.\nPlease install Ollama to generate tags.");
+    // check the tagger was started successfully
+    if (!tagger->taggingEnabled()) {
+        QMessageBox::critical(this, "Missing Dependency", "Unable to use the AI tagger.\nPlease ensure installation and setup is complete.");
         return;
     }
 
-    // Check for model availability
-    if (!modelTagging->checkModelAvailability("llama3")) {
-        QMessageBox::critical(this, "Missing Model", "The 'llama3' model is not available in Ollama.\nPlease pull the model using:\n\n    ollama pull llama3");
-        return;
-    }
-
+    // ui updates
     ui.tagStatusLabel->setText("Generating tags...");
     ui.generateTagsButton->setEnabled(false);
     ui.generateTagsButton->setVisible(false);
     ui.cancelTagButton->setVisible(true);
 
-    connect(modelTagging, &ModelTagging::tagsGenerated, this,
-        [=](const std::vector<std::string>& tags) {
-            QStringList dummyTags;
-            for (const std::string& tag : tags) {
-                dummyTags.append(QString::fromStdString(tag));
-            }
-
+    // setup connection
+    connect(tagger, &AIModelTagging::tagsReady, this,
+        [=](const QStringList& tags) {
             // Add the tags to the UI (avoid duplicates)
-            for (const QString& tag : dummyTags) {
+            for (const QString& tag : tags) {
                 bool alreadyExists = false;
                 for (int i = 0; i < ui.tagsList->count(); ++i) {
                     if (ui.tagsList->item(i)->text() == tag) {
@@ -217,21 +210,27 @@ void ModelView::onGenerateTagsClicked() {
                     currModel.tags.push_back(tag.toStdString());
                     addTagItem(tag);
 
-					model->addTagToModel(modelId, tag.toStdString());
+		    model->addTagToModel(modelId, tag.toStdString());
                     model->refreshModelData();
                 }
             }
 
+            // ui update for completion
             ui.tagStatusLabel->setText("Tags generated!");
             ui.generateTagsButton->setEnabled(true);
-			ui.generateTagsButton->setVisible(true);
-			ui.cancelTagButton->setVisible(false);
+	    ui.generateTagsButton->setVisible(true);
+	    ui.cancelTagButton->setVisible(false);
+
+            // clear 'done' after a few seconds
             QTimer::singleShot(3000, this, [=]() { ui.tagStatusLabel->clear(); });
 
-            disconnect(modelTagging, &ModelTagging::tagsGenerated, this, nullptr);
+            // clenup connection
+            disconnect(tagger, &AIModelTagging::tagsReady, this, nullptr);
         });
 
-    modelTagging->generateTags(filepath.toStdString());
+    // kick off generation
+    QString filepath = QString::fromStdString(currModel.file_path);
+    tagger->generateTags(filepath);
 }
 
 

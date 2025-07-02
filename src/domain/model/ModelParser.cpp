@@ -68,7 +68,7 @@ std::string convertToUnixPath(const std::string& windowsPath) {
     return unixPath;
 }
 
-ModelMetadata ModelParser::parseModel(std::string filepath) {
+ModelMetadata ModelParser::parseModel(std::string filepath) const {
     ModelMetadata metadata;
 
     std::string fixedPath;

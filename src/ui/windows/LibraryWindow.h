@@ -69,7 +69,7 @@ private:
     void populateExplorerModel();
 
     void processNextFile();
-    void onTagsGeneratedFromBatch(const std::vector<std::string>& tags);
+    void onTagsGeneratedFromBatch(const QStringList& tags);
 
     Library* library;
     MainWindow* mainWindow;

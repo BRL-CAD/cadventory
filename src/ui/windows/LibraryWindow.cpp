@@ -32,7 +32,7 @@
 #include <set>
 
 #include "CADventory.h"
-#include "ModelTagging.h"
+#include "AIModelTagging.h"
 
 namespace fs = std::filesystem;
 
@@ -136,22 +136,21 @@ void LibraryWindow::processNextFile() {
         ui.pauseButton->hide();
         ui.cancelButton->hide();
 
-		currentFileIndex = -1;
-		canceled = false;
-		paused = false;
+	currentFileIndex = -1;
+	canceled = false;
+	paused = false;
         return;
     }
 
-    std::string filepath = filesToTag[currentFileIndex];
+    QString filepath = QString::fromStdString(filesToTag[currentFileIndex]);
+    qDebug() << "Processing file:" << filepath;
 
-    qDebug() << "Processing file:" << QString::fromStdString(filepath);
-
-    CADventory* app = qobject_cast<CADventory*>(QCoreApplication::instance());
-    ModelTagging* modelTagging = app->getModelTagging();
-    modelTagging->generateTags(filepath);
+    // get our tagger, start generating
+    AIModelTagging* tagger = CADventory::instance()->getTagger();
+    tagger->generateTags(filepath);
 }
 
-void LibraryWindow::onTagsGeneratedFromBatch(const std::vector<std::string>& tags) {
+void LibraryWindow::onTagsGeneratedFromBatch(const QStringList& tags) {
     int fileIndex = currentFileIndex;
     if (fileIndex < 0 || fileIndex >= (int)filesToTag.size()) {
         return;
@@ -163,7 +162,8 @@ void LibraryWindow::onTagsGeneratedFromBatch(const std::vector<std::string>& tag
     if (modelId != -1) {
         std::vector<std::string> existingTags = model->getTagsForModel(modelId);
         std::set<std::string> existing(existingTags.begin(), existingTags.end());
-        for (const auto& tag : tags) {
+        for (const QString& qtTag : tags) {
+            std::string tag = qtTag.toStdString();
             if (existing.find(tag) == existing.end()) {
                 model->addTagToModel(modelId, tag);
             }
@@ -199,9 +199,11 @@ void LibraryWindow::onResumeTagGenerationClicked() {
 void LibraryWindow::onPauseTagGenerationClicked() {
     paused = true;
     
-    CADventory* app = qobject_cast<CADventory*>(QCoreApplication::instance());
-    ModelTagging* modelTagging = app->getModelTagging();
-    modelTagging->cancelTagGeneration();
+    // get tagger
+    AIModelTagging* tagger = CADventory::instance()->getTagger();
+
+    // TODO: this is a little misleading (button click is 'pause', but we're canceling the process)
+    tagger->cancel();
 
     ui.pauseButton->hide();
     ui.resumeButton->show();
@@ -212,11 +214,13 @@ void LibraryWindow::onPauseTagGenerationClicked() {
 void LibraryWindow::onCancelTagGenerationClicked() {
     canceled = true;
 
-	// kill any QProcess that is running
-    CADventory* app = qobject_cast<CADventory*>(QCoreApplication::instance());
-    ModelTagging* modelTagging = app->getModelTagging();
-    modelTagging->cancelTagGeneration();
+    // get tagger
+    AIModelTagging* tagger = CADventory::instance()->getTagger();
 
+    // kill any QProcess that is running
+    tagger->cancel();
+
+    // ui update
     ui.pauseButton->hide();
     ui.cancelButton->hide();
     ui.generateAllTagsButton->show();
@@ -226,58 +230,53 @@ void LibraryWindow::onCancelTagGenerationClicked() {
 
 void LibraryWindow::onGenerateAllTagsClicked() {
     // generates all tags for all models
-    CADventory* app = qobject_cast<CADventory*>(QCoreApplication::instance());
-    ModelTagging* modelTagging = app->getModelTagging();
 
-    // dependency check
-    if (!modelTagging->checkOllamaAvailability()) {
-        QMessageBox::critical(this, "Missing Dependency", "Ollama is not installed or not available in PATH.");
-        return;
-    }
+    // get tagger
+    AIModelTagging* tagger = CADventory::instance()->getTagger();
 
-    if (!modelTagging->checkModelAvailability("llama3")) {
-        QMessageBox::critical(this, "Missing Model", "The 'llama3' model is not available.\nRun: `ollama pull llama3`.");
+    // check the tagger was started successfully
+    if (!tagger->taggingEnabled()) {
+        QMessageBox::critical(this, "Missing Dependency", "Unable to use the AI tagger.\nPlease ensure installation and setup is complete.");
         return;
     }
 
     // get all the paths
     std::vector<std::string> relativePaths = library->getModels();
-
-	if (relativePaths.empty()) {
-		QMessageBox::information(this, "No Models", "No models found in the library.");
-		return;
-	}
-
-    ui.generateAllTagsButton->setEnabled(false);
-    ui.generateAllTagsButton->hide();
-
-    ui.pauseButton->show();
-    ui.cancelButton->show();
-
-    // debug print
-	qDebug() << "Generating tags for the following models:";
-	for (const std::string& rel : relativePaths) {
-		qDebug() << QString::fromStdString(rel);
-	}
-
-    ui.progressBar->setMaximum(static_cast<int>(relativePaths.size()));
-    ui.progressBar->setValue(0);
-    ui.statusLabel->setText("Generating tags...");
-    ui.generateAllTagsButton->setEnabled(false);
-
+    if (relativePaths.empty()) {
+	QMessageBox::information(this, "No Models", "No models found in the library.");
+        return;
+    }
+    // build full paths
     filesToTag.clear();
     for (const auto& rel : relativePaths) {
         filesToTag.push_back(library->fullPath + "/" + rel);
     }
 
+    // ui updates
+    ui.generateAllTagsButton->setEnabled(false);
+    ui.generateAllTagsButton->hide();
+    ui.pauseButton->show();
+    ui.cancelButton->show();
+    ui.progressBar->setMaximum(static_cast<int>(relativePaths.size()));
+    ui.progressBar->setValue(0);
+    ui.statusLabel->setText("Generating tags...");
+    ui.generateAllTagsButton->setEnabled(false);
+
+    // debug print
+    qDebug() << "Generating tags for the following models:";
+    for (const std::string& rel : relativePaths) {
+        qDebug() << QString::fromStdString(rel);
+    }
+
+    // reset index?
     if (canceled || currentFileIndex <= 0) {
         currentFileIndex = 0;
     }
 
+    // only setup one connection
     static bool connectedOnce = false;
     if (!connectedOnce) {
-        connect(modelTagging, &ModelTagging::tagsGenerated,
-            this, &LibraryWindow::onTagsGeneratedFromBatch);
+        connect(tagger, &AIModelTagging::tagsReady, this, &LibraryWindow::onTagsGeneratedFromBatch);
         connectedOnce = true;
     }
 

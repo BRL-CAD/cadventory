@@ -22,7 +22,7 @@ public:
 	* @return ModelMetadata object containing the parsed information
 	* @see ModelMetadata.cpp/.h
     */
-    ModelMetadata parseModel(std::string filepath);
+    ModelMetadata parseModel(std::string filepath) const;
 };
 
 #endif // MODELPARSER_H

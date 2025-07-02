@@ -51,7 +51,6 @@ set(SRCS
   src/domain/llm/OllamaCLIService.cpp
   src/domain/model/Model.cpp
   src/domain/model/AIModelTagging.cpp
-  src/domain/model/ModelTagging.cpp
   src/domain/model/ModelParser.cpp
   src/domain/processing/IndexingWorker.cpp
   src/domain/processing/ProcessGFiles.cpp
@@ -92,7 +91,6 @@ set(HEADERS
   src/domain/model/ModelMetadata.h
   src/domain/model/ModelParser.h
   src/domain/model/AIModelTagging.h
-  src/domain/model/ModelTagging.h
   src/domain/processing/IndexingWorker.h
   src/domain/processing/ProcessGFiles.h
   src/domain/processing/ReportGeneratorWorker.h
