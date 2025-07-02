@@ -2,20 +2,20 @@
 #define SPLASHDIALOG_H
 
 #include <QDialog>
-#include <QObject>
-#include "./ui_splash.h"
+#include <memory>
 
+namespace Ui { class Dialog; }
 
 class SplashDialog : public QDialog
 {
-  Q_OBJECT
+    Q_OBJECT
 
 public:
-  explicit SplashDialog(QWidget *parent = nullptr);
-  ~SplashDialog();
+    explicit SplashDialog(QWidget *parent = nullptr);
+    ~SplashDialog();
 
 private:
-  Ui::Dialog dialog;
+    std::unique_ptr<Ui::Dialog> dialog;
 };
 
 #endif /* SPLASHDIALOG_H */

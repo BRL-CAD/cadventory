@@ -1,11 +1,10 @@
 #include "SplashDialog.h"
+#include "./ui_splash.h"
 
-SplashDialog::SplashDialog(QWidget *parent) : QDialog(parent)
+SplashDialog::SplashDialog(QWidget *parent) : QDialog(parent), dialog(std::make_unique<Ui::Dialog>())
 {
-  dialog.setupUi(this);
+  dialog->setupUi(this);
 }
 
 
-SplashDialog::~SplashDialog()
-{
-}
+SplashDialog::~SplashDialog() = default;
