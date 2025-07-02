@@ -69,6 +69,7 @@ set(COMMON_INCLUDE_DIRECTORIES
     ${CMAKE_SOURCE_DIR}/src/core
     ${CMAKE_SOURCE_DIR}/src/domain
     ${CMAKE_SOURCE_DIR}/src/domain/library
+    ${CMAKE_SOURCE_DIR}/src/domain/llm
     ${CMAKE_SOURCE_DIR}/src/domain/model
     ${CMAKE_SOURCE_DIR}/src/domain/processing
     ${CMAKE_SOURCE_DIR}/src/ui
@@ -218,19 +219,22 @@ add_cadventory_test(
     NAME MainWindowTest
     SOURCES
         MainWindowTest.cpp
+        ../core/CADventory.cpp
         ../core/executeCommand.cpp
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/IndexingWorker.cpp
         ../domain/processing/ReportGeneratorWorker.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
+        ../domain/llm/OllamaCliService.cpp
         ../domain/model/Model.cpp
-        ../domain/model/ModelTagging.cpp
+        ../domain/model/AIModelTagging.cpp
         ../domain/model/ModelParser.cpp
         ../ui/windows/MainWindow.cpp
         ../ui/windows/LibraryWindow.cpp
         ../ui/windows/ReportGenerationWindow.cpp
         ../ui/windows/SettingWindow.cpp
+        ../ui/windows/SplashDialog.cpp
         ../ui/widgets/ModelCardDelegate.cpp
         ../ui/widgets/GeometryBrowserDialog.cpp
         ../ui/widgets/ModelView.cpp
@@ -241,31 +245,33 @@ add_cadventory_test(
         ../ui/windows/mainwindow.ui
         ../ui/windows/librarywindow.ui
         ../ui/windows/reportgenerationwindow.ui
+        ../ui/windows/splash.ui
         ../ui/windows/SettingWindow.ui
         ../ui/widgets/modelview.ui
         # Resource files
         ${CMAKE_SOURCE_DIR}/src/assets/images.qrc
-        # FIXME: for some reason AUTOMOC wont resolve CADventory::Q_OBJECT so explicitly pass in the header
-        ../core/CADventory.h
 )
 
 add_cadventory_test(
     NAME LibraryWindowTest
     SOURCES
         LibraryWindowTest.cpp
+        ../core/CADventory.cpp
         ../core/executeCommand.cpp
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/IndexingWorker.cpp
         ../domain/processing/ReportGeneratorWorker.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
+        ../domain/llm/OllamaCliService.cpp
         ../domain/model/Model.cpp
-        ../domain/model/ModelTagging.cpp
+        ../domain/model/AIModelTagging.cpp
         ../domain/model/ModelParser.cpp
         ../ui/windows/MainWindow.cpp
         ../ui/windows/LibraryWindow.cpp
         ../ui/windows/ReportGenerationWindow.cpp
         ../ui/windows/SettingWindow.cpp
+        ../ui/windows/SplashDialog.cpp
         ../ui/widgets/ModelCardDelegate.cpp
         ../ui/widgets/GeometryBrowserDialog.cpp
         ../ui/widgets/ModelView.cpp
@@ -276,10 +282,9 @@ add_cadventory_test(
         ../ui/windows/mainwindow.ui
         ../ui/windows/librarywindow.ui
         ../ui/windows/reportgenerationwindow.ui
+        ../ui/windows/splash.ui
         ../ui/windows/SettingWindow.ui
         ../ui/widgets/modelview.ui
         # Resource files
         ${CMAKE_SOURCE_DIR}/src/assets/images.qrc
-        # FIXME: for some reason AUTOMOC wont resolve CADventory::Q_OBJECT so explicitly pass in the header
-        ../core/CADventory.h
 )
