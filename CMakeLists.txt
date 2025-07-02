@@ -48,7 +48,9 @@ set(SRCS
 
   src/domain/library/FilesystemIndexer.cpp
   src/domain/library/Library.cpp
+  src/domain/llm/OllamaCLIService.cpp
   src/domain/model/Model.cpp
+  src/domain/model/AIModelTagging.cpp
   src/domain/model/ModelTagging.cpp
   src/domain/model/ModelParser.cpp
   src/domain/processing/IndexingWorker.cpp
@@ -84,9 +86,12 @@ set(HEADERS
 
   src/domain/library/FilesystemIndexer.h
   src/domain/library/Library.h
+  src/domain/llm/ILLMService.h
+  src/domain/llm/OllamaCLIService.h
   src/domain/model/Model.h
   src/domain/model/ModelMetadata.h
   src/domain/model/ModelParser.h
+  src/domain/model/AIModelTagging.h
   src/domain/model/ModelTagging.h
   src/domain/processing/IndexingWorker.h
   src/domain/processing/ProcessGFiles.h
@@ -119,6 +124,7 @@ set(SRC_INCLUDE_DIRECTORIES
     ${CMAKE_SOURCE_DIR}/src/core
     ${CMAKE_SOURCE_DIR}/src/domain
     ${CMAKE_SOURCE_DIR}/src/domain/library
+    ${CMAKE_SOURCE_DIR}/src/domain/llm
     ${CMAKE_SOURCE_DIR}/src/domain/model
     ${CMAKE_SOURCE_DIR}/src/domain/processing
     ${CMAKE_SOURCE_DIR}/src/ui

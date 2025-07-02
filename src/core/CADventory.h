@@ -4,9 +4,10 @@
 #include <QObject>
 #include <QMainWindow>
 #include <QSplashScreen>
-#include <QProcess>
+#include <memory>
 
-#include "ModelTagging.h"
+#include "ILLMService.h"
+#include "AIModelTagging.h"
 
 
 class CADventory : public QObject
@@ -16,31 +17,35 @@ class CADventory : public QObject
 public:
     CADventory(int &argc, char *argv[], QObject* parent = nullptr);
     ~CADventory();
+    static CADventory* instance() { return s_instance; }
 
     void showSplash();
     void run();		// kicks off file indexing
 
-    ModelTagging* getModelTagging() { return modelTagging; }
+    AIModelTagging* getTagger() const { return tagger.get(); }
 
 signals:
   void indexingComplete(const char *summary);
 
 private slots:
     void indexDirectory(const char *path);
-    void checkAndSetupModels();
 
 private:
     // helper functions
-    bool startOllamaServer();
     void initMainWindow();
 
+    // singleton
+    inline static CADventory* s_instance = nullptr;
+
+    // services
+    std::unique_ptr<ILLMService>    llm;
+    std::unique_ptr<AIModelTagging> tagger;
+
     // state
-    ModelTagging* modelTagging = nullptr;
-    QProcess* m_ollamaProcess = nullptr;
     QMainWindow* window = nullptr;
     QWidget* splash = nullptr;
     bool loaded = false;
-    bool gui = false;
+    bool gui = true;		// default gui enabled
 };
 
 #endif /* CADVENTORY_H */

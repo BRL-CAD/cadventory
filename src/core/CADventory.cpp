@@ -14,10 +14,14 @@
 #include "MainWindow.h"
 #include "SplashDialog.h"
 #include "FilesystemIndexer.h"
+#include "OllamaCliService.h"
 
 
 CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(parent)
 {
+    // register singleton
+    s_instance = this;
+
     // app-wide metadata
     QCoreApplication::setOrganizationName("BRL-CAD");
     QCoreApplication::setOrganizationDomain("brlcad.org");
@@ -25,15 +29,14 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
     // TODO: set our version using config.h
     QCoreApplication::setApplicationVersion("0.2.0");
 
+    // choose our llm backend
+    // TODO: if/when we have more than one backend use a factory
+    // TODO: have a top-level define for our ollama path
+    this->llm = std::make_unique<OllamaCliService>(/*OLLAMA_PATH*/);
+
     // instantiate the model tagging object
-    this->modelTagging = new ModelTagging();
-
-    /*QString appName = QCoreApplication::applicationName();
-    QString appVersion = QCoreApplication::applicationVersion();*/
-
-    // ANSI escape codes for underlining and reset
-    /*QString underlineStart = "\033[4m";
-    QString underlineEnd = "\033[0m";*/
+    // TODO: have a top-level define (or settings option) for our desired model
+    this->tagger = std::make_unique<AIModelTagging>(*llm, "llama3", this);
 
     // if any arg is specified, assume CLI-mode
     if (argc > 1) {
@@ -52,29 +55,9 @@ CADventory::~CADventory()
 {
     qDebug() << "CADventory destructor called - cleaning up resources";
 
-    // shutdown ollama if we started it
-    if (m_ollamaProcess) {
-        qDebug() << "Terminating Ollama server...";
-        m_ollamaProcess->terminate();
-
-        if (!m_ollamaProcess->waitForFinished(3000)) {
-#ifdef _WIN32
-            QProcess::execute("taskkill", QStringList() << "/F" << "/IM" << "ollama.exe");
-#else
-            QProcess::execute("killall", QStringList() << "-9" << "ollama");
-#endif
-        }
-
-        qDebug() << "Ollama server terminated with exit code:" << m_ollamaProcess->exitCode();
-        delete m_ollamaProcess;
-        m_ollamaProcess = nullptr;
-    } else {
-        qDebug() << "No Ollama process to terminate";
-    }
-
+    s_instance = nullptr;
     delete window;
     delete splash;
-    delete modelTagging;
 }
 
 void CADventory::run() {
@@ -90,99 +73,6 @@ void CADventory::run() {
         this->indexDirectory(home.c_str());
     });
 }
-
-bool CADventory::startOllamaServer() {
-    if (m_ollamaProcess) {
-        qDebug() << "Ollama server is already running.";
-        return true;
-    }
-
-    m_ollamaProcess = new QProcess(this);
-    m_ollamaProcess->setProgram(getModelTagging()->getOllamaPath());
-    m_ollamaProcess->setArguments(QStringList() << "serve");
-
-    connect(m_ollamaProcess, &QProcess::readyReadStandardOutput, [this]() {
-	    QString output = m_ollamaProcess->readAllStandardOutput();
-	    qDebug() << "Ollama server output:" << output;
-	    });
-    connect(m_ollamaProcess, &QProcess::readyReadStandardError, [this]() {
-	    QString error = m_ollamaProcess->readAllStandardError();
-	    qDebug() << "Ollama server error:" << error;
-	    });
-
-    m_ollamaProcess->start();
-    return true;
-}
-
-void CADventory::checkAndSetupModels() {
-    ModelTagging* tagging = getModelTagging();
-
-    // Check if Ollama is available
-    if (!tagging->checkOllamaAvailability()) {
-        QMessageBox::critical(nullptr, "Missing Component",
-            "Unable to find Ollama. Please contact support.");
-        return;
-    }
-
-    if (!startOllamaServer()) {
-		QMessageBox::critical(nullptr, "Error",
-			"Failed to start Ollama server. Please check your installation.");
-		return;
-    }
-
-    // Check if model exists, download if needed
-    if (!tagging->checkModelAvailability("llama3")) {
-        QMessageBox msgBox;
-        msgBox.setText("The application needs to download the AI model (~4GB).");
-        msgBox.setInformativeText("This will take several minutes but only happens once. Continue?");
-        msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-
-        if (msgBox.exec() == QMessageBox::Yes) {
-            QProgressDialog* progress = new QProgressDialog("Downloading AI model...", "Cancel", 0, 0, nullptr);
-            progress->setWindowModality(Qt::WindowModal);
-            progress->setMinimumWidth(400);
-            progress->setAutoClose(false);
-            progress->show();
-
-            QProcess* process = new QProcess(this);
-            process->setProgram(tagging->getOllamaPath());
-            process->setArguments(QStringList() << "pull" << "llama3");
-
-            // Connect to process output
-            connect(process, &QProcess::readyReadStandardOutput, [process, progress]() {
-                QString output = process->readAllStandardOutput();
-                progress->setLabelText("Downloading model: " + output.trimmed());
-                qDebug() << "Ollama output:" << output;
-                });
-
-            // Connect to process error
-            connect(process, &QProcess::readyReadStandardError, [process, progress]() {
-                QString error = process->readAllStandardError();
-                progress->setLabelText("Error: " + error.trimmed());
-                qDebug() << "Ollama error:" << error;
-                });
-
-            // Connect to process finished
-            connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                [this, process, progress](int exitCode, QProcess::ExitStatus exitStatus) {
-                    progress->close();
-                    progress->deleteLater();
-                    process->deleteLater();
-
-                    if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-                        QMessageBox::information(nullptr, "Success", "AI model downloaded successfully.");
-                    }
-                    else {
-                        QMessageBox::critical(nullptr, "Error",
-                            "Failed to download AI model. Exit code: " + QString::number(exitCode));
-                    }
-                });
-
-            process->start();
-        }
-    }
-}
-
 
 void CADventory::initMainWindow()
 {
@@ -204,8 +94,6 @@ void CADventory::initMainWindow()
     // sanity
     splash = nullptr;
     qInfo() << "Done loading.";
-
-    QTimer::singleShot(500, this, &CADventory::checkAndSetupModels);
 }
 
 
