@@ -1,6 +1,8 @@
 #ifndef MODEL_TEST_FIXTURE_H
 #define MODEL_TEST_FIXTURE_H
 
+#include "Model.h"
+
 class ModelTestFixture {
 public:
     ModelTestFixture(const std::string& test_name) {
