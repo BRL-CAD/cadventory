@@ -67,6 +67,7 @@ set(COMMON_LIBRARIES
 
 set(COMMON_INCLUDE_DIRECTORIES
     ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_SOURCE_DIR}/src/core/infra
     ${CMAKE_SOURCE_DIR}/src/domain
     ${CMAKE_SOURCE_DIR}/src/domain/library
     ${CMAKE_SOURCE_DIR}/src/domain/llm
@@ -287,4 +288,13 @@ add_cadventory_test(
         ../ui/widgets/modelview.ui
         # Resource files
         ${CMAKE_SOURCE_DIR}/src/assets/images.qrc
+)
+
+add_cadventory_test(
+    NAME SpoolServiceTest
+    SOURCES
+        SpoolServiceTest.cpp
+        ../core/infra/JobSpoolService.cpp
+        ../core/infra/DirectoryScanner.cpp
+        ../domain/model/Model.cpp
 )
