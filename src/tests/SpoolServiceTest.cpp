@@ -49,12 +49,20 @@ public:
 public slots:
     void run()
     {
-        QString jobFile;
+        QVector<ClaimedJob> jobs;
         while (true) {
-            const QString cad = spool.takeJob(&jobFile);
-            if (cad.isEmpty()) break;           // queue empty
+            if (jobs.isEmpty())
+                spool.takeBatch(10, jobs);
+
+            if (jobs.isEmpty())
+                 // queue empty
+                break;
+
+            auto job = jobs.takeLast();
+
             QThread::msleep(100);               // .. fake processing
-            spool.markDone(jobFile);
+
+            spool.markDone(job.jobFile);
         }
         emit finished();
     }
@@ -94,22 +102,25 @@ TEST_CASE("Spool queue processe workers", "[spool]")
 
     // setup dummy files
     const int FILES = 100;
-    const int TIMEOUT = 30000;
+    const int TIMEOUT_MS = 30000;
     const QString root = makeTestLibrary(fixture.tempDir, FILES);
 
     // queue our initial batch
     auto stats = scanner.scan(root.toStdString(), {".g"});
     REQUIRE(stats.queued == FILES);
 
+    // an execution timer so we can compare worker time
+    auto start = std::chrono::high_resolution_clock::now();
+
     SECTION("Process files, 1 instance single-threaded") {
         // process using one spool
-        QString jobFile;
-        while (true) {
-            QString filename = spool.takeJob(&jobFile);
-            if (filename.isEmpty())
-                break;
-            REQUIRE(spool.markDone(jobFile));
-        }
+        Worker w1(spool);
+        w1.run();
+
+        // log execution time
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+        INFO("1 inst. single-threaded time: " << duration.count() << " seconds");
 
         // verify 'new' and 'cur' are empty; 'done' is full
         const QDir newD(QString::fromStdString(fixture.tempDir.string()) + "/.cadventory/jobs/new");
@@ -142,15 +153,20 @@ TEST_CASE("Spool queue processe workers", "[spool]")
         QSignalSpy spy1(&w1, &Worker::finished), spy2(&w2, &Worker::finished);
         t1.start(); t2.start();
 
-        // Wait up to 5 s for both workers to finish
+        // wait up to TIMEOUT_MS for both workers to finish
         QElapsedTimer timer; timer.start();
         while (spy1.count() < 1 || spy2.count() < 1) {
             QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-            if (timer.elapsed() > TIMEOUT)
+            if (timer.elapsed() > TIMEOUT_MS)
                 FAIL("timeout waiting for workers");
         }
 
         t1.wait(); t2.wait();
+
+        // log execution time
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+        INFO("1 inst. multi-threaded time: " << duration.count() << " seconds");
 
         // force sync
         spool.syncWithRepo();
@@ -186,17 +202,22 @@ TEST_CASE("Spool queue processe workers", "[spool]")
         QSignalSpy spy1(&w1, &Worker::finished), spy2(&w2, &Worker::finished);
         t1.start(); t2.start();
 
-        // Wait up to 5 s for both workers to finish
+        // wait up to TIMEOUT_MS for both workers to finish
         QElapsedTimer timer; timer.start();
         while (spy1.count() < 1 || spy2.count() < 1) {
             QCoreApplication::processEvents(QEventLoop::AllEvents, 50);
-            if (timer.elapsed() > TIMEOUT) {
+            if (timer.elapsed() > TIMEOUT_MS) {
                 t1.wait(); t2.wait();
                 FAIL("timeout waiting for workers");
             }
         }
 
         t1.wait(); t2.wait();
+
+        // log execution time
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+        INFO("2 inst. time: " << duration.count() << " seconds");
 
         // verify 'new' and 'cur' are empty; 'done' is full
         const QDir newD(QString::fromStdString(fixture.tempDir.string()) + "/.cadventory/jobs/new");
@@ -247,7 +268,9 @@ TEST_CASE("syncWithRepo pulls external done jobs","[spool]") {
 
     // there should be no job to take
     QString jobFile;
-    REQUIRE(spool.takeJob(&jobFile).isEmpty());
+    ClaimedJob job = spool.takeJob();
+    REQUIRE(job.jobFile == "");
+    REQUIRE(job.origFilepath == "");
 
     // trying to enqueue again should fail
     REQUIRE_FALSE(spool.enqueueJob(dummyFileName));
