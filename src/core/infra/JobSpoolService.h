@@ -13,6 +13,12 @@
  * 
  * manages 'jobs' by original filename using atomic files in .../.cadventory/jobs/
  */
+
+struct ClaimedJob {
+    QString jobFile;                // file.g.job.1234
+    QString origFilepath;           // /full/path/to/file.g
+};
+
 class JobSpoolService : public QObject
 {
     Q_OBJECT
@@ -27,7 +33,9 @@ public:
     bool    enqueueJob(const QString& filePath);
     bool    enqueueJob(const std::string& filepath);
     // take job from .../jobs/new -> /cur
-    QString takeJob(QString* jobFilePath);
+    ClaimedJob takeJob();
+    // take up to 'maxJobs', adds to 'out' vector. returns number of jobs in the batch
+    int takeBatch(int maxJobs, QVector<ClaimedJob>& out);
     // take job from .../jobs/cur -> /done
     bool    markDone(const QString& curJobPath);
 

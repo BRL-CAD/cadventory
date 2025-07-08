@@ -77,11 +77,23 @@ bool JobSpoolService::enqueueJob(const std::string& filepath) {
     return enqueueJob(QString::fromStdString(filepath));
 }
 
-QString JobSpoolService::takeJob(QString* jobOut) {
+ClaimedJob JobSpoolService::takeJob() {
+    QVector<ClaimedJob> ret;
+
+    if (takeBatch(1, ret) == 1) {
+        return ret.back();
+    } else {
+        // no work found
+        return {};
+    }
+}
+
+int JobSpoolService::takeBatch(int maxJobs, QVector<ClaimedJob>& out) {
+    int claimed = 0;
     QDirIterator it(m_jobsRoot + NEW_DIR, QDir::Files, QDirIterator::Subdirectories);
 
     // iterate 'new' directory, find a job candidate
-    while (it.hasNext()) {
+    while (it.hasNext() && claimed < maxJobs) {
         //  get the path associated with this job
         const QString job = it.next();                  // aa/bb/file.job
         QString origFilepath;                           // library/file.g
@@ -101,7 +113,7 @@ QString JobSpoolService::takeJob(QString* jobOut) {
             }
             origFilepath = QString::fromUtf8(read.readAll()).trimmed();
             if (origFilepath.isEmpty()) {
-                //QFile::remove(job);     // corrupt job might as well delete
+                //QFile::remove(job);     // corrupt job might as well delete?
                 continue;
             }
         }
@@ -141,43 +153,65 @@ QString JobSpoolService::takeJob(QString* jobOut) {
             m_jobMap[dst] = origFilepath;
         }
 
-        if (jobOut) 
-            *jobOut = dst;
+        out.append({ dst, origFilepath });
         emit jobClaimed(origFilepath);
-        // success
-        return origFilepath;
+        ++claimed;
     }
-
-    // no work found
-    return {};
+    return claimed;
 }
 
 bool JobSpoolService::markDone(const QString& curJob) {
+    QHash<QString,QString>::iterator find_it;
+
     // get original file path from jobMap
     QString origFilepath;
     {
         // get original file path
         QMutexLocker lock(&m_mutex);
-        auto it = m_jobMap.find(curJob);
-        if (it == m_jobMap.end())
+        find_it = m_jobMap.find(curJob);
+        if (find_it == m_jobMap.end())
             // we dont have a mapping to original filepath; can't mark done
             return false;
-        origFilepath = it.value();
-        m_jobMap.erase(it);
+        origFilepath = find_it.value();
     }
 
     // move from 'cur' -> 'done'
     QString dst = curJob;
     dst.replace(CUR_DIR, DONE_DIR);
     QDir().mkpath(QFileInfo(dst).path());
-    if (!QFile::rename(curJob, dst))
-        // raced (and lost); someone else already marked it
-        return false;
+    if (!QFile::rename(curJob, dst)) {
+        bool curExists = QFile::exists(curJob);
+        bool doneExists = QFile::exists(dst);
 
-    // cache to batch feed repo on next sync
+        if (!curExists && doneExists) {
+            // someone else already finished it
+            const std::string key = hashPath(origFilepath);
+            {
+                QMutexLocker lock(&m_mutex);
+                m_doneCache.insert(key);
+                m_jobMap.remove(curJob);
+            }
+            emit jobFinished(origFilepath);
+            return true;                        // benign race
+        }
+
+        if (!curExists && !doneExists) {
+            // something weird happened. recycle back to NEW
+            QMutexLocker lock(&m_mutex);
+            m_jobMap.remove(curJob);
+            return false;
+        }
+
+        // someone else didn't interfere - probably an i/o hitch; try again
+        // TODO/FIXME: this could infinitely recurse
+        return markDone(curJob);
+    }
+
+    // we're marked done, cache to batch feed repo on next sync
     const std::string key = hashPath(origFilepath);
     {
         QMutexLocker lock(&m_mutex);
+        m_jobMap.erase(find_it);            // safe to erase now
         m_doneCache.insert(key);
         m_pendingFlush.push_back(origFilepath);
     }
