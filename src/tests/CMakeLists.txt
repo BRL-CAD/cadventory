@@ -69,6 +69,7 @@ set(COMMON_INCLUDE_DIRECTORIES
     ${CMAKE_SOURCE_DIR}/src/core
     ${CMAKE_SOURCE_DIR}/src/core/infra
     ${CMAKE_SOURCE_DIR}/src/domain
+    ${CMAKE_SOURCE_DIR}/src/domain/jobqueue
     ${CMAKE_SOURCE_DIR}/src/domain/library
     ${CMAKE_SOURCE_DIR}/src/domain/llm
     ${CMAKE_SOURCE_DIR}/src/domain/model
@@ -294,7 +295,16 @@ add_cadventory_test(
     NAME SpoolServiceTest
     SOURCES
         SpoolServiceTest.cpp
-        ../core/infra/JobSpoolService.cpp
-        ../core/infra/DirectoryScanner.cpp
+        ../domain/jobqueue/JobSpoolService.cpp
+        ../domain/jobqueue/DirectoryScanner.cpp
         ../domain/model/Model.cpp
+)
+
+add_cadventory_test(
+    NAME JobServiceTest
+    SOURCES
+        JobServiceTest.cpp
+        ../domain/jobqueue/JobManager.cpp
+        ../domain/jobqueue/JobWorker.cpp
+        ../domain/jobqueue/QtJobServiceBase.cpp
 )
