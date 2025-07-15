@@ -306,3 +306,10 @@ add_cadventory_test(
         FileJobQueueTest.cpp
         ../domain/jobqueue/FileJobQueue.cpp
 )
+
+add_cadventory_test(
+    NAME SQLJobQueueTest
+    SOURCES
+        SQLJobQueueTest.cpp
+        ../domain/jobqueue/SQLJobQueue.cpp
+)

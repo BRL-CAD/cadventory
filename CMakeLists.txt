@@ -47,6 +47,7 @@ set(SRCS
   src/core/main.cpp
 
   src/domain/jobqueue/FileJobQueue.cpp
+  src/domain/jobqueue/SQLJobQueue.cpp
   src/domain/library/FilesystemIndexer.cpp
   src/domain/library/Library.cpp
   src/domain/llm/OllamaCLIService.cpp
