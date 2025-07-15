@@ -46,6 +46,7 @@ set(SRCS
   src/core/executeCommand.cpp
   src/core/main.cpp
 
+  src/domain/jobqueue/FileJobQueue.cpp
   src/domain/library/FilesystemIndexer.cpp
   src/domain/library/Library.cpp
   src/domain/llm/OllamaCLIService.cpp
@@ -83,6 +84,7 @@ set(HEADERS
   src/core/CADventory.h
   src/core/executeCommand.h
 
+  src/domain/jobqueue/FileJobQueue.h
   src/domain/library/FilesystemIndexer.h
   src/domain/library/Library.h
   src/domain/llm/ILLMService.h
@@ -121,6 +123,7 @@ qt_add_executable(cadventory WIN32
 set(SRC_INCLUDE_DIRECTORIES
     ${CMAKE_SOURCE_DIR}/src/core
     ${CMAKE_SOURCE_DIR}/src/domain
+    ${CMAKE_SOURCE_DIR}/src/domain/jobqueue
     ${CMAKE_SOURCE_DIR}/src/domain/library
     ${CMAKE_SOURCE_DIR}/src/domain/llm
     ${CMAKE_SOURCE_DIR}/src/domain/model

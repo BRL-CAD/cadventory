@@ -292,19 +292,17 @@ add_cadventory_test(
 )
 
 add_cadventory_test(
-    NAME SpoolServiceTest
-    SOURCES
-        SpoolServiceTest.cpp
-        ../domain/jobqueue/JobSpoolService.cpp
-        ../domain/jobqueue/DirectoryScanner.cpp
-        ../domain/model/Model.cpp
-)
-
-add_cadventory_test(
     NAME JobServiceTest
     SOURCES
         JobServiceTest.cpp
         ../domain/jobqueue/JobManager.cpp
         ../domain/jobqueue/JobWorker.cpp
         ../domain/jobqueue/QtJobServiceBase.cpp
+)
+
+add_cadventory_test(
+    NAME FileJobQueueTest
+    SOURCES
+        FileJobQueueTest.cpp
+        ../domain/jobqueue/FileJobQueue.cpp
 )
