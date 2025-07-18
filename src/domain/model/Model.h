@@ -27,6 +27,8 @@ struct ModelData {
   bool is_processed;
   bool is_included;
   std::vector<std::string> tags;
+
+  std::string is_processed_dir = "";
 };
 
 // Declare ModelData as a Qt metatype

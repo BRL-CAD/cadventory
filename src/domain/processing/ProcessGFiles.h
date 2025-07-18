@@ -27,6 +27,8 @@ private:
     // Thumbnail generation and command utility methods
     bool generateThumbnail(ModelData& modelData, const std::string& selected_object_name);
 
+    std::string generateUUID(struct ged* gedp, const std::string& objName);
+
 
     Model* model;
 };

@@ -1,5 +1,6 @@
 #include "ProcessGFiles.h"
 #include <brlcad/ged.h>
+#include <brlcad/bu/uuid.h>
 #include <QDebug>
 #include <iostream>
 #include <QProcess>
@@ -85,6 +86,9 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
         // Not a hard fail, move on
     }
 
+    // Generate a UUID with this .g + primaryObject
+    updatedModelData.is_processed_dir = generateUUID(gedp.get(), primaryObject);
+
     // Create or update our model
     updatedModelData.is_processed = true;
     auto existing = model->getModelById(updatedModelData.id);
@@ -100,6 +104,67 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
     }
 
     return updatedModelData;
+}
+
+std::string ProcessGFiles::generateUUID(struct ged *gedp, const std::string &primaryObj) {
+    if (!gedp || !gedp->dbip) 
+        return "";
+
+    // build namespace using primaryObj
+    const uint8_t arbitrary[16] = {0x4a, 0x3e, 0x13, 0x3f, 0x1a, 0xfc, 0x4d, 0x6c, 0x9a, 0xdd, 0x82, 0x9b, 0x7b, 0xb6, 0xc6, 0xc1};
+    uint8_t ns_uuid[16];
+    bu_uuid_create(ns_uuid, 
+                   primaryObj.size(), reinterpret_cast<const uint8_t*>(primaryObj.data()),
+                   arbitrary);
+
+    // gather all db directory's
+    std::vector<directory*> dirs;
+    struct directory *dp = RT_DIR_NULL;
+    FOR_ALL_DIRECTORY_START(dp, gedp->dbip) {
+        dirs.push_back(dp);
+    } FOR_ALL_DIRECTORY_END;
+    // sort on d_namep for repeatable ordering
+    std::sort(dirs.begin(), dirs.end(),
+        // O(n log n)
+        [](const directory* a, const directory* b) {
+            const char *an = (a && a->d_namep) ? a->d_namep : "";
+            const char *bn = (b && b->d_namep) ? b->d_namep : "";
+            return std::strcmp(an, bn) < 0;
+        });
+
+    // hash all our objects together
+    struct bu_data_hash_state *hs = bu_data_hash_create();
+    if (!hs) 
+        return ""; // allocation failure?
+    for (auto *d : dirs) {
+        const char *name = (d && d->d_namep) ? d->d_namep : "";
+        bu_data_hash_update(hs, name, std::strlen(name));
+
+        // External object bytes
+        struct bu_external ext = BU_EXTERNAL_INIT_ZERO;
+        if (d && db_get_external(&ext, d, gedp->dbip) == 0) {
+            if (ext.ext_buf && ext.ext_nbytes > 0) {
+                bu_data_hash_update(hs, ext.ext_buf, ext.ext_nbytes);
+            }
+            bu_free_external(&ext);
+        } // else silently skip errors
+    }
+    unsigned long long digest = bu_data_hash_val(hs);
+    bu_data_hash_destroy(hs);
+
+    // finally create the uuid
+    uint8_t uuid[16];
+    uint8_t digest_buf[8];
+    for (int i = 0; i < 8; ++i) {
+        // pack into 8 bytes big endian
+        digest_buf[7 - i] = static_cast<uint8_t>(digest >> (i * 8));
+    }
+    bu_uuid_create(uuid, sizeof(digest_buf), digest_buf, ns_uuid);
+
+    // return human-readable string
+    uint8_t uuid_str[37] = {0};
+    bu_uuid_encode(uuid, uuid_str);
+    return std::string(reinterpret_cast<char*>(uuid_str));
 }
 
 void ProcessGFiles::extractTitle(ModelData& modelData, struct ged* gedp)
