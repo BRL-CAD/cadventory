@@ -3,6 +3,8 @@
 
 #include "Model.h"
 
+#include <filesystem>
+
 class ModelTestFixture {
 public:
     ModelTestFixture(const std::string& test_name) {
@@ -17,6 +19,24 @@ public:
     ~ModelTestFixture() {
         model.reset();  // ensure our model is cleaned up before removing tempDir
         std::filesystem::remove_all(tempDir);
+    }
+
+    std::filesystem::path copyTestFileToTemp(const std::string& filename) {
+        // Use TEST_SRC_DIR defined by CMake
+        const std::filesystem::path testDataDir = std::filesystem::path(TEST_SRC_DIR).lexically_normal();
+        std::filesystem::path sourcePath = testDataDir / filename;
+        if (!std::filesystem::exists(sourcePath)) {
+            throw std::runtime_error("Test data file not found: " + sourcePath.string());
+        }
+
+        std::filesystem::path destPath = tempDir / filename;
+
+        std::filesystem::copy_file(
+            sourcePath, destPath,
+            std::filesystem::copy_options::overwrite_existing
+        );
+
+        return destPath;
     }
 
     std::filesystem::path tempDir;
