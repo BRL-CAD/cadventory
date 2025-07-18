@@ -64,28 +64,29 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
         return std::nullopt;
     }
 
-    // Attempt to determine which object should be our thumbnail
-    std::string objectNameForThumbnail;
+    // Attempt to determine which object is our primary
+    std::string primaryObject;
     std::vector<ObjectData> selectedObjects = model->getSelectedObjectsForModel(updatedModelData.id);
     if (!selectedObjects.empty()) {
         // use first selected object
-        objectNameForThumbnail = selectedObjects.front().name;
+        primaryObject = selectedObjects.front().name;
     } else {
         // punt to see if the model has an 'all' object.
         // if not, just use the first object we found for the thumbnail
         bool hasAll = std::any_of(allObjects.begin(), allObjects.end(),
                                   [](const ObjectData& obj) { return obj.name == "all"; });
 
-        objectNameForThumbnail = hasAll ? "all" : allObjects.front().name;
+        primaryObject = hasAll ? "all" : allObjects.front().name;
     }
-    qDebug() << "[ProcessGFiles::processGFile] Using \'" << objectNameForThumbnail << "\' for thumbnail.";
+    /*** Queue separate job for thumbnail generation - inidcated with 'getAllNeededDirectives()'
+    qDebug() << "[ProcessGFiles::processGFile] Using \'" << primaryObject << "\' for thumbnail.";
 
     // Attempt to generate our thumbnail
     if (!generateThumbnail(updatedModelData, objectNameForThumbnail)) {
         qDebug() << "[ProcessGFiles::processGFile] Thumbnail generation failed for model ID:" << updatedModelData.id;
         // Not a hard fail, move on
     }
-
+    ***/
     // Generate a UUID with this .g + primaryObject
     updatedModelData.is_processed_dir = generateUUID(gedp.get(), primaryObject);
 
@@ -104,6 +105,10 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
     }
 
     return updatedModelData;
+}
+
+std::vector<std::string> ProcessGFiles::getAllNeededDirectives() {
+    return {"dummy", /*thumb*/};
 }
 
 std::string ProcessGFiles::generateUUID(struct ged *gedp, const std::string &primaryObj) {

@@ -17,6 +17,10 @@ public:
     // return final ModelData after processing (or std::nullopt)
     std::optional<ModelData> processGFile(const ModelData& modelData);
 
+    // all extra / heavy processes that are needed to consider the file 'completely' processed
+    // i.e. thumbnail, gist, etc.
+    std::vector<std::string> getAllNeededDirectives();
+
     std::tuple<bool, std::string, std::string> generateGistReport(const std::string& inputFilePath, const std::string& outputFilePath, const std::string& primary_obj, const std::string& label);
 
 private:
