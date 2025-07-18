@@ -74,7 +74,7 @@ public:
     Qt::ItemFlags flags(const QModelIndex& index) const override;
 
     // CRUD operations for models
-    bool insertModel(const ModelData& modelData);
+    bool insertModel(const ModelData& modelData) override;       // TODO: have this return modelId on valid insert
     bool updateModel(int id, const ModelData& modelData);
     bool deleteModel(int id);
     bool modelExists(int id);
