@@ -17,9 +17,10 @@ public:
     ~QtJobServiceBase() override;
 
     // IJobService interface overrides
-    void setRootPaths(const std::string& jobsDir,
-                      const std::string& dataDir,
-                      const std::string& modelRoot) override;
+    void setRootPaths(const std::string& rootDir,
+                      const std::string& jobsDir = "",
+                      const std::string& dataDir = "",
+                      const std::string& modelRoot = "") override;
 
     bool start() override;   // spawns m_thread and runs serviceLoop()
     void stop()  override;
@@ -40,6 +41,7 @@ protected:
     void updateStats(const std::function<void(JobServiceStats&)>& mutator);
 
     // access to configuration paths for derived classes
+    const std::string& rootDir()   const { return m_rootDir;   }
     const std::string& jobsDir()   const { return m_jobsDir;   }
     const std::string& dataDir()   const { return m_dataDir;   }
     const std::string& modelRoot() const { return m_modelRoot; }
@@ -49,6 +51,7 @@ private slots:
 
 private:
     // configuration paths
+    std::string m_rootDir;          // path to .cadventory directory
     std::string m_jobsDir;
     std::string m_dataDir;
     std::string m_modelRoot;

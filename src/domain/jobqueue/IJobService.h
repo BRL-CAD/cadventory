@@ -21,9 +21,10 @@ public:
     /* TODO: we'll eventually probably just want the constructor to take a library_root, 
      * and let everything else determine from there but this is easier for separating testing for now
      */
-    virtual void setRootPaths(const std::string& jobsDir,
-                              const std::string& dataDir,
-                              const std::string& modelRoot) = 0;
+    virtual void setRootPaths(const std::string& rootDir,
+                              const std::string& jobsDir = "",
+                              const std::string& dataDir = "",
+                              const std::string& modelRoot = "") = 0;
 
     virtual bool start() = 0;   // non-blocking
     virtual void stop()  = 0;   // blocking, graceful shutdown

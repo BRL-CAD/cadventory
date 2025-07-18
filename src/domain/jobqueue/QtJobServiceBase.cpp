@@ -12,9 +12,11 @@ QtJobServiceBase::~QtJobServiceBase() {
     stop();
 }
 
-void QtJobServiceBase::setRootPaths(const std::string& j,
+void QtJobServiceBase::setRootPaths(const std::string& r,
+                                    const std::string& j,
                                     const std::string& d,
                                     const std::string& m) {
+    m_rootDir   = r;
     m_jobsDir   = j;
     m_dataDir   = d;
     m_modelRoot = m;
