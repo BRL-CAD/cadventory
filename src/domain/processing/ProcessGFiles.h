@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <optional>
 
 #include "Model.h"
 #include <brlcad/rt/geom.h>
@@ -13,8 +14,8 @@ class ProcessGFiles {
 public:
     explicit ProcessGFiles(Model* model);
 
-    // returns true on successful processing
-    bool processGFile(const ModelData& modelData);
+    // return final ModelData after processing (or std::nullopt)
+    std::optional<ModelData> processGFile(const ModelData& modelData);
 
     std::tuple<bool, std::string, std::string> generateGistReport(const std::string& inputFilePath, const std::string& outputFilePath, const std::string& primary_obj, const std::string& label);
 

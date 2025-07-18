@@ -28,12 +28,12 @@ ProcessGFiles::ProcessGFiles(Model* model)
 {
 }
 
-bool ProcessGFiles::processGFile(const ModelData& modelData)
+std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
 {
     // Ensure we have a file path
     if (modelData.file_path.empty()) {
         qDebug() << "[ProcessGFiles::processGFile] No file path provided. Aborting.";
-        return false;
+        return std::nullopt;
     }
 
     // Attempt to open the BRL-CAD database
@@ -45,7 +45,7 @@ bool ProcessGFiles::processGFile(const ModelData& modelData)
     if (!gedp) {
         qDebug() << "[ProcessGFiles::processGFile] Unable to open BRL-CAD database at path:"
             << QString::fromStdString(modelData.file_path);
-        return false;
+        return std::nullopt;
     }
 
     // Create a working copy of the modelData
@@ -60,7 +60,7 @@ bool ProcessGFiles::processGFile(const ModelData& modelData)
     std::vector<ObjectData> allObjects = model->getObjectsForModel(updatedModelData.id);
     if (allObjects.empty()) {
         qDebug() << "[ProcessGFiles::processGFile] No objects found for model ID:" << updatedModelData.id;
-        return false;
+        return std::nullopt;
     }
 
     // Attempt to determine which object should be our thumbnail
@@ -96,9 +96,10 @@ bool ProcessGFiles::processGFile(const ModelData& modelData)
     }
     if (!success) {
         qDebug() << "[ProcessGFiles::processGFile] Failed to process in database for model ID:" << updatedModelData.id;
+        return std::nullopt;
     }
 
-    return success;
+    return updatedModelData;
 }
 
 void ProcessGFiles::extractTitle(ModelData& modelData, struct ged* gedp)
