@@ -28,17 +28,20 @@ public:
     JobServiceState state() const override;
     JobServiceStats stats() const override;
 
+    // helper for derived classes to update statistics safely and emit
+    void updateStats(const std::function<void(JobServiceStats&)>& mutator);
 signals:
+    // general
     void statsUpdated(JobServiceStats);
-    void finished();                         // emitted after stop() completes
     void errorOccurred(QString message);     // emitted on unhandled exception
+    void finished();                         // emitted after stop() completes
+    // directive specific
+    void directiveStarted(const QString& directive, const QString& fileId);
+    void directiveFinished(const QString& directive, const QString& fileId, bool success);
 
 protected:
     // 'brains' of derived classes - runs inside m_thread
     virtual void serviceLoop() = 0;
-
-    // helper for derived classes to update statistics safely and emit
-    void updateStats(const std::function<void(JobServiceStats&)>& mutator);
 
     // access to configuration paths for derived classes
     const std::string& rootDir()   const { return m_rootDir;   }
@@ -48,6 +51,9 @@ protected:
 
 private slots:
     void trampoline();                // calls serviceLoop()
+    // internal slot to catch directive signals and update stats
+    void onDirectiveStarted(const QString& directive, const QString& fileId);
+    void onDirectiveFinished(const QString& directive, const QString& fileId, bool success);
 
 private:
     // configuration paths

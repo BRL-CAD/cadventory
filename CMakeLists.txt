@@ -86,6 +86,7 @@ set(HEADERS
   src/core/executeCommand.h
 
   src/domain/jobqueue/FileJobQueue.h
+  src/domain/jobqueue/SQLJobQueue.h
   src/domain/library/FilesystemIndexer.h
   src/domain/library/Library.h
   src/domain/llm/ILLMService.h
@@ -97,6 +98,9 @@ set(HEADERS
   src/domain/processing/IndexingWorker.h
   src/domain/processing/ProcessGFiles.h
   src/domain/processing/ReportGeneratorWorker.h
+  src/domain/processing/IDirectiveHandler.h
+  src/domain/processing/DummyHandler.h
+  src/domain/processing/ProcessHandler.h
 
   src/ui/filesystem/FileSystemFilterProxyModel.h
   src/ui/filesystem/FileSystemModelWithCheckboxes.h

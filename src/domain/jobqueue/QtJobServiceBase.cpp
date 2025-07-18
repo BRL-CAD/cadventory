@@ -6,6 +6,10 @@
 QtJobServiceBase::QtJobServiceBase(QObject* parent) : QObject(parent) {
     qRegisterMetaType<JobServiceStats>("JobServiceStats");
     connect(&m_thread, &QThread::finished, this, &QtJobServiceBase::finished);
+
+    // connect directive signals to internal slots
+    connect(this, &QtJobServiceBase::directiveStarted, this, &QtJobServiceBase::onDirectiveStarted);
+    connect(this, &QtJobServiceBase::directiveFinished, this, &QtJobServiceBase::onDirectiveFinished);
 }
 
 QtJobServiceBase::~QtJobServiceBase() {
@@ -76,4 +80,22 @@ void QtJobServiceBase::trampoline() {
     } catch (...) {
         emit errorOccurred(QStringLiteral("Unknown exception in serviceLoop()"));
     }
+}
+
+void QtJobServiceBase::onDirectiveStarted(const QString&, const QString&) {
+    // increment 'claimed'
+    updateStats([](JobServiceStats& s) {
+        ++s.jobsClaimed;
+    });
+}
+
+void QtJobServiceBase::onDirectiveFinished(const QString&, const QString&, bool success) {
+    updateStats([success](JobServiceStats& s) {
+        // release 'claimed'
+        --s.jobsNew;
+
+        // only increment processed count if we were successful
+        if (success) 
+            ++s.modelsProcessed;
+    });
 }

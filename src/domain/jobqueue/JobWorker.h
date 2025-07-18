@@ -1,9 +1,6 @@
 #pragma once
-#include "QtJobServiceBase.h"
 
-// TODO/FIXME: use real headers
-//class ModelRepository;
-//class FileJobQueue;
+#include "QtJobServiceBase.h"
 
 class JobWorker : public QtJobServiceBase
 {
@@ -14,6 +11,5 @@ protected:
     void serviceLoop() override;
 
 private:
-    ModelRepository* m_repo  = nullptr;
-    FileJobQueue*    m_queue = nullptr;
+    // helper functions
 };
