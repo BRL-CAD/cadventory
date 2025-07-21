@@ -6,6 +6,34 @@
 #include <thread>
 #include <atomic>
 
+/*** Creating Directive Handler flow
+ *
+ * 1) Create the handler class (this file)
+ *      subclass IDirectiveHandler and implement handle()
+ *
+ * 2) Register it with the worker
+ *      In JobWorker.cpp/JobManager.cpp -> makeHandlerRegistry()
+ *          (the key string MUST match the directive queued in step 3)
+ *
+ * 3) Make sure jobs can be queued
+ *      If this directive is part of the standard pipeline, add its name to
+ *          ProcessHandler processor::getAllNeededDirectives()
+ *      Otherwise, add it where necessary
+ *
+ * 4) Emit signals
+ *      A) simple/lightweight can use the generic
+ *          _service->directiveStarted(...)
+ *          _service->directiveFinished(...)
+ *      B) handler-specific UI need to add signal to QtJobServiceBase
+ *          (e.g. void dummyFinished(QString fileId, bool ok);) and fire
+ *          with QMetaObject::invokeMethod(_service, ... Qt::QueuedConnection)
+ *
+ * 5) Hook into the UI
+ *      In the controller/window/widget, connect() with either the generic
+ *          handler (filtering on the string), OR the new handler-specific signal
+ *          from step 4b
+ */
+
 class DummyHandler : public IDirectiveHandler {
 public:
     DummyHandler(const std::filesystem::path& dataDir,
@@ -19,7 +47,7 @@ public:
         if (_service)
             _service->directiveStarted("dummy", QString::fromStdString(job.fileId));
 
-        // simulate 'work'
+        // 'work'
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
         // write an output file
@@ -28,7 +56,13 @@ public:
         std::ofstream(outputDir / "dummy").close();
 
         // signal finish
-        if (_service)
+        if (_service) {
+            // generic
             _service->directiveFinished("dummy", QString::fromStdString(job.fileId), true);
+            // specific 'dummyFinished'
+            QMetaObject::invokeMethod(_service, "dummyFinished", Qt::QueuedConnection,
+                                Q_ARG(QString, QString::fromStdString(job.fileId)),
+                                Q_ARG(bool, true));
+        }
     }
 };
