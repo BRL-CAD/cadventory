@@ -5,6 +5,7 @@
 enum class JobServiceState { Stopped, Starting, Running, Stopping, Error };
 
 struct JobServiceStats {
+    // TODO: make this struct more flexible / generic
     std::size_t jobsNew         = 0;
     std::size_t jobsClaimed     = 0;
     std::size_t modelsProcessed = 0;
