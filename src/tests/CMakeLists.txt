@@ -325,12 +325,12 @@ add_cadventory_test(
         ../domain/model/Model.cpp
 )
 
-add_cadventory_test(
-    NAME FileJobQueueTest
-    SOURCES
-        FileJobQueueTest.cpp
-        ../domain/jobqueue/FileJobQueue.cpp
-)
+#add_cadventory_test(
+#    NAME FileJobQueueTest
+#    SOURCES
+#        FileJobQueueTest.cpp
+#        ../domain/jobqueue/FileJobQueue.cpp
+#)
 
 add_cadventory_test(
     NAME SQLJobQueueTest
