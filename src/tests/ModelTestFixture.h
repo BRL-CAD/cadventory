@@ -5,6 +5,8 @@
 
 #include <filesystem>
 
+namespace fs = std::filesystem;
+
 class ModelTestFixture {
 public:
     ModelTestFixture(const std::string& test_name) {
@@ -21,7 +23,7 @@ public:
         std::filesystem::remove_all(tempDir);
     }
 
-    std::filesystem::path copyTestFileToTemp(const std::string& filename) {
+    std::filesystem::path copyTestFileToTemp(const std::string& filename, const std::string& suffix = "") {
         // Use TEST_SRC_DIR defined by CMake
         const std::filesystem::path testDataDir = std::filesystem::path(TEST_SRC_DIR).lexically_normal();
         std::filesystem::path sourcePath = testDataDir / filename;
@@ -29,7 +31,10 @@ public:
             throw std::runtime_error("Test data file not found: " + sourcePath.string());
         }
 
-        std::filesystem::path destPath = tempDir / filename;
+        fs::path filename_w_suffix = fs::path(filename).stem().string() 
+                                     + suffix 
+                                     + fs::path(filename).extension().string();
+        std::filesystem::path destPath = tempDir / filename_w_suffix;
 
         std::filesystem::copy_file(
             sourcePath, destPath,
