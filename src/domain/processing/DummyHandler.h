@@ -22,8 +22,7 @@
  *
  * 4) Emit signals
  *      A) simple/lightweight can use the generic
- *          _service->directiveStarted(...)
- *          _service->directiveFinished(...)
+            emitStart() / emitFinish() protected functions
  *      B) handler-specific UI need to add signal to QtJobServiceBase
  *          (e.g. void dummyFinished(QString fileId, bool ok);) and fire
  *          with QMetaObject::invokeMethod(_service, ... Qt::QueuedConnection)
@@ -44,8 +43,7 @@ public:
                 std::atomic<bool>& /*stopFlag*/) override
     {
         // signal start
-        if (_service)
-            _service->directiveStarted("dummy", QString::fromStdString(job.fileId));
+        emitStart(job);
 
         // 'work'
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -58,7 +56,8 @@ public:
         // signal finish
         if (_service) {
             // generic
-            _service->directiveFinished("dummy", QString::fromStdString(job.fileId), true);
+            emitFinish(job);
+
             // specific 'dummyFinished'
             QMetaObject::invokeMethod(_service, "dummyFinished", Qt::QueuedConnection,
                                 Q_ARG(QString, QString::fromStdString(job.fileId)),

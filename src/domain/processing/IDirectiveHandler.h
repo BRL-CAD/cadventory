@@ -24,4 +24,26 @@ protected:
 
     const std::filesystem::path _dataDir;
     QtJobServiceBase*           _service;
+
+    // emit helpers
+    void emitStart(const JobDescriptor& job) const {
+        if (!_service)
+          return;
+
+        QMetaObject::invokeMethod(_service, "directiveStarted",
+            Qt::QueuedConnection,
+            Q_ARG(QString, QString::fromStdString(job.directive)),
+            Q_ARG(QString, QString::fromStdString(job.fileId)));
+    }
+
+    void emitFinish(const JobDescriptor& job, bool ok = true) const {
+        if (!_service)
+          return;
+
+        QMetaObject::invokeMethod(_service, "directiveFinished",
+            Qt::QueuedConnection,
+            Q_ARG(QString, QString::fromStdString(job.directive)),
+            Q_ARG(QString, QString::fromStdString(job.fileId)),
+            Q_ARG(bool, ok));
+    }
 };

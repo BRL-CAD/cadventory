@@ -25,12 +25,11 @@ public:
                 std::atomic<bool>& /*stopFlag*/) override
     {
         // signal start
-        _service->directiveStarted(QString::fromStdString(job.directive), 
-                                   QString::fromStdString(job.fileId));
+        emitStart(job);
 
         // select file processor (for now assume we just have .g)
         if (std::filesystem::path(job.sourcePath).extension() != ".g") {
-            _service->directiveFinished("process", QString::fromStdString(job.fileId), false);
+            emitFinish(job, false);
             return;
         }
         ProcessGFiles processor(&m_repo);
@@ -40,18 +39,14 @@ public:
 
         if (!existing.id) {
             // this shouldn't be possible if our worker+manager are working properly
-            _service->directiveFinished(QString::fromStdString(job.directive), 
-                                        QString::fromStdString(job.fileId), 
-                                        false);
+            emitFinish(job, false);
             return;
         }
 
         auto ret = processor.processGFile(existing);
         if (!ret) {
             // something went wrong
-            _service->directiveFinished(QString::fromStdString(job.directive), 
-                                        QString::fromStdString(job.fileId), 
-                                        false);
+            emitFinish(job, false);
             return;
         }
         ModelData final = *ret;
@@ -62,9 +57,7 @@ public:
         }
 
         // signal finished
-        _service->directiveFinished(QString::fromStdString(job.directive), 
-                                    QString::fromStdString(job.fileId),
-                                    true);
+        emitFinish(job);
     }
 
 private:
