@@ -295,9 +295,13 @@ add_cadventory_test(
     NAME JobServiceTest
     SOURCES
         JobServiceTest.cpp
-        #../domain/jobqueue/JobManager.cpp
-        #../domain/jobqueue/JobWorker.cpp
+        ../domain/jobqueue/JobManager.cpp
+        ../domain/jobqueue/JobWorker.cpp
         ../domain/jobqueue/QtJobServiceBase.cpp
+        ../domain/jobqueue/SQLJobQueue.cpp
+        ../domain/library/FilesystemIndexer.cpp
+        ../domain/processing/ProcessGFiles.cpp
+        ../domain/model/Model.cpp
 )
 
 add_cadventory_test(
