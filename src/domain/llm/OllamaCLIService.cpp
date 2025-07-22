@@ -1,4 +1,4 @@
-#include "OllamaCliService.h"
+#include "OllamaCLIService.h"
 
 #include <QFile>
 #include <QJsonDocument>

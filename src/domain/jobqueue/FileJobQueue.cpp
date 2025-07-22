@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <iomanip>
+#include <cstring>    // for strlen
 
 FileJobQueue::FileJobQueue(const fs::path& libraryRoot) 
     : m_libRoot(fs::canonical(libraryRoot)),

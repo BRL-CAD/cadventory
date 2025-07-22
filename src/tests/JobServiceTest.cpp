@@ -8,6 +8,7 @@
 #include <string>
 #include <memory>
 #include <chrono>
+#include <thread>
 
 #include "ModelTestFixture.h"
 #include "QtJobServiceBase.h"

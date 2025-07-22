@@ -8,6 +8,7 @@
 #include <thread>
 #include <vector>
 #include <sqlite3.h>
+#include <atomic>
 
 #include "SQLJobQueue.h"
 

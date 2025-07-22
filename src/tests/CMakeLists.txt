@@ -228,7 +228,7 @@ add_cadventory_test(
         ../domain/processing/ReportGeneratorWorker.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
-        ../domain/llm/OllamaCliService.cpp
+        ../domain/llm/OllamaCLIService.cpp
         ../domain/model/Model.cpp
         ../domain/model/AIModelTagging.cpp
         ../domain/model/ModelParser.cpp
@@ -265,7 +265,7 @@ add_cadventory_test(
         ../domain/processing/ReportGeneratorWorker.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
-        ../domain/llm/OllamaCliService.cpp
+        ../domain/llm/OllamaCLIService.cpp
         ../domain/model/Model.cpp
         ../domain/model/AIModelTagging.cpp
         ../domain/model/ModelParser.cpp

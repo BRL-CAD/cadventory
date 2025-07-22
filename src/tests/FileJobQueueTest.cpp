@@ -8,6 +8,8 @@
 #include <set>
 #include <thread>
 #include <vector>
+#include <atomic>
+#include <algorithm>    // for count_if
 
 #include "FileJobQueue.h"
 

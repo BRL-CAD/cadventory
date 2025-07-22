@@ -14,7 +14,7 @@
 #include "MainWindow.h"
 #include "SplashDialog.h"
 #include "FilesystemIndexer.h"
-#include "OllamaCliService.h"
+#include "OllamaCLIService.h"
 
 
 CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(parent)

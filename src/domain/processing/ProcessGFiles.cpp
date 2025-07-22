@@ -9,6 +9,7 @@
 #include <QDir>
 #include "config.h"
 #include <string>
+#include <cstring>    // for strlen
 #include <algorithm>
 #include <filesystem>
 
