@@ -61,10 +61,6 @@ static auto spawnWorkerThreads(SQLJobQueue& queue,
                 if (it != handlers.end()) {
                     // found a valid handler
                     bool success = false;
-
-                    // signal start
-                    service->directiveStarted(QString::fromStdString(job.directive), 
-                                              QString::fromStdString(job.fileId));
                     try {
                         it->second->handle(job, stopFlag);
                         success = true;
@@ -72,11 +68,7 @@ static auto spawnWorkerThreads(SQLJobQueue& queue,
                         // something went wrong
                         success = false;
                     }
-
-                    // signal finish
-                    service->directiveFinished(QString::fromStdString(job.directive), 
-                                               QString::fromStdString(job.fileId), 
-                                               success);
+                    // TODO: do something with 'success' or remove it
                 }
 
                 // whether we passed or failed, finsh the job
