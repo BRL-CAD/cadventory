@@ -72,12 +72,12 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
         // use first selected object
         primaryObject = selectedObjects.front().name;
     } else {
-        // punt to see if the model has an 'all' object.
-        // if not, just use the first object we found for the thumbnail
-        bool hasAll = std::any_of(allObjects.begin(), allObjects.end(),
-                                  [](const ObjectData& obj) { return obj.name == "all"; });
+        // sanity: extractObjects() should already have handled finding the selected object or
+        //          pattern matching common 'all' objects
+        primaryObject = allObjects.front().name;
 
-        primaryObject = hasAll ? "all" : allObjects.front().name;
+        // if we don't have a selected object, go ahead and add this one
+        model->updateObjectSelection(allObjects.front().object_id, true);
     }
     /*** Queue separate job for thumbnail generation - inidcated with 'getAllNeededDirectives()'
     qDebug() << "[ProcessGFiles::processGFile] Using \'" << primaryObject << "\' for thumbnail.";
@@ -109,7 +109,7 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
 }
 
 std::vector<std::string> ProcessGFiles::getAllNeededDirectives() {
-    return {"dummy", /*thumb*/};
+    return {/*"dummy",*/ "thumb"};
 }
 
 std::string ProcessGFiles::generateUUID(struct ged *gedp, const std::string &primaryObj) {

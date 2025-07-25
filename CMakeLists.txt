@@ -101,6 +101,7 @@ set(HEADERS
   src/domain/processing/IDirectiveHandler.h
   src/domain/processing/DummyHandler.h
   src/domain/processing/ProcessHandler.h
+  src/domain/processing/ThumbHandler.h
 
   src/ui/filesystem/FileSystemFilterProxyModel.h
   src/ui/filesystem/FileSystemModelWithCheckboxes.h

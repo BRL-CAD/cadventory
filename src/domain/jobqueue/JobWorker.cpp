@@ -9,6 +9,7 @@
 #include "Model.h"
 #include "SQLJobQueue.h"
 #include "ProcessHandler.h"
+#include "ThumbHandler.h"
 #include "DummyHandler.h"
 
 
@@ -23,6 +24,7 @@ static auto makeHandlerRegistry(Model& repo,
 {
     HandlerRegistry r;
     r.emplace("process", std::make_unique<ProcessHandler>(repo, queue, dataRoot, service));
+    r.emplace("thumb", std::make_unique<ThumbHandler>(dataRoot, service, repo));
     r.emplace("dummy", std::make_unique<DummyHandler>(dataRoot, service));
 
     // add more directives here ...
