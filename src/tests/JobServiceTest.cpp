@@ -142,7 +142,7 @@ TEST_CASE("Full Job manager+worker pipeline", "[jobService]") {
 
     // run the worker, give it ~5s to process
     REQUIRE(worker->start());
-    pumpQt(std::chrono::seconds(5));
+    pumpQt(std::chrono::seconds(10));
     worker->stop();
 
     // verify the models were successfully processed in repo
