@@ -12,6 +12,10 @@
 #include <cstring>    // for strlen
 #include <algorithm>
 #include <filesystem>
+#include <fstream>
+#include <sstream>
+
+#include "sha1.h"
 
 // Helper function to truncate a path if it exceeds maxLen (default 50 characters).
 // It keeps the first part and the last part of the path and places "..." in between.
@@ -89,7 +93,9 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
     }
     ***/
     // Generate a UUID with this .g + primaryObject
-    updatedModelData.is_processed_dir = generateUUID(gedp.get(), primaryObject);
+    //updatedModelData.is_processed_dir = generateUUID(gedp.get(), primaryObject);
+    // set processed dir
+    updatedModelData.is_processed_dir = generateProcessDir(modelData.file_path, primaryObject);
 
     // Create or update our model
     updatedModelData.is_processed = true;
@@ -112,65 +118,38 @@ std::vector<std::string> ProcessGFiles::getAllNeededDirectives() {
     return {/*"dummy",*/ "thumb"};
 }
 
-std::string ProcessGFiles::generateUUID(struct ged *gedp, const std::string &primaryObj) {
-    if (!gedp || !gedp->dbip) 
-        return "";
+// helper function - create a sha1 hash of the file contents (this should be the same
+// as doing a 'sha1sum' on the command-line
+static inline std::string sha1Digest(const std::filesystem::path& file) {
+    SHA1_CTX ctx;
+    SHA1Init(&ctx);
 
-    // build namespace using primaryObj
-    const uint8_t arbitrary[16] = {0x4a, 0x3e, 0x13, 0x3f, 0x1a, 0xfc, 0x4d, 0x6c, 0x9a, 0xdd, 0x82, 0x9b, 0x7b, 0xb6, 0xc6, 0xc1};
-    uint8_t ns_uuid[16];
-    bu_uuid_create(ns_uuid, 
-                   primaryObj.size(), reinterpret_cast<const uint8_t*>(primaryObj.data()),
-                   arbitrary);
+    // hash file contents
+    std::array<char, 1 << 12> buf;
+    std::ifstream in(file, std::ios::binary);
+    while (in.read(buf.data(), buf.size()) || in.gcount())
+        SHA1Update(&ctx,
+                   reinterpret_cast<const unsigned char*>(buf.data()),
+                   static_cast<uint32_t>(in.gcount()));
 
-    // gather all db directory's
-    std::vector<directory*> dirs;
-    struct directory *dp = RT_DIR_NULL;
-    FOR_ALL_DIRECTORY_START(dp, gedp->dbip) {
-        dirs.push_back(dp);
-    } FOR_ALL_DIRECTORY_END;
-    // sort on d_namep for repeatable ordering
-    std::sort(dirs.begin(), dirs.end(),
-        // O(n log n)
-        [](const directory* a, const directory* b) {
-            const char *an = (a && a->d_namep) ? a->d_namep : "";
-            const char *bn = (b && b->d_namep) ? b->d_namep : "";
-            return std::strcmp(an, bn) < 0;
-        });
+    unsigned char raw[20];
+    SHA1Final(raw, &ctx);
 
-    // hash all our objects together
-    struct bu_data_hash_state *hs = bu_data_hash_create();
-    if (!hs) 
-        return ""; // allocation failure?
-    for (auto *d : dirs) {
-        const char *name = (d && d->d_namep) ? d->d_namep : "";
-        bu_data_hash_update(hs, name, std::strlen(name));
+    // make a human-readable string
+    std::ostringstream out;
+    for (auto b : raw)
+        out << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
 
-        // External object bytes
-        struct bu_external ext = BU_EXTERNAL_INIT_ZERO;
-        if (d && db_get_external(&ext, d, gedp->dbip) == 0) {
-            if (ext.ext_buf && ext.ext_nbytes > 0) {
-                bu_data_hash_update(hs, ext.ext_buf, ext.ext_nbytes);
-            }
-            bu_free_external(&ext);
-        } // else silently skip errors
-    }
-    unsigned long long digest = bu_data_hash_val(hs);
-    bu_data_hash_destroy(hs);
+    return out.str();
+}
 
-    // finally create the uuid
-    uint8_t uuid[16];
-    uint8_t digest_buf[8];
-    for (int i = 0; i < 8; ++i) {
-        // pack into 8 bytes big endian
-        digest_buf[7 - i] = static_cast<uint8_t>(digest >> (i * 8));
-    }
-    bu_uuid_create(uuid, sizeof(digest_buf), digest_buf, ns_uuid);
+std::string ProcessGFiles::generateProcessDir(const std::string& filename, const std::string& objName) {
+    using std::filesystem::path;
 
-    // return human-readable string
-    uint8_t uuid_str[37] = {0};
-    bu_uuid_encode(uuid, uuid_str);
-    return std::string(reinterpret_cast<char*>(uuid_str));
+    const std::string hash = sha1Digest(filename);
+    const path dir = path(hash.substr(0,2)) / hash / objName;       // .../aa/hash/objName
+
+    return dir.generic_string();
 }
 
 void ProcessGFiles::extractTitle(ModelData& modelData, struct ged* gedp)
