@@ -80,6 +80,10 @@ void QtJobServiceBase::trampoline() {
     } catch (...) {
         emit errorOccurred(QStringLiteral("Unknown exception in serviceLoop()"));
     }
+
+    // we're outside the trampoline - mark stopped and end thread loop
+    m_state = JobServiceState::Stopped;
+    QThread::currentThread()->quit();
 }
 
 void QtJobServiceBase::onDirectiveStarted(const QString&, const QString&) {
