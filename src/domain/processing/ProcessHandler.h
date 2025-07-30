@@ -16,8 +16,7 @@ public:
                    SQLJobQueue& queue,
                    const std::filesystem::path& dataDir,
                    QtJobServiceBase* service)
-        : IDirectiveHandler(dataDir, service)
-        , m_repo(repo)
+        : IDirectiveHandler(dataDir, service, repo)
         , m_queue(queue)
     {}
 
@@ -32,10 +31,10 @@ public:
             emitFinish(job, false);
             return;
         }
-        ProcessGFiles processor(&m_repo);
+        ProcessGFiles processor(&_repo);
 
         // verify we still have an entry for this filepath in the ModelRepo
-        ModelData existing = m_repo.getModelByFilePath(job.sourcePath);
+        ModelData existing = _repo.getModelByFilePath(job.sourcePath);
 
         if (!existing.id) {
             // this shouldn't be possible if our worker+manager are working properly
@@ -61,6 +60,5 @@ public:
     }
 
 private:
-    Model& m_repo;
     SQLJobQueue& m_queue;
 };

@@ -36,8 +36,9 @@
 class DummyHandler : public IDirectiveHandler {
 public:
     DummyHandler(const std::filesystem::path& dataDir,
-                 QtJobServiceBase* service)
-        : IDirectiveHandler(dataDir, service) {}
+                 QtJobServiceBase* service,
+                 Model& repo)
+        : IDirectiveHandler(dataDir, service, repo) {}
 
     void handle(const JobDescriptor& job,
                 std::atomic<bool>& /*stopFlag*/) override

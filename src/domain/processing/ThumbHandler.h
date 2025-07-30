@@ -14,7 +14,7 @@
 class ThumbHandler : public IDirectiveHandler {
 public:
     ThumbHandler(const std::filesystem::path& dataDir, QtJobServiceBase* service, Model& repo)
-	: IDirectiveHandler(dataDir, service), m_repo(repo) {}
+	: IDirectiveHandler(dataDir, service, repo) {}
 
     void handle(const JobDescriptor& job, std::atomic<bool>& stopFlag) override {
 	emitStart(job);
@@ -34,7 +34,7 @@ public:
 	}
 
 	// get model from Repo
-	ModelData md = m_repo.getModelByFilePath(job.sourcePath);
+	ModelData md = _repo.getModelByFilePath(job.sourcePath);
 
 	// verify we have a model and it's still included
 	if (md.id <= 0 || md.is_included == false) {
@@ -43,7 +43,7 @@ public:
 	}
 	
 	// get our selected object(s) (even though we only care about the first one)
-	std::vector<ObjectData> selected = m_repo.getSelectedObjectsForModel(md.id);
+	std::vector<ObjectData> selected = _repo.getSelectedObjectsForModel(md.id);
 	if (selected.empty()) {
 	    // sanity: this shouldn't be possible if our processor is working correctly
 	    emitFinish(job, false);
@@ -120,7 +120,7 @@ public:
 	    return;
 	}
 	md.thumbnail.assign(thumbnailData.begin(), thumbnailData.end());
-	m_repo.updateModel(md.id, md);
+	_repo.updateModel(md.id, md);
 
 	// success
 	emitFinish(job);
@@ -128,5 +128,4 @@ public:
     }
 
 private:
-    Model& m_repo;
 };
