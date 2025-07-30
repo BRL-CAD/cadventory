@@ -2,48 +2,44 @@
 
 #include "QtJobServiceBase.h"
 #include "SQLJobQueue.h"    // needed for JobDescriptor - TODO: should that live by itself?
+#include "Model.h"
 
 #include <filesystem>
 #include <atomic>
+#include <memory>
+#include <optional>
+
+// bundle of useful information from the model / job to be used by the handler
+struct HandlerContext {
+    std::filesystem::path outputPath;       // .cadventory/data/ab/abc123/objName/directive.ext
+    std::string primaryObject;
+    std::shared_ptr<const ModelData> modeldata;
+};
 
 class IDirectiveHandler {
 public:
     virtual ~IDirectiveHandler() = default;
 
     // handle the given job. 'stopFlag' may be set to true to abort early
-    virtual void handle(const JobDescriptor& job,
-                        std::atomic<bool>& stopFlag) = 0;
+    virtual void handle(const JobDescriptor& job, std::atomic<bool>& stopFlag) = 0;
 
 protected:
 
     // dataDir: .cadventory/data/ directory
     // service: qt tie so we can emit start/finish signals
-    IDirectiveHandler(const std::filesystem::path& dataDir,
-                      QtJobServiceBase* service)
-        : _dataDir(dataDir), _service(service) {}
+    // repo:    model repo
+    IDirectiveHandler(const std::filesystem::path& dataDir, QtJobServiceBase* service, Model& repo)
+        : _dataDir(dataDir), _service(service), _repo(repo) {}
 
-    const std::filesystem::path _dataDir;
-    QtJobServiceBase*           _service;
+    // return std::nullopt if job is already finished or no longer needed
+    std::optional<HandlerContext> needsHandled(const JobDescriptor& job, std::string ext);
 
     // emit helpers
-    void emitStart(const JobDescriptor& job) const {
-        if (!_service)
-          return;
+    void emitStart(const JobDescriptor& job) const;
+    void emitFinish(const JobDescriptor& job, bool ok = true) const;
 
-        QMetaObject::invokeMethod(_service, "directiveStarted",
-            Qt::QueuedConnection,
-            Q_ARG(QString, QString::fromStdString(job.directive)),
-            Q_ARG(QString, QString::fromStdString(job.fileId)));
-    }
-
-    void emitFinish(const JobDescriptor& job, bool ok = true) const {
-        if (!_service)
-          return;
-
-        QMetaObject::invokeMethod(_service, "directiveFinished",
-            Qt::QueuedConnection,
-            Q_ARG(QString, QString::fromStdString(job.directive)),
-            Q_ARG(QString, QString::fromStdString(job.fileId)),
-            Q_ARG(bool, ok));
-    }
+    // members
+    const std::filesystem::path _dataDir;
+    QtJobServiceBase*           _service;
+    Model&                      _repo;
 };
