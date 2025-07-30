@@ -47,6 +47,9 @@ set(SRCS
   src/core/main.cpp
 
   src/domain/jobqueue/FileJobQueue.cpp
+  src/domain/jobqueue/QtJobServiceBase.cpp
+  src/domain/jobqueue/JobManager.cpp
+  src/domain/jobqueue/JobWorker.cpp
   src/domain/jobqueue/SQLJobQueue.cpp
   src/domain/library/FilesystemIndexer.cpp
   src/domain/library/Library.cpp
@@ -57,6 +60,8 @@ set(SRCS
   src/domain/processing/IndexingWorker.cpp
   src/domain/processing/ProcessGFiles.cpp
   src/domain/processing/ReportGeneratorWorker.cpp
+  src/domain/processing/IDirectiveHandler.cpp
+  src/domain/processing/sha1.cpp
 
   src/ui/filesystem/FileSystemModelWithCheckboxes.cpp
   src/ui/filesystem/FileSystemFilterProxyModel.cpp
@@ -102,6 +107,7 @@ set(HEADERS
   src/domain/processing/DummyHandler.h
   src/domain/processing/ProcessHandler.h
   src/domain/processing/ThumbHandler.h
+  src/domain/processing/sha1.h
 
   src/ui/filesystem/FileSystemFilterProxyModel.h
   src/ui/filesystem/FileSystemModelWithCheckboxes.h

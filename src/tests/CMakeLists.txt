@@ -194,6 +194,7 @@ add_cadventory_test(
     SOURCES
         ProcessGFilesTest.cpp
         ../domain/processing/ProcessGFiles.cpp
+        ../domain/processing/sha1.cpp
         ../domain/model/Model.cpp
 )
 
@@ -203,6 +204,7 @@ add_cadventory_test(
         IndexingWorkerTest.cpp
         ../domain/processing/IndexingWorker.cpp
         ../domain/processing/ProcessGFiles.cpp
+        ../domain/processing/sha1.cpp
         ../domain/library/Library.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/model/Model.cpp
@@ -223,9 +225,15 @@ add_cadventory_test(
         MainWindowTest.cpp
         ../core/CADventory.cpp
         ../core/executeCommand.cpp
+        ../domain/processing/IDirectiveHandler.cpp
+        ../domain/processing/sha1.cpp
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/IndexingWorker.cpp
         ../domain/processing/ReportGeneratorWorker.cpp
+        ../domain/jobqueue/QtJobServiceBase.cpp
+        ../domain/jobqueue/JobManager.cpp
+        ../domain/jobqueue/JobWorker.cpp
+        ../domain/jobqueue/SQLJobQueue.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
         ../domain/llm/OllamaCLIService.cpp
@@ -260,9 +268,15 @@ add_cadventory_test(
         LibraryWindowTest.cpp
         ../core/CADventory.cpp
         ../core/executeCommand.cpp
+        ../domain/processing/IDirectiveHandler.cpp
+        ../domain/processing/sha1.cpp
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/IndexingWorker.cpp
         ../domain/processing/ReportGeneratorWorker.cpp
+        ../domain/jobqueue/QtJobServiceBase.cpp
+        ../domain/jobqueue/JobManager.cpp
+        ../domain/jobqueue/JobWorker.cpp
+        ../domain/jobqueue/SQLJobQueue.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
         ../domain/llm/OllamaCLIService.cpp
@@ -301,6 +315,8 @@ add_cadventory_test(
         ../domain/jobqueue/SQLJobQueue.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/processing/ProcessGFiles.cpp
+        ../domain/processing/IDirectiveHandler.cpp
+        ../domain/processing/sha1.cpp
         ../domain/model/Model.cpp
 )
 
@@ -312,6 +328,8 @@ add_cadventory_test(
         ../domain/jobqueue/QtJobServiceBase.cpp
         ../domain/jobqueue/SQLJobQueue.cpp
         ../domain/processing/ProcessGFiles.cpp
+        ../domain/processing/IDirectiveHandler.cpp
+        ../domain/processing/sha1.cpp
         ../domain/model/Model.cpp
 )
 
