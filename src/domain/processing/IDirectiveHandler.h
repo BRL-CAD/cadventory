@@ -13,7 +13,7 @@
 struct HandlerContext {
     std::filesystem::path outputPath;       // .cadventory/data/ab/abc123/objName/directive.ext
     std::string primaryObject;
-    std::shared_ptr<const ModelData> modeldata;
+    std::shared_ptr<ModelData> modeldata;
 };
 
 class IDirectiveHandler {
