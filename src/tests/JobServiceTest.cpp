@@ -168,5 +168,5 @@ TEST_CASE("Full Job manager+worker pipeline", "[jobService]") {
         }
     }
     REQUIRE(outputFiles > 0);
-    REQUIRE(outputDirs == 1);
+    REQUIRE(outputDirs == 3);   // <bin>/<hash>/<obj>/
 }
