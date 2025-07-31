@@ -23,6 +23,11 @@ public:
     void handle(const JobDescriptor& job,
                 std::atomic<bool>& /*stopFlag*/) override
     {
+        // check this job is still needed
+        auto ctx = needsHandled(job, "");
+        if (!ctx)
+            return;
+
         // signal start
         emitStart(job);
 
@@ -33,16 +38,7 @@ public:
         }
         ProcessGFiles processor(&_repo);
 
-        // verify we still have an entry for this filepath in the ModelRepo
-        ModelData existing = _repo.getModelByFilePath(job.sourcePath);
-
-        if (!existing.id) {
-            // this shouldn't be possible if our worker+manager are working properly
-            emitFinish(job, false);
-            return;
-        }
-
-        auto ret = processor.processGFile(existing);
+        auto ret = processor.processGFile(*ctx->modeldata.get());
         if (!ret) {
             // something went wrong
             emitFinish(job, false);

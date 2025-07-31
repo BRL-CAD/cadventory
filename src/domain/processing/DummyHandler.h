@@ -46,6 +46,14 @@ public:
         // signal start
         emitStart(job);
 
+        /* NOTE: example usage of handler context
+        auto ctx = needsHandled(job, "");
+        if (!ctx) {
+            emitFinish(job, false);
+            return;
+        }
+        */
+
         // 'work'
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -53,6 +61,8 @@ public:
         std::filesystem::path outputDir = _dataDir / job.fileId;
         std::filesystem::create_directories(outputDir);
         std::ofstream(outputDir / "dummy").close();
+        // NOTE: ideally we'd use ctx.outputPath but this is just an example handler
+        // std::ofstream(ctx.outputPath).close();
 
         // signal finish
         if (_service) {
