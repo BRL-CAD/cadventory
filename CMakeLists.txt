@@ -214,6 +214,15 @@ install(FILES doc/CADventory.docx
   DESTINATION ${CMAKE_INSTALL_DOCDIR}
 )
 
+# Have Windows start a console when debugging
+if (WIN32)
+  target_link_options(cadventory PRIVATE
+    "$<$<CONFIG:Debug>:/SUBSYSTEM:CONSOLE>"
+    "$<$<CONFIG:RelWithDebInfo>:/SUBSYSTEM:CONSOLE>"
+    "$<$<CONFIG:Release>:/SUBSYSTEM:WINDOWS>"
+  )
+endif()
+
 # Windows wants DLLs in the same folder as the app
 if(WIN32)
   # Function to copy Qt DLLs for a given target
