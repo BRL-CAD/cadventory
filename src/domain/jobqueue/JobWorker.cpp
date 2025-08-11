@@ -84,7 +84,7 @@ static auto spawnWorkerThreads(SQLJobQueue& queue,
 
 void JobWorker::serviceLoop() {
     // TODO: a lot of these should collapse into a 'Library'?
-    Model            repo(modelRoot());     // just using this for SQL repo interactions
+    Model            repo(rootDir());     // just using this for SQL repo interactions
     SQLJobQueue      queue(jobsDir());
     auto             dataRoot = dataDir();
     auto             service  = static_cast<QtJobServiceBase*>(this);
