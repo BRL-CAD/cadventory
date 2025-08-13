@@ -70,9 +70,7 @@ constexpr const char* FINISH_SQL =
 constexpr const char* RESCUE_SQL =
     "UPDATE jobs SET claimed_by=NULL, claimed_at=NULL, retry_cnt=retry_cnt+1"
     " WHERE claimed_by IS NOT NULL"
-    "   AND done_at IS NULL"
-    "   AND (strftime('%s','now') - CAST(claimed_at AS REAL)) > ?1;"
-    "   AND (strftime('%s','now') - claimed_at) > ?1;";
+    "   AND (strftime('%s','now') - CAST(claimed_at AS REAL)) > ?1;";
 
 
 #ifndef MODEL_DB_INTEGRATION
