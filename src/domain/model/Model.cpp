@@ -417,6 +417,33 @@ bool Model::updateModel(int id, const ModelData& modelData) {
     return true;
 }
 
+bool Model::setModelProcessed(int id, bool is_processed) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex);
+
+    static const char* SQL =
+        "UPDATE models SET is_processed = ?1 WHERE id = ?2;";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, SQL, -1, &stmt, nullptr) != SQLITE_OK) {
+        return false;
+    }
+
+    int rc = SQLITE_OK;
+    rc |= sqlite3_bind_int(stmt, 1, is_processed ? 1 : 0);
+    rc |= sqlite3_bind_int(stmt, 2, id);
+    if (rc != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        return false;
+    }
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE)
+        return false;
+
+    return true;
+}
+
 bool Model::deleteModel(int id) {
   // First, delete associated objects
   if (!deleteObjectsForModel(id)) {

@@ -83,6 +83,8 @@ public:
     bool deleteTables();
     void resetDatabase();
 
+    bool setModelProcessed(int id, bool is_processed);
+
     // Getters (returns ModelData or std::nullopt on failure)
     std::optional<ModelData> getModelById(int id);
 
