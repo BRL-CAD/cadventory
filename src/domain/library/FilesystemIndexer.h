@@ -18,6 +18,7 @@ public:
   void setProgressCallback(std::function<void(const std::string&)> callback);
 
   // returns number of files indexed
+  // NOTE: explicit constructor calls this by default
   size_t indexDirectory(const std::string& path, long depth = 3);
 
   std::vector<std::string> findFilesWithSuffixes(const std::vector<std::string>& suffixes);
