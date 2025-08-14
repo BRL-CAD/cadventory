@@ -4,21 +4,14 @@ void IDirectiveHandler::emitStart(const JobDescriptor& job) const {
     if (!_service)
         return;
 
-    QMetaObject::invokeMethod(_service, "directiveStarted",
-        Qt::QueuedConnection,
-        Q_ARG(QString, QString::fromStdString(job.directive)),
-        Q_ARG(QString, QString::fromStdString(job.fileId)));
+    _service->directiveStarted(QString::fromStdString(job.directive), QString::fromStdString(job.fileId));
 }
 
 void IDirectiveHandler::emitFinish(const JobDescriptor& job, bool ok) const {
     if (!_service)
         return;
 
-    QMetaObject::invokeMethod(_service, "directiveFinished",
-        Qt::QueuedConnection,
-        Q_ARG(QString, QString::fromStdString(job.directive)),
-        Q_ARG(QString, QString::fromStdString(job.fileId)),
-        Q_ARG(bool, ok));
+    _service->directiveFinished(QString::fromStdString(job.directive), QString::fromStdString(job.fileId), ok);
 }
 
 std::optional<HandlerContext> IDirectiveHandler::needsHandled(const JobDescriptor& job, std::string ext) {
