@@ -1,17 +1,18 @@
 #include "JobManager.h"
 
+#include <filesystem>
+
 #include "FilesystemIndexer.h"
 #include "Model.h"
 
 void JobManager::serviceLoop() {
     const std::string root = rootDir();      // inherit from QtJobServiceBase
-    const long        maxDepth = 3;            // default depth
+    const long        maxDepth = 3;          // default depth
 
     Model repo(root);
 
     // scan filesystem
     FilesystemIndexer indexer(root.c_str(), maxDepth);
-    size_t totalIndexed = indexer.indexDirectory(root, maxDepth);
 
     // filter .g files
     auto gFiles = indexer.findFilesWithSuffixes({".g"});
@@ -26,9 +27,10 @@ void JobManager::serviceLoop() {
         // consolidate_filesystem_state();
 
         ModelData md{};
-        md.file_path      = file;
-        md.is_processed   = false;
-        md.is_included    = true;   // new files are included by default
+        md.short_name   = std::filesystem::path(file).filename().string();
+        md.file_path    = std::filesystem::path(file).generic_string();       // use generic_string so we always have '/' separators
+        md.is_processed = false;
+        md.is_included  = true;   // new files are included by default
 
         if (repo.insertModel(md))
             ++inserted;
@@ -36,8 +38,8 @@ void JobManager::serviceLoop() {
 
     // update stats
     updateStats([&](JobServiceStats& st) {
-        st.modelsProcessed = totalIndexed;      // models indexed
-        st.jobsNew         = inserted;          // models inserted into repo
+        st.modelsProcessed = gFiles.size();      // models indexed
+        st.jobsNew         = inserted;           // models inserted into repo
     });
 
     // for now this is a one-pass loop. Eventually we'll want to poll or something while(running)
