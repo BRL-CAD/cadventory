@@ -33,9 +33,9 @@ static auto makeHandlerRegistry(Model& repo,
 
 // spawn n-workerCount threads, each looping on claim -> handle -> finish. Threads will force
 // stop when given stopFlag
-static auto spawnWorkerThreads(SQLJobQueue& queue,
-                               const std::filesystem::path& dataRoot,
-                               HandlerRegistry& handlers,
+static auto spawnWorkerThreads(const std::filesystem::path& jobsDir,
+                               const std::filesystem::path& dataDir,
+                               Model& repo,
                                QtJobServiceBase* service,
                                size_t workerCount,
                                std::atomic<bool>& stopFlag)
@@ -43,11 +43,19 @@ static auto spawnWorkerThreads(SQLJobQueue& queue,
     std::vector<std::thread> threads;
     threads.reserve(workerCount);
 
-    for (size_t i = 0; i < workerCount; ++i) {
-        threads.emplace_back([&, i]() {
+    for (size_t workerIdx = 0; workerIdx < workerCount; ++workerIdx) {
+        threads.emplace_back(
+            [jobsDir, dataDir, &repo, service, &stopFlag, workerIdx]() {
+            // each thread gets its own queue
+            SQLJobQueue queue(jobsDir);
+
+            // each thread gets its own handler registry
+            auto handlers = makeHandlerRegistry(repo, queue, dataDir, service);
+
             // TODO: better specific workerId (hostname?)
-            int workerId = static_cast<int>(i);
+            int workerId = static_cast<int>(workerIdx);
             std::string workerId_str = std::to_string(workerId);
+
             while (!stopFlag.load()) {
                 auto jobOpt = queue.claimJob(workerId_str);
                 if (!jobOpt) {
@@ -89,14 +97,11 @@ void JobWorker::serviceLoop() {
     auto             dataRoot = dataDir();
     auto             service  = static_cast<QtJobServiceBase*>(this);
 
-    // build handlers (with access to the service for signals)
-    auto handlers   = makeHandlerRegistry(repo, queue, dataRoot, service);
-
     // spawn worker threads that inf. process jobs until stopFlag is true
     std::atomic<bool> stopFlag{false};
     // TODO: make threadCount a config option
     size_t threadCount = 1;
-    auto threads = spawnWorkerThreads(queue, dataRoot, handlers, service, threadCount, stopFlag);
+    auto threads = spawnWorkerThreads(jobsDir(), dataDir(), repo, service, threadCount, stopFlag);
 
     // main loop: poll -> enqueue -> drain -> repeat
     while (state() == JobServiceState::Running) {
@@ -126,6 +131,8 @@ void JobWorker::serviceLoop() {
 
         // pause before re-poll
         std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        // TODO: probably want to signal to refresh all models periodically so other instances updates are reflected
     }
 
     // stopped running: signal threads to stop and join
