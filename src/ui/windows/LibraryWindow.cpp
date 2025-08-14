@@ -44,8 +44,7 @@ LibraryWindow::LibraryWindow(QWidget* parent)
     availableModelsProxyModel(new ModelFilterProxyModel(this)),
     modelCardDelegate(new ModelCardDelegate(this)),
     explorerModel(new QStandardItemModel(this)),
-    indexingThread(nullptr),
-    indexingWorker(nullptr)
+    jobSvc(nullptr)
 {
     ui.setupUi(this);
 }
@@ -53,28 +52,8 @@ LibraryWindow::LibraryWindow(QWidget* parent)
 LibraryWindow::~LibraryWindow() {
     qDebug() << "LibraryWindow destructor called";
 
-    // Ensure the indexing thread is stopped if it wasn't already
-    if (indexingThread && indexingThread->isRunning()) {
-        qDebug() << "Waiting for indexingThread to finish in destructor";
-        indexingWorker->stop();
-        indexingThread->requestInterruption();
-        indexingThread->quit();
-        indexingThread->wait();
-        qDebug() << "indexingThread finished in destructor";
-    }
-
-    // Delete indexingWorker and indexingThread if they exist
-    if (indexingWorker) {
-        delete indexingWorker;
-        indexingWorker = nullptr;
-        qDebug() << "indexingWorker deleted in destructor";
-    }
-
-    if (indexingThread) {
-        delete indexingThread;
-        indexingThread = nullptr;
-        qDebug() << "indexingThread deleted in destructor";
-    }
+    if (jobSvc)
+        jobSvc->stop();
 }
 
 void LibraryWindow::loadFromLibrary(Library* _library) {
@@ -94,11 +73,43 @@ void LibraryWindow::loadFromLibrary(Library* _library) {
     // Set up connections
     setupConnections();
 
-    // Start indexing to process any already included but unprocessed models
-    startIndexing();
+    // setup and starts our job worker for this library
+    setupLibraryWorker();
+}
+
+void LibraryWindow::setupLibraryWorker() {
+    // get our job service
+    jobSvc = dynamic_cast<QtJobServiceBase*>(CADventory::instance()->getJobService());
+    if (!jobSvc)
+        return;
+
+    // sanity: make sure we stop before modifying paths
+    if (jobSvc->state() != JobServiceState::Stopped)
+        jobSvc->stop();
+
+    // setup paths for this library
+    // TODO: we probably want some utility class and/or job service itself
+    //       to manage all these hidden paths
+    namespace fs = std::filesystem;
+    fs::path root = library->fullPath;
+    fs::path hidden = model->getHiddenDirectoryPath();
+    fs::path jobs = hidden / "jobsdb";
+    fs::path data = hidden / "data";
+    jobSvc->setRootPaths(root.string(), jobs.string(), data.string(), hidden.string());
+
+    // setup connections
+    const auto ct = static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::UniqueConnection);
+    connect(jobSvc, &QtJobServiceBase::directiveFinished, this, &LibraryWindow::onModelProcessed, ct);
+    connect(jobSvc, &QtJobServiceBase::statsUpdated, this, &LibraryWindow::onProgressUpdated, ct);
+    // TODO: service infinitely loops, so we never emit 'finished' unless stop() is called
+    connect(jobSvc, &QtJobServiceBase::finished, this, &LibraryWindow::onIndexingComplete, ct);
+
+    // good to go
+    jobSvc->start();
 }
 
 void LibraryWindow::startIndexing() {
+    /*
     if (indexingThread && indexingThread->isRunning()) {
         if (indexingWorker) {
             indexingWorker->requestReindex();
@@ -123,6 +134,7 @@ void LibraryWindow::startIndexing() {
 
     // Start the indexing thread
     indexingThread->start();
+    */
 }
 
 void LibraryWindow::processNextFile() {
@@ -592,8 +604,11 @@ void LibraryWindow::onSettingsClicked(int modelId) {
     // Implement settings dialog or other actions here
 }
 
-void LibraryWindow::onModelProcessed(int modelId) {
-    Q_UNUSED(modelId);
+void LibraryWindow::onModelProcessed(const QString& directive, const QString& id, bool success) {
+    Q_UNUSED(directive); Q_UNUSED(id);
+
+    if (!success)
+        return;
     model->refreshModelData();
     availableModelsProxyModel->invalidate();
     
@@ -604,13 +619,8 @@ void LibraryWindow::onModelProcessed(int modelId) {
 void LibraryWindow::on_backButton_clicked() {
     qDebug() << "Back button clicked";
 
-    if (indexingWorker) {
-        qDebug() << "Requesting indexingWorker to stop";
-        indexingWorker->stop();
-        qDebug() << "indexingWorker->stop() called";
-    } else {
-        qDebug() << "indexingWorker is null or already deleted";
-    }
+    if (jobSvc)
+        jobSvc->stop();
 
     // Hide the LibraryWindow
     this->hide();
@@ -674,14 +684,20 @@ void LibraryWindow::onGeometryBrowserClicked(int modelId) {
     dialog->exec();
 }
 
-void LibraryWindow::onProgressUpdated(const QString& currentObject, int percentage) {
+void LibraryWindow::onProgressUpdated(const JobServiceStats& stats) {
+    if (!stats.jobsNew) {
+        ui.statusLabel->setText("Processing complete");
+        ui.progressBar->setVisible(false);
+        return;
+    }
+
+    int percentage = stats.jobsClaimed / stats.jobsNew;
     ui.progressBar->setValue(percentage);
 
     if (percentage >= 100) {
         ui.statusLabel->setText("Processing complete");
         ui.progressBar->setVisible(false);
     } else {
-        ui.statusLabel->setText(QString("Processing: %1").arg(currentObject));
         ui.progressBar->setVisible(true);
     }
 }
@@ -699,8 +715,6 @@ void LibraryWindow::onInclusionChanged(const QModelIndex& index, bool /*included
 
 void LibraryWindow::onIndexingComplete() {
     qDebug() << "Indexing complete";
-    indexingThread = nullptr;
-    indexingWorker = nullptr;
 
     // Refresh model data
     model->refreshModelData();

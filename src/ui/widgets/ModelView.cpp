@@ -10,6 +10,7 @@
 #include "ui_modelview.h"
 #include "CADventory.h"
 #include "AIModelTagging.h"
+#include "QtJobServiceBase.h"
 
 #include <QtConcurrent>     
 #include <QFuture>          
@@ -47,6 +48,33 @@ ModelView::ModelView(int modelId, Model* model, QWidget* parent)
   connect(ui.generateTagsButton, &QPushButton::clicked, this, &ModelView::onGenerateTagsClicked);
   connect(ui.cancelTagButton, &QPushButton::clicked, this, &ModelView::onCancelTagGenerationClicked);
 
+  // connect job service so we can refresh view on job completions
+  // NOTE: this is VERY lazy and non-performant - ANY job completion refreshes the current view
+  if (auto* svc = dynamic_cast<QtJobServiceBase*>(CADventory::instance()->getJobService())) {
+    connect(svc, &QtJobServiceBase::directiveFinished, this,
+    [this](const QString& directive, const QString& /*jobid*/, bool success) {
+        if (!success)
+            return;
+
+        // refresh model
+        if (auto md = this->model->getModelById(this->modelId)) {
+            this->currModel = *md;
+            loadPreviewImage();
+        }
+    },
+    Qt::QueuedConnection);
+  }
+
+  // connect geometryBrowser to clear our thumbnail on changes
+  connect(geometryBrowser, &GeometryBrowserDialog::selectionChanged,
+        this, [this](int changedModelId, const QString&){
+            if (changedModelId != this->modelId) 
+                return;
+
+            // clear preview when selection changes
+            ui.previewLabel->setPixmap(QPixmap());
+            ui.previewLabel->setText("Updating preview...");
+        });
 }
 
 void ModelView::loadPreviewImage() {
@@ -90,6 +118,9 @@ void ModelView::onPropertyChanged(QListWidgetItem* item) {
   // Update the properties map and the model
   properties[key] = value;
   model->setPropertyForModel(modelId, key.toStdString(), value.toStdString());
+
+  // something changed - invalidate process status
+  model->setModelProcessed(modelId, false);
 }
 
 void ModelView::populateTags() {

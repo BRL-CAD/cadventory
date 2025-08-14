@@ -10,12 +10,29 @@
 #include <QSettings>
 #include <QMessageBox>
 #include <QProgressDialog>
+#include <QCommandLineParser>
 
 #include "MainWindow.h"
 #include "SplashDialog.h"
 #include "FilesystemIndexer.h"
 #include "OllamaCLIService.h"
+#include "JobManager.h"
+#include "JobWorker.h"
 
+
+static void addOptions(QCommandLineParser& parser) {
+    // options
+    QCommandLineOption indexOpt(QStringList{"index"},
+                                "Index library (CLI, no GUI)",
+                                "path");
+    QCommandLineOption resetOpt(QStringList{"r","reset"},
+                                "Reset settings and model database");
+    // TODO: --worker (no gui worker)
+
+    parser.addOption(indexOpt);
+    parser.addOption(resetOpt);
+    parser.addHelpOption();
+}
 
 CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(parent)
 {
@@ -29,6 +46,11 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
     // TODO: set our version using config.h
     QCoreApplication::setApplicationVersion("0.2.0");
 
+    // cli options
+    QCommandLineParser parser;
+    addOptions(parser);
+    parser.process(QCoreApplication::arguments());
+
     // choose our llm backend
     // TODO: if/when we have more than one backend use a factory
     // TODO: have a top-level define for our ollama path
@@ -38,15 +60,29 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
     // TODO: have a top-level define (or settings option) for our desired model
     this->tagger = std::make_unique<AIModelTagging>(*llm, "llama3", this);
 
-    // if any arg is specified, assume CLI-mode
-    if (argc > 1) {
-        this->gui = false;
-        connect(this, &CADventory::indexingComplete, qApp, &QCoreApplication::quit);
+    // reset if requested
+    if (parser.isSet("reset")) {
+        // clear settings
+        QSettings().clear();
+        QSettings().sync();
+    }
 
-        // could be separate setting, but let CLI-mode also wipe out all settings
-        QSettings settings;
-        settings.clear();
-        settings.sync();
+    // choose our JobService
+    if (parser.isSet("index")) {
+        // use manager job service
+        this->jobService = std::make_unique<JobManager>();
+
+        // use value passed at command line if we have it; else default to home path
+        QString root = parser.isSet("index") ? parser.value("index") : QDir::homePath();
+        this->jobService->setRootPaths(root.toStdString());
+
+        // quit automatically after JobManager completes since we're just indexing
+        connect(static_cast<QtJobServiceBase*>(jobService.get()), &QtJobServiceBase::finished, qApp, &QCoreApplication::quit);
+
+        // no gui
+        this->gui = false;
+    } else {
+        this->jobService = std::make_unique<JobWorker>();
     }
 }
 
@@ -55,22 +91,30 @@ CADventory::~CADventory()
 {
     qDebug() << "CADventory destructor called - cleaning up resources";
 
+    if (jobService)
+        jobService->stop();
+
     s_instance = nullptr;
     delete window;
     delete splash;
 }
 
 void CADventory::run() {
-    // slight delay to let the splash screen settle
+    if (!this->gui) {
+        // if we're running no gui, just start the service
+        jobService->start();
+        return;
+    }
+
+    // slight delay and then show our main window
     QTimer::singleShot(250, this, [this]() {
-        std::string home = QDir::homePath().toStdString();
+        initMainWindow();
 
-        // if we didn't get a homestr, start in the current dir
-        if (home.empty())
-            home = ".";
-
-        // start indexing
-        this->indexDirectory(home.c_str());
+        // TODO: we don't expect to index on startup anymore (instead we assume a job manager
+        //       has already indexed and we're pulling the cache from the db. What stats do we 
+        //       want to show as the message on startup?
+        // TODO: should also probably update this signal - we're not 'indexing' anything..
+        emit indexingComplete("Select or add a new library");
     });
 }
 

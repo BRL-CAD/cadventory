@@ -18,6 +18,7 @@
 #include "IndexingWorker.h"
 #include "FileSystemModelWithCheckboxes.h"
 #include "FileSystemFilterProxyModel.h"
+#include "QtJobServiceBase.h"
 
 class MainWindow;
 
@@ -54,8 +55,8 @@ private slots:
     void onExplorerModelDoubleClicked(const QModelIndex& index);
 
     void startIndexing();
-    void onModelProcessed(int modelId);
-    void onProgressUpdated(const QString& currentObject, int percentage);
+    void onModelProcessed(const QString& directive, const QString& id, bool success);
+    void onProgressUpdated(const JobServiceStats& stats);
 
     // Filesystem view slots
     void onInclusionChanged(const QModelIndex& index, bool included);
@@ -66,6 +67,7 @@ private:
     void setupModelsAndViews();
     void setupConnections();
     void setupExplorerView();
+    void setupLibraryWorker();
     void populateExplorerModel();
 
     void processNextFile();
@@ -91,9 +93,8 @@ private:
 
     QList<int> selectedModelIds;
 
-    // Indexing worker and thread
-    QThread* indexingThread;
-    IndexingWorker* indexingWorker;
+    // convenience - main app manages lifecycle
+    QtJobServiceBase* jobSvc = nullptr;
 
     FileSystemModelWithCheckboxes* fileSystemModel;
     FileSystemFilterProxyModel* fileSystemProxyModel;

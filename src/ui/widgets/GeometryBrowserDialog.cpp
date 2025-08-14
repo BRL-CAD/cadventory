@@ -139,9 +139,15 @@ void GeometryBrowserDialog::onItemChanged(QTreeWidgetItem* item, int column) {
 
             // update the selection state in the model
             model->setObjectData(objectId, true, Model::IsSelectedRole);
+
+            // invalidate the model so we can reprocess
+            model->setModelProcessed(modelId, false);
+            emit selectionChanged(modelId, itemName);
         } else {
             // If the item is unchecked, update the model
             model->setObjectData(objectId, false, Model::IsSelectedRole);
+
+            emit selectionChanged(modelId, QString());
         }
 
         isUpdatingCheckState = false;

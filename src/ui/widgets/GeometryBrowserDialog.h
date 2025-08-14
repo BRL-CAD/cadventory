@@ -13,6 +13,9 @@ public:
     GeometryBrowserDialog(int modelId, Model* model, QWidget* parent = nullptr);
     QTreeWidget* getTreeWidget() const { return treeWidget; }
 
+signals:
+    void selectionChanged(int modelId, const QString& objName);
+
 private slots:
     void onItemChanged(QTreeWidgetItem* item, int column);
 

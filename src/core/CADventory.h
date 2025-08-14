@@ -8,6 +8,7 @@
 
 #include "ILLMService.h"
 #include "AIModelTagging.h"
+#include "IJobService.h"
 
 
 class CADventory : public QObject
@@ -23,6 +24,7 @@ public:
     void run();		// kicks off file indexing
 
     AIModelTagging* getTagger() const { return tagger.get(); }
+    IJobService* getJobService() const { return jobService.get(); }
 
 signals:
   void indexingComplete(const char *summary);
@@ -40,6 +42,7 @@ private:
     // services
     std::unique_ptr<ILLMService>    llm;
     std::unique_ptr<AIModelTagging> tagger;
+    std::unique_ptr<IJobService>    jobService;
 
     // state
     QMainWindow* window = nullptr;
