@@ -26,12 +26,19 @@ Model::Model(const std::string& libraryPath, QObject* parent)
   // Set the database path inside the hidden directory
   dbPath = (hiddenDir / "metadata.db").string();
 
-  if (sqlite3_open(dbPath.c_str(), &db) != SQLITE_OK) {
+  if (sqlite3_open_v2(dbPath.c_str(), &db,
+                      SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
+                      nullptr) != SQLITE_OK) {
     std::cerr << "Can't open database at " << dbPath << ": "
               << sqlite3_errmsg(db) << std::endl;
   } else {
-    std::cout << "Opened database at " << dbPath << " successfully"
-              << std::endl;
+    std::cout << "Opened database at " << dbPath << " successfully" << std::endl;
+
+    sqlite3_busy_timeout(db, 1000); // 1s
+    sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "PRAGMA journal_mode = WAL;", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "PRAGMA synchronous = NORMAL;", nullptr, nullptr, nullptr);
+
     createTables();
 
     loadModelsFromDatabase();
@@ -40,7 +47,7 @@ Model::Model(const std::string& libraryPath, QObject* parent)
 
 Model::~Model() {
   if (db) {
-    sqlite3_close(db);
+    sqlite3_close_v2(db);
   }
 }
 
@@ -1065,7 +1072,7 @@ std::vector<ObjectData> Model::getSelectedObjectsForModel(int model_id) {
   return selectedObjects;
 }
 
-void Model::beginTransaction() { executeSQL("BEGIN TRANSACTION;"); }
+void Model::beginTransaction() { executeSQL("BEGIN IMMEDIATE;"); }
 
 void Model::commitTransaction() { executeSQL("COMMIT;"); }
 
