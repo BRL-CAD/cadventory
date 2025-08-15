@@ -35,9 +35,12 @@ signals:
     void statsUpdated(JobServiceStats);
     void errorOccurred(QString message);     // emitted on unhandled exception
     void finished();                         // emitted after stop() completes
+    void refreshSuggested();
     // directive specific
     void directiveStarted(const QString& directive, const QString& fileId);
     void directiveFinished(const QString& directive, const QString& fileId, bool success);
+public slots:
+    void emitRefreshSuggested() { emit refreshSuggested(); }
 
 protected:
     // 'brains' of derived classes - runs inside m_thread

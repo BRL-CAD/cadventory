@@ -120,6 +120,10 @@ void JobWorker::serviceLoop() {
     std::cerr << "[JobWorker::ServiceLoop()] jobs/numThreads: " << threadCount << "\n";
     auto threads = spawnWorkerThreads(jobsDir(), dataDir(), rootDir(), service, threadCount, stopFlag);
 
+    using clock = std::chrono::steady_clock;
+    const auto refreshInterval = std::chrono::seconds(5);
+    auto lastRefresh = clock::now();
+
     // main loop: poll -> enqueue -> drain -> repeat
     while (state() == JobServiceState::Running) {
         // poll unprocessed models
@@ -143,15 +147,19 @@ void JobWorker::serviceLoop() {
         }
 
         // spin while we work through job queue
-        // TOOD: implement pendingCount()
+        // TODO: implement pendingCount()
         /*while (queue.pendingCount() > 0 && state() == JobServiceState::Running) {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }*/
 
+        // poke service to refresh periodically
+        if (service && clock::now() - lastRefresh >= refreshInterval) {
+            lastRefresh = clock::now();
+            service->emitRefreshSuggested();
+        }
+
         // pause before re-poll
         std::this_thread::sleep_for(std::chrono::seconds(1));
-
-        // TODO: probably want to signal to refresh all models periodically so other instances updates are reflected
     }
 
     // stopped running: signal threads to stop and join

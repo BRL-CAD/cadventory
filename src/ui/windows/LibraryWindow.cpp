@@ -101,6 +101,7 @@ void LibraryWindow::setupLibraryWorker() {
     const auto ct = static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::UniqueConnection);
     connect(jobSvc, &QtJobServiceBase::directiveFinished, this, &LibraryWindow::onModelProcessed, ct);
     connect(jobSvc, &QtJobServiceBase::statsUpdated, this, &LibraryWindow::onProgressUpdated, ct);
+    connect(jobSvc, &QtJobServiceBase::refreshSuggested, this, &LibraryWindow::onRefreshRequested, ct);
     // TODO: service infinitely loops, so we never emit 'finished' unless stop() is called
     connect(jobSvc, &QtJobServiceBase::finished, this, &LibraryWindow::onIndexingComplete, ct);
 
@@ -602,6 +603,14 @@ void LibraryWindow::onSettingsClicked(int modelId) {
     // Handle settings button click
     qDebug() << "Settings button clicked for model ID:" << modelId;
     // Implement settings dialog or other actions here
+}
+
+void LibraryWindow::onRefreshRequested() {
+    model->refreshModelData();
+    availableModelsProxyModel->invalidate();
+
+    // Update explorer model
+    populateExplorerModel();
 }
 
 void LibraryWindow::onModelProcessed(const QString& directive, const QString& id, bool success) {

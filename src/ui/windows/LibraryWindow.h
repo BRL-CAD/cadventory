@@ -58,6 +58,8 @@ private slots:
     void onModelProcessed(const QString& directive, const QString& id, bool success);
     void onProgressUpdated(const JobServiceStats& stats);
 
+    void onRefreshRequested();
+
     // Filesystem view slots
     void onInclusionChanged(const QModelIndex& index, bool included);
     void onIndexingComplete();
