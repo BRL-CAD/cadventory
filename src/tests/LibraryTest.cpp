@@ -17,6 +17,18 @@ void createTestFiles(const std::string& directory, const std::vector<std::string
     }
 }
 
+void createModelDB(const std::string& root, const std::vector<std::string>& filenames) {
+    Model model(root);
+
+    for (const auto& filename : filenames) {
+        ModelData md{};
+        md.short_name = filename;
+        md.file_path = (std::filesystem::path(root) / filename).generic_string();
+
+        model.insertModel(md);
+    }
+}
+
 // Helper function to clean up test directories by removing them entirely
 void cleanupTestDirectory(const std::string& path) {
     if (std::filesystem::exists(path)) {
@@ -47,7 +59,8 @@ TEST_CASE("Library Operations", "[Library]") {
     };
 
     // Create the mock files in the test directory
-    createTestFiles(testDir, testFiles);
+    //createTestFiles(testDir, testFiles);
+    createModelDB(testDir, testFiles);
 
     // NOTE: encapsulate Library so it can go out of scope and release the model and filesystem index for cleanup
     {
@@ -63,7 +76,7 @@ TEST_CASE("Library Operations", "[Library]") {
         SECTION("Indexing Files") {
             // Verify that the library correctly indexes all files
             size_t indexedFiles = library.indexFiles();
-            REQUIRE(indexedFiles == testFiles.size() + 1); // +1 for additional internal files
+            REQUIRE(indexedFiles == testFiles.size());
         }
 
         SECTION("Get Models") {
