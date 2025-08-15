@@ -25,6 +25,9 @@ static void addOptions(QCommandLineParser& parser) {
     QCommandLineOption indexOpt(QStringList{"index"},
                                 "Index library (CLI, no GUI)",
                                 "path");
+    QCommandLineOption workerOpt(QStringList{"worker"},
+                                "Library worker (CLI, no GUI)",
+                                "path");
     QCommandLineOption resetOpt(QStringList{"r","reset"},
                                 "Reset settings and model database");
     QCommandLineOption numCpusOpt(QStringList{"j", "num-cpus"},
@@ -33,6 +36,7 @@ static void addOptions(QCommandLineParser& parser) {
     // TODO: --worker (no gui worker)
 
     parser.addOption(indexOpt);
+    parser.addOption(workerOpt);
     parser.addOption(resetOpt);
     parser.addOption(numCpusOpt);
     parser.addHelpOption();
@@ -91,6 +95,20 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
 
         // quit automatically after JobManager completes since we're just indexing
         connect(static_cast<QtJobServiceBase*>(jobService.get()), &QtJobServiceBase::finished, qApp, &QCoreApplication::quit);
+
+        // no gui
+        this->gui = false;
+    } else if (parser.isSet("worker")) {
+        // JobWorker
+        this->jobService = std::make_unique<JobWorker>();
+
+        // use value passed at command line if we have it; else default to home path
+        namespace fs = std::filesystem;
+        QString root = parser.isSet("worker") ? parser.value("worker") : QDir::homePath();
+        fs::path hidden = fs::path(root.toStdString()) / ".cadventory";
+        fs::path jobs = hidden / "jobsdb";
+        fs::path data = hidden / "data";
+        this->jobService->setRootPaths(root.toStdString(), jobs.string(), data.string(), hidden.string());
 
         // no gui
         this->gui = false;
