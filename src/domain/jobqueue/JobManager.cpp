@@ -16,6 +16,7 @@ void JobManager::serviceLoop() {
 
     // filter .g files
     auto gFiles = indexer.findFilesWithSuffixes({".g"});
+    std::size_t UPDATE_EVERY = 1000;   // update stats emit every n-repo inserts
 
     // insert bare-bones model rows (so our workers can find them)
     std::size_t inserted = 0;   // for stats
@@ -34,6 +35,14 @@ void JobManager::serviceLoop() {
 
         if (repo.insertModel(md))
             ++inserted;
+
+        if (inserted % UPDATE_EVERY == 0) {
+            // periodic stats push
+            updateStats([&](JobServiceStats& st) {
+                st.modelsProcessed = gFiles.size(); // scanned
+                st.jobsNew         = inserted;
+            });
+        }
     }
 
     // update stats
