@@ -85,8 +85,8 @@ static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
                     */
 
                     try {
-                        it->second->handle(job, stopFlag);
-                        success = true;
+                        auto ret = it->second->handle(job, stopFlag);
+                        success = ret.success;
                     } catch (...) {
                         // something went wrong
                         success = false;

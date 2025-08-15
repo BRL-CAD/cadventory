@@ -16,12 +16,17 @@ struct HandlerContext {
     std::shared_ptr<ModelData> modeldata;
 };
 
+struct HandlerResult {
+    bool success;
+    std::string message;        // optional error/progress text
+};
+
 class IDirectiveHandler {
 public:
     virtual ~IDirectiveHandler() = default;
 
     // handle the given job. 'stopFlag' may be set to true to abort early
-    virtual void handle(const JobDescriptor& job, std::atomic<bool>& stopFlag) = 0;
+    virtual HandlerResult handle(const JobDescriptor& job, std::atomic<bool>& stopFlag) = 0;
 
 protected:
 

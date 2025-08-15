@@ -20,13 +20,13 @@ public:
         , m_queue(queue)
     {}
 
-    void handle(const JobDescriptor& job,
+    HandlerResult handle(const JobDescriptor& job,
                 std::atomic<bool>& /*stopFlag*/) override
     {
         // check this job is still needed
         auto ctx = needsHandled(job, "");
         if (!ctx)
-            return;
+            return {true, "no work to do"};
 
         // signal start
         emitStart(job);
@@ -34,7 +34,7 @@ public:
         // select file processor (for now assume we just have .g)
         if (std::filesystem::path(job.sourcePath).extension() != ".g") {
             emitFinish(job, false);
-            return;
+            return {false, "no available file processor"};
         }
         ProcessGFiles processor(&_repo);
 
@@ -42,7 +42,7 @@ public:
         if (!ret) {
             // something went wrong
             emitFinish(job, false);
-            return;
+            return {false, "processor.processGFile() error"};
         }
         ModelData final = *ret;
 
@@ -53,6 +53,7 @@ public:
 
         // signal finished
         emitFinish(job);
+        return {true, ""};
     }
 
 private:

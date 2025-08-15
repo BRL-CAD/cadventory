@@ -16,12 +16,12 @@ public:
     ThumbHandler(const std::filesystem::path& dataDir, QtJobServiceBase* service, Model& repo)
 	: IDirectiveHandler(dataDir, service, repo) {}
 
-    void handle(const JobDescriptor& job, std::atomic<bool>& stopFlag) override {
+    HandlerResult handle(const JobDescriptor& job, std::atomic<bool>& stopFlag) override {
 	// check this job is still needed
         auto ctx = needsHandled(job, "png");
         if (!ctx)
 	    // TODO: if we failed because we already have a png, should we verify it's loaded in the model
-            return;
+	    return {true,"no work to do"};
 
 	emitStart(job);
 
@@ -46,7 +46,7 @@ public:
 	process.start();
 	if (!process.waitForStarted()) {
 	    emitFinish(job, false);
-	    return;
+	    return {false, "process.waitForStarted() failed"};
 	}
 
 	// poll process for completion / timeout / stopFlag
@@ -81,20 +81,20 @@ public:
 	    process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0 ||
 	    !QFile::exists(ctx->outputPath) || QFileInfo(ctx->outputPath).size() == 0) {
 	    emitFinish(job, false);
-	    return;
+	    return {false, "process didn't finish successfully"};
 	}
 
 	// TODO: old code reads thumbnail directly into model - do we still want to do that?
 	QFile thumbnailFile(ctx->outputPath);
 	if (!thumbnailFile.open(QIODevice::ReadOnly)) {
 	    emitFinish(job, false);
-	    return;
+	    return {false, "could not open output file"};
 	}
 	QByteArray thumbnailData = thumbnailFile.readAll();
 	thumbnailFile.close();
 	if (thumbnailData.isEmpty()) {
 	    emitFinish(job, false);
-	    return;
+	    return {false, "thumbnail file is empty"};
 	}
 	ModelData* ctx_md = ctx->modeldata.get();
 	ctx_md->thumbnail.assign(thumbnailData.begin(), thumbnailData.end());
@@ -102,6 +102,7 @@ public:
 
 	// success
 	emitFinish(job);
+	return {true, ""};
 	// TODO: thumbnailFinished specific signal?
     }
 

@@ -40,7 +40,7 @@ public:
                  Model& repo)
         : IDirectiveHandler(dataDir, service, repo) {}
 
-    void handle(const JobDescriptor& job,
+    HandlerResult handle(const JobDescriptor& job,
                 std::atomic<bool>& /*stopFlag*/) override
     {
         // signal start
@@ -50,7 +50,7 @@ public:
         auto ctx = needsHandled(job, "");
         if (!ctx) {
             emitFinish(job, false);
-            return;
+            return {true, "no work to do"};
         }
         */
 
@@ -74,5 +74,6 @@ public:
                                 Q_ARG(QString, QString::fromStdString(job.fileId)),
                                 Q_ARG(bool, true));
         }
+        return {true, ""};
     }
 };
