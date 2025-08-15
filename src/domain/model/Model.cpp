@@ -203,8 +203,9 @@ bool Model::insertModel(const ModelData& modelData) {
   }
 
   // Ensure file_path is unique
-  if (filePathExists(modelData.file_path)) {
-    std::cerr << "Model with file_path " << modelData.file_path
+  std::string generic_filepath = std::filesystem::path(modelData.file_path).generic_string();
+  if (filePathExists(generic_filepath)) {
+    std::cerr << "Model with file_path " << generic_filepath
               << " already exists." << std::endl;
     return false;
   }
@@ -227,7 +228,7 @@ bool Model::insertModel(const ModelData& modelData) {
     }
 
     sqlite3_bind_text(stmt, 6, modelData.author.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 7, modelData.file_path.c_str(), -1,
+    sqlite3_bind_text(stmt, 7, generic_filepath.c_str(), -1,
                       SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 8, modelData.library_name.c_str(), -1,
                       SQLITE_TRANSIENT);
