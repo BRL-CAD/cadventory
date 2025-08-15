@@ -1366,6 +1366,62 @@ std::vector<ModelData> Model::getIncludedModels() {
   return includedModels;
 }
 
+std::vector<ModelData> Model::getAll() {
+    std::vector<ModelData> out;
+
+    static const char* SQL = R"(
+        SELECT id, short_name, primary_file, override_info, title,
+               thumbnail, author, file_path, library_name,
+               is_selected, is_processed, is_included
+        FROM models;
+    )";
+
+    sqlite3_stmt* stmt = nullptr;
+    std::lock_guard<std::recursive_mutex> lock(db_mutex);
+
+    if (sqlite3_prepare_v2(db, SQL, -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cerr << "[Model::getAll] SQL prepare error: "
+                  << sqlite3_errmsg(db) << std::endl;
+        return out;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        ModelData m;
+
+        auto getText = [&](int col) -> std::string {
+            const unsigned char* t = sqlite3_column_text(stmt, col);
+            return t ? reinterpret_cast<const char*>(t) : std::string{};
+        };
+
+        m.id            = sqlite3_column_int(stmt, 0);
+        m.short_name    = getText(1);
+        m.primary_file  = getText(2);
+        m.override_info = getText(3);
+        m.title         = getText(4);
+
+        const void* blob = sqlite3_column_blob(stmt, 5);
+        int blob_size    = sqlite3_column_bytes(stmt, 5);
+        if (blob && blob_size > 0) {
+            const char* b = static_cast<const char*>(blob);
+            m.thumbnail.assign(b, b + blob_size);
+        } else {
+            m.thumbnail.clear();
+        }
+
+        m.author        = getText(6);
+        m.file_path     = getText(7);
+        m.library_name  = getText(8);
+        m.is_selected   = sqlite3_column_int(stmt, 9)  != 0;
+        m.is_processed  = sqlite3_column_int(stmt, 10) != 0;
+        m.is_included   = sqlite3_column_int(stmt, 11) != 0;
+
+        out.push_back(std::move(m));
+    }
+
+    sqlite3_finalize(stmt);
+    return out;
+}
+
 bool Model::isFileIncluded(const std::string& filePath) {
   std::string sql = "SELECT is_included FROM models WHERE file_path = ?;";
   sqlite3_stmt* stmt;

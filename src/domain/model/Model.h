@@ -109,6 +109,7 @@ public:
     bool isFileIncluded(const std::string& filePath);
 
     // Retrieve all selected models
+    std::vector<ModelData> getAll();
     std::vector<ModelData> getSelectedModels();
     std::vector<ModelData> getIncludedNotProcessedModels();
 
