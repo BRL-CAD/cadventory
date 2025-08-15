@@ -573,9 +573,12 @@ ModelData Model::getModelByFilePath(const std::string& filePath) {
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
+  // standardize filePath separators
+  std::string generic_filepath = std::filesystem::path(filePath).generic_string();
+
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
     // Use SQLITE_TRANSIENT to ensure SQLite makes its own copy of the data
-    sqlite3_bind_text(stmt, 1, filePath.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 1, generic_filepath.c_str(), -1, SQLITE_TRANSIENT);
 
     // Debugging statements
     // qDebug() << "Executing SQL:" << QString::fromStdString(sql);
@@ -624,7 +627,7 @@ ModelData Model::getModelByFilePath(const std::string& filePath) {
                << "and filePath:" << QString::fromStdString(model.file_path);
     } else {
       qDebug() << "No model found with filePath:"
-               << QString::fromStdString(filePath);
+               << QString::fromStdString(generic_filepath);
     }
 
     sqlite3_finalize(stmt);
