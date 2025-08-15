@@ -5,7 +5,6 @@
 
 #include <string>
 #include <vector>
-#include "FilesystemIndexer.h"
 #include "Model.h"
 
 class Library {
@@ -30,7 +29,8 @@ public:
     Model* model;
 
 private:
-    FilesystemIndexer* index;
+    std::vector<std::string> findFilesWithSuffixes(const std::vector<std::string>& suffixes,
+						   bool onlyIncluded = false);
 };
 
 #endif // LIBRARY_H

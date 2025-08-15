@@ -106,7 +106,8 @@ void MainWindow::addLibrary(const char* label, const char* path)
     libraries.push_back(newlib);
     size_t files = newlib->indexFiles();
 
-    QString libCount = QString("Scanned ") + QString::number(files) + QString(" file(s) in ") + label;
+    QString libCount = files ? QString("Found ") + QString::number(files) + QString(" indexed file(s) in ") + label :
+                               QString("No .cadventory file found. Run with --index");
     this->updateStatusLabel(libCount.toStdString().c_str());
 
 

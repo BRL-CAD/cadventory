@@ -11,17 +11,28 @@
 
 namespace fs = std::filesystem;
 
+static std::string toLower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c){ return char(std::tolower(c)); });
+    return s;
+}
+static std::string normExt(const std::string& e) {
+    if (e.empty())
+        return e;
+    if (e[0] == '.')
+        return toLower(e);
+    return "." + toLower(e);
+}
+
 Library::Library(const char* _label, const char* _path)
     : shortName(_label ? _label : ""),
     fullPath(_path ? _path : ""),
-    model(new Model(_path)),
-    index(nullptr)
+    model(new Model(_path))
 {
 }
 
 Library::~Library()
 {
-    delete index;
     delete model;
 }
 
@@ -37,35 +48,52 @@ const char* Library::path()
 
 size_t Library::indexFiles()
 {
-    index = new FilesystemIndexer(fullPath.c_str());
-    return index->indexed();
+    loadDatabase();
+
+    return static_cast<size_t>(model->rowCount());
 }
 
 void Library::loadDatabase()
 {
+    model->refreshModelData();
+}
 
+std::vector<std::string> Library::findFilesWithSuffixes(
+    const std::vector<std::string>& suffixes,
+    bool onlyIncluded)
+{
+    loadDatabase();
+
+    // normalize suffix list to lowercase ".ext"
+    std::set<std::string> wanted;
+    for (auto s : suffixes)
+        wanted.insert(normExt(s));
+
+    // get rows from db
+    std::vector<ModelData> rows;
+    rows = onlyIncluded ? model->getIncludedModels() : model->getAll();
+
+    std::set<std::string> uniqueRel;
+    for (const auto& m : rows) {
+        fs::path p(m.file_path);
+        std::string ext = p.has_extension() ? toLower(p.extension().string()) : std::string{};
+        if (!wanted.empty() && !wanted.count(ext))
+            continue;
+
+        std::error_code ec;
+        fs::path rel = fs::relative(p, fullPath, ec);
+        const std::string out = ec ? p.generic_string() : rel.generic_string();
+        uniqueRel.insert(out);
+    }
+
+    return std::vector<std::string>(uniqueRel.begin(), uniqueRel.end());
 }
 
 std::vector<std::string> Library::getModels()
 {
     /* Care about files with a .g extension */
     std::vector<std::string> modelSuffixes = {".g"};
-    std::set<std::string> uniqueFiles; // Using set to avoid duplicates
-
-    if (!index) {
-        indexFiles();
-    }
-
-    auto files = index->findFilesWithSuffixes(modelSuffixes);
-    for (const std::string& file : files) {
-        // Make path relative to fullPath
-        std::string relativePath = fs::relative(file, fullPath).string();
-        uniqueFiles.insert(relativePath);
-    }
-
-    std::vector<std::string> filePaths(uniqueFiles.begin(), uniqueFiles.end());
-
-    return filePaths;
+    return findFilesWithSuffixes(modelSuffixes);
 }
 
 std::vector<std::string> Library::getGeometry()
@@ -79,12 +107,7 @@ std::vector<std::string> Library::getGeometry()
         ".scdoc", ".skp", ".sldasm", ".slddrw", ".sldprt", ".step", ".stl",
         ".stp", ".u3d", ".vda", ".wrp", ".x_b", ".x_t", ".zpr", ".zzzgeo"
     };
-
-    if (!index) {
-        indexFiles();
-    }
-
-    return index->findFilesWithSuffixes(geometrySuffixes);
+    return findFilesWithSuffixes(geometrySuffixes);
 }
 
 std::vector<std::string> Library::getImages()
@@ -94,12 +117,7 @@ std::vector<std::string> Library::getImages()
         ".jpeg", ".jpg", ".pbm", ".pix", ".png", ".ppm", ".psd", ".ptx",
         ".raw", ".rgb", ".sgi", ".svg", ".tga", ".tif", ".tiff", ".webp", ".zzzimg"
     };
-
-    if (!index) {
-        indexFiles();
-    }
-
-    return index->findFilesWithSuffixes(imageSuffixes);
+    return findFilesWithSuffixes(imageSuffixes);
 }
 
 std::vector<std::string> Library::getDocuments()
@@ -108,12 +126,7 @@ std::vector<std::string> Library::getDocuments()
         ".doc", ".docx", ".md", ".odp", ".odt", ".pdf", ".ppt",
         ".pptx", ".rtf", ".rtfd", ".txt", ".zzzdoc"
     };
-
-    if (!index) {
-        indexFiles();
-    }
-
-    return index->findFilesWithSuffixes(documentSuffixes);
+    return findFilesWithSuffixes(documentSuffixes);
 }
 
 std::vector<std::string> Library::getData()
@@ -123,10 +136,5 @@ std::vector<std::string> Library::getData()
         ".ods", ".tar", ".tgz", ".vtk", ".xls", ".xml", ".xyz",
         ".zip", ".zzzdat"
     };
-
-    if (!index) {
-        indexFiles();
-    }
-
-    return index->findFilesWithSuffixes(dataSuffixes);
+    return findFilesWithSuffixes(dataSuffixes);
 }
