@@ -50,14 +50,21 @@ constexpr const char* INSERT_SQL =
 #endif
 
 constexpr const char* CLAIM_SQL =
-    "UPDATE jobs SET claimed_by=?1, claimed_at=CAST(strftime('%s','now') AS REAL)"
-    " WHERE id IN ("
-    "   SELECT id FROM jobs"
-    "   WHERE claimed_by IS NULL"
-    "   ORDER BY id"
-    "   LIMIT 1"
-    " )"
-    " RETURNING id;";
+    "UPDATE jobs "
+    "SET claimed_by = ?1, "
+    "    claimed_at = CAST(strftime('%s','now') AS REAL) "
+    "WHERE id IN ("
+    "  SELECT id FROM jobs "
+    "  WHERE claimed_by IS NULL "
+    "     OR (claimed_by IS NOT NULL "
+    "         AND claimed_at IS NOT NULL "
+    "         AND (CAST(strftime('%s','now') AS REAL) - claimed_at) > ?2)"
+    "  ORDER BY "
+    "    CASE WHEN claimed_by IS NULL THEN 0 ELSE 1 END, "  // unclaimed first
+    "    id "
+    "  LIMIT 1"
+    ") "
+    "RETURNING id;";
 
 constexpr const char* GET_SQL =
     "SELECT id,file_id,directive,source_path,claimed_at"
@@ -159,8 +166,10 @@ bool SQLJobQueue::createJob(long long        modelId,
 std::optional<JobDescriptor> SQLJobQueue::claimJob(const std::string& workerId) {
     ck(sqlite3_exec(m_db, "BEGIN;", nullptr, nullptr, nullptr));
 
-    sqlite3_reset(m_clm); sqlite3_clear_bindings(m_clm);
+    sqlite3_reset(m_clm);
+    sqlite3_clear_bindings(m_clm);
     sqlite3_bind_text(m_clm, 1, workerId.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(m_clm,  2, m_staleTimeoutSecs);
 
     int rc = sqlite3_step(m_clm);
     if (rc == SQLITE_DONE) {             // queue empty

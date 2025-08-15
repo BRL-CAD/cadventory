@@ -51,6 +51,7 @@ public:
     void finish(const JobDescriptor& jd);
 
     // recycle jobs with claimed time > maxAge
+    void setStaleTimeout(int staleTimeoutSeconds) { m_staleTimeoutSecs = staleTimeoutSeconds; };
     void rescueStale(std::chrono::seconds maxAge);
 
     // total count of jobs in db
@@ -72,4 +73,7 @@ private:
     // helpers
     void prepare();
     static void ck(int rc);
+
+    // amount of time before job is considered stale and is viable to be re-claimed
+    int m_staleTimeoutSecs = 600;    // 10m
 };
