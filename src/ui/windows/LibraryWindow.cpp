@@ -693,22 +693,19 @@ void LibraryWindow::onGeometryBrowserClicked(int modelId) {
     dialog->exec();
 }
 
-void LibraryWindow::onProgressUpdated(const JobServiceStats& stats) {
-    if (!stats.jobsNew) {
-        ui.statusLabel->setText("Processing complete");
-        ui.progressBar->setVisible(false);
+void LibraryWindow::onProgressUpdated(const JobServiceStats& st) {
+    if (st.jobsNew > 0) {
+        ui.progressBar->setVisible(true);
+        ui.progressBar->setRange(0, 0);     // marquee
+
+        ui.statusLabel->setText(QString("  (%1) remain")
+                                         .arg(st.jobsNew));
+
         return;
     }
 
-    int percentage = stats.jobsClaimed / stats.jobsNew;
-    ui.progressBar->setValue(percentage);
-
-    if (percentage >= 100) {
-        ui.statusLabel->setText("Processing complete");
-        ui.progressBar->setVisible(false);
-    } else {
-        ui.progressBar->setVisible(true);
-    }
+    ui.statusLabel->setText("Idle.");
+    ui.progressBar->setVisible(false);
 }
 
 void LibraryWindow::onInclusionChanged(const QModelIndex& index, bool /*included*/) {

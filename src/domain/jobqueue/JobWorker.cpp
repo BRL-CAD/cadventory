@@ -139,12 +139,6 @@ void JobWorker::serviceLoop() {
             std::string dummyId = std::to_string(std::hash<std::string>{}(modelData.file_path));
             queue.createJob(dummyId, "process", modelData.file_path);
         }
-        // simple stat update for number of jobs
-        if (service && unproc.size()) {
-            service->updateStats([&](JobServiceStats& st) {
-                st.jobsNew = unproc.size();
-            });
-        }
 
         // spin while we work through job queue
         // TODO: implement pendingCount()
@@ -156,6 +150,9 @@ void JobWorker::serviceLoop() {
         if (service && clock::now() - lastRefresh >= refreshInterval) {
             lastRefresh = clock::now();
             service->emitRefreshSuggested();
+            service->updateStats([&](JobServiceStats& st) {
+                st.jobsNew = queue.totalCount();
+            });
         }
 
         // pause before re-poll

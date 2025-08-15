@@ -231,6 +231,9 @@
      <property name="value">
       <number>0</number>
      </property>
+     <property name="visible">
+      <bool>false</bool>
+     </property>
     </widget>
     <widget class="QLabel" name="statusLabel">
      <property name="geometry">
@@ -242,7 +245,7 @@
       </rect>
      </property>
      <property name="text">
-      <string>Processing:</string>
+      <string>Loading..</string>
      </property>
     </widget>
     <widget class="QPushButton" name="cancelButton">
