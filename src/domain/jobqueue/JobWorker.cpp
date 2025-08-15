@@ -5,6 +5,7 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <bu/process.h>         // bu_pid()
 
 #include "Model.h"
 #include "SQLJobQueue.h"
@@ -12,6 +13,7 @@
 #include "ThumbHandler.h"
 #include "DummyHandler.h"
 
+namespace fs = std::filesystem;
 
 /*** Helper functions ***/
 using HandlerRegistry = std::unordered_map<std::string, std::unique_ptr<IDirectiveHandler>>;
@@ -19,13 +21,13 @@ using HandlerRegistry = std::unordered_map<std::string, std::unique_ptr<IDirecti
 // so they can emit progress / completion
 static auto makeHandlerRegistry(Model& repo,
                                 SQLJobQueue& queue,
-                                const std::filesystem::path& dataRoot,
+                                const fs::path& dataRoot,
                                 QtJobServiceBase* service)
 {
     HandlerRegistry r;
     r.emplace("process", std::make_unique<ProcessHandler>(repo, queue, dataRoot, service));
-    r.emplace("thumb", std::make_unique<ThumbHandler>(dataRoot, service, repo));
-    r.emplace("dummy", std::make_unique<DummyHandler>(dataRoot, service, repo));
+    r.emplace("thumb",   std::make_unique<ThumbHandler>(dataRoot, service, repo));
+    //r.emplace("dummy",   std::make_unique<DummyHandler>(dataRoot, service, repo));
 
     // add more directives here ...
     return r;
@@ -33,34 +35,38 @@ static auto makeHandlerRegistry(Model& repo,
 
 // spawn n-workerCount threads, each looping on claim -> handle -> finish. Threads will force
 // stop when given stopFlag
-static auto spawnWorkerThreads(const std::filesystem::path& jobsDir,
-                               const std::filesystem::path& dataDir,
-                               Model& repo,
-                               QtJobServiceBase* service,
-                               size_t workerCount,
-                               std::atomic<bool>& stopFlag)
+static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
+                                                   const fs::path& dataDir,
+                                                   const fs::path& rootDir,
+                                                   QtJobServiceBase* service,
+                                                   size_t workerCount,
+                                                   std::atomic<bool>& stopFlag)
 {
     std::vector<std::thread> threads;
     threads.reserve(workerCount);
 
+    const int pid = bu_pid();
     for (size_t workerIdx = 0; workerIdx < workerCount; ++workerIdx) {
-        threads.emplace_back(
-            [jobsDir, dataDir, &repo, service, &stopFlag, workerIdx]() {
-            // each thread gets its own queue
+        threads.emplace_back([=, &stopFlag]() {
+            // each thread gets their own db connections
             SQLJobQueue queue(jobsDir);
+            Model       repo(rootDir.string());
 
             // each thread gets its own handler registry
             auto handlers = makeHandlerRegistry(repo, queue, dataDir, service);
 
-            // TODO: better specific workerId (hostname?)
-            int workerId = static_cast<int>(workerIdx);
-            std::string workerId_str = std::to_string(workerId);
+            // worker id using pid+threadIdx
+            const std::string workerId = std::to_string(pid) + "-" + std::to_string(workerIdx);
 
+            // jitter polling
+            const int pollJitterMs = static_cast<int>((workerIdx % 7) * 17);
+
+            // 'brains': claim and handle jobs
             while (!stopFlag.load()) {
-                auto jobOpt = queue.claimJob(workerId_str);
+                auto jobOpt = queue.claimJob(workerId);
                 if (!jobOpt) {
                     // no job to claim; slight delay and try again
-                    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(200 + pollJitterMs));
                     continue;
                 }
 
@@ -71,6 +77,13 @@ static auto spawnWorkerThreads(const std::filesystem::path& jobsDir,
                 if (it != handlers.end()) {
                     // found a valid handler
                     bool success = false;
+
+                    /* signal start
+                    if (service)
+                        service->directiveStarted(QString::fromStdString(job.directive),
+                                                  QString::fromStdString(job.fileId));
+                    */
+
                     try {
                         it->second->handle(job, stopFlag);
                         success = true;
@@ -79,6 +92,12 @@ static auto spawnWorkerThreads(const std::filesystem::path& jobsDir,
                         success = false;
                     }
                     // TODO: do something with 'success' or remove it
+                    /* signal finish
+                    if (service)
+                        service->directiveFinished(QString::fromStdString(job.directive),
+                                                   QString::fromStdString(job.fileId),
+                                                   success);
+                    */
                 }
 
                 // whether we passed or failed, finsh the job
@@ -92,16 +111,15 @@ static auto spawnWorkerThreads(const std::filesystem::path& jobsDir,
 
 void JobWorker::serviceLoop() {
     // TODO: a lot of these should collapse into a 'Library'?
-    Model            repo(rootDir());     // just using this for SQL repo interactions
-    SQLJobQueue      queue(jobsDir());
-    auto             dataRoot = dataDir();
+    Model            repo(rootDir());       // get unprocessed models
+    SQLJobQueue      queue(jobsDir());      // queue unprocessed models
     auto             service  = static_cast<QtJobServiceBase*>(this);
 
     // spawn worker threads that inf. process jobs until stopFlag is true
     std::atomic<bool> stopFlag{false};
     // TODO: make threadCount a config option
     size_t threadCount = 1;
-    auto threads = spawnWorkerThreads(jobsDir(), dataDir(), repo, service, threadCount, stopFlag);
+    auto threads = spawnWorkerThreads(jobsDir(), dataDir(), rootDir(), service, threadCount, stopFlag);
 
     // main loop: poll -> enqueue -> drain -> repeat
     while (state() == JobServiceState::Running) {
@@ -119,9 +137,11 @@ void JobWorker::serviceLoop() {
             queue.createJob(dummyId, "process", modelData.file_path);
         }
         // simple stat update for number of jobs
-        service->updateStats([&](JobServiceStats& st) {
-            st.jobsNew = unproc.size();
-        });
+        if (service && unproc.size()) {
+            service->updateStats([&](JobServiceStats& st) {
+                st.jobsNew = unproc.size();
+            });
+        }
 
         // spin while we work through job queue
         // TOOD: implement pendingCount()
