@@ -28,12 +28,8 @@ public:
         if (!ctx)
             return {true, "no work to do"};
 
-        // signal start
-        emitStart(job);
-
         // select file processor (for now assume we just have .g)
         if (std::filesystem::path(job.sourcePath).extension() != ".g") {
-            emitFinish(job, false);
             return {false, "no available file processor"};
         }
         ProcessGFiles processor(&_repo);
@@ -41,7 +37,6 @@ public:
         auto ret = processor.processGFile(*ctx->modeldata.get());
         if (!ret) {
             // something went wrong
-            emitFinish(job, false);
             return {false, "processor.processGFile() error"};
         }
         ModelData final = *ret;
@@ -52,7 +47,6 @@ public:
         }
 
         // signal finished
-        emitFinish(job);
         return {true, ""};
     }
 

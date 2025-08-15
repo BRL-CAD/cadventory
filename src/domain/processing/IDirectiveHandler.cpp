@@ -1,19 +1,5 @@
 #include "IDirectiveHandler.h"
 
-void IDirectiveHandler::emitStart(const JobDescriptor& job) const {
-    if (!_service)
-        return;
-
-    _service->directiveStarted(QString::fromStdString(job.directive), QString::fromStdString(job.fileId));
-}
-
-void IDirectiveHandler::emitFinish(const JobDescriptor& job, bool ok) const {
-    if (!_service)
-        return;
-
-    _service->directiveFinished(QString::fromStdString(job.directive), QString::fromStdString(job.fileId), ok);
-}
-
 std::optional<HandlerContext> IDirectiveHandler::needsHandled(const JobDescriptor& job, std::string ext) {
     // fetch model data for this job's source file
     ModelData existing = _repo.getModelByFilePath(job.sourcePath);

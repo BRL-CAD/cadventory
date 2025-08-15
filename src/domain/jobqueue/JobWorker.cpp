@@ -78,11 +78,10 @@ static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
                     // found a valid handler
                     bool success = false;
 
-                    /* signal start
+                    // signal start
                     if (service)
                         service->directiveStarted(QString::fromStdString(job.directive),
                                                   QString::fromStdString(job.fileId));
-                    */
 
                     try {
                         auto ret = it->second->handle(job, stopFlag);
@@ -91,13 +90,12 @@ static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
                         // something went wrong
                         success = false;
                     }
-                    // TODO: do something with 'success' or remove it
-                    /* signal finish
+
+                    // signal finish
                     if (service)
                         service->directiveFinished(QString::fromStdString(job.directive),
                                                    QString::fromStdString(job.fileId),
                                                    success);
-                    */
                 }
 
                 // whether we passed or failed, finsh the job

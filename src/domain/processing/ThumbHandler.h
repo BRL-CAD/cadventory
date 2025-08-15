@@ -23,8 +23,6 @@ public:
 	    // TODO: if we failed because we already have a png, should we verify it's loaded in the model
 	    return {true,"no work to do"};
 
-	emitStart(job);
-
 	// get our rt executable path
 	const QString rtExe = QStringLiteral(RT_EXECUTABLE_PATH);
 
@@ -45,7 +43,6 @@ public:
 	// start the process
 	process.start();
 	if (!process.waitForStarted()) {
-	    emitFinish(job, false);
 	    return {false, "process.waitForStarted() failed"};
 	}
 
@@ -80,20 +77,17 @@ public:
 	if (killed || 
 	    process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0 ||
 	    !QFile::exists(ctx->outputPath) || QFileInfo(ctx->outputPath).size() == 0) {
-	    emitFinish(job, false);
 	    return {false, "process didn't finish successfully"};
 	}
 
 	// TODO: old code reads thumbnail directly into model - do we still want to do that?
 	QFile thumbnailFile(ctx->outputPath);
 	if (!thumbnailFile.open(QIODevice::ReadOnly)) {
-	    emitFinish(job, false);
 	    return {false, "could not open output file"};
 	}
 	QByteArray thumbnailData = thumbnailFile.readAll();
 	thumbnailFile.close();
 	if (thumbnailData.isEmpty()) {
-	    emitFinish(job, false);
 	    return {false, "thumbnail file is empty"};
 	}
 	ModelData* ctx_md = ctx->modeldata.get();
@@ -101,7 +95,6 @@ public:
 	_repo.updateModel(ctx_md->id, *ctx_md);
 
 	// success
-	emitFinish(job);
 	return {true, ""};
 	// TODO: thumbnailFinished specific signal?
     }

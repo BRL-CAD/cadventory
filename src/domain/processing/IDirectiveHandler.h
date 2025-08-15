@@ -39,10 +39,6 @@ protected:
     // return std::nullopt if job is already finished or no longer needed
     std::optional<HandlerContext> needsHandled(const JobDescriptor& job, std::string ext);
 
-    // emit helpers
-    void emitStart(const JobDescriptor& job) const;
-    void emitFinish(const JobDescriptor& job, bool ok = true) const;
-
     // members
     const std::filesystem::path _dataDir;
     QtJobServiceBase*           _service;

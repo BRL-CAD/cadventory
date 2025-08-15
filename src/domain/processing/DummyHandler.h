@@ -43,9 +43,6 @@ public:
     HandlerResult handle(const JobDescriptor& job,
                 std::atomic<bool>& /*stopFlag*/) override
     {
-        // signal start
-        emitStart(job);
-
         /* NOTE: example usage of handler context
         auto ctx = needsHandled(job, "");
         if (!ctx) {
@@ -66,9 +63,6 @@ public:
 
         // signal finish
         if (_service) {
-            // generic
-            emitFinish(job);
-
             // specific 'dummyFinished'
             QMetaObject::invokeMethod(_service, "dummyFinished", Qt::QueuedConnection,
                                 Q_ARG(QString, QString::fromStdString(job.fileId)),
