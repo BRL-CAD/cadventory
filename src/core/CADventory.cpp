@@ -27,10 +27,14 @@ static void addOptions(QCommandLineParser& parser) {
                                 "path");
     QCommandLineOption resetOpt(QStringList{"r","reset"},
                                 "Reset settings and model database");
+    QCommandLineOption numCpusOpt(QStringList{"j", "num-cpus"},
+                                "Number of worker threads",
+                                "#");
     // TODO: --worker (no gui worker)
 
     parser.addOption(indexOpt);
     parser.addOption(resetOpt);
+    parser.addOption(numCpusOpt);
     parser.addHelpOption();
 }
 
@@ -65,6 +69,15 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
         // clear settings
         QSettings().clear();
         QSettings().sync();
+    }
+
+    if (parser.isSet("num-cpus")) {
+        bool ok = false;
+        int val = parser.value("num-cpus").toInt(&ok);
+        if (ok && val > 0) {
+            QSettings().setValue("jobs/numThreads", val);
+            QSettings().sync();
+        }
     }
 
     // choose our JobService

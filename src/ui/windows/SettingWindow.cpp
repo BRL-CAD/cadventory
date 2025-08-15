@@ -1,6 +1,7 @@
 #include "SettingWindow.h"
 #include "ui_SettingWindow.h"
 #include <QSettings>
+#include <algorithm>
 
 SettingWindow::SettingWindow(QWidget *parent)
     : QDialog(parent)
@@ -26,6 +27,13 @@ void SettingWindow::loadSettings()
     ui->previewTimer->setRange(0,2400);
     ui->previewTimer->setSingleStep(10);
     ui->previewTimer->setValue(previewLimit);
+
+    // set on command line?
+    const int configured = settings.value("jobs/numThreads", 1).toInt();
+
+    const int maxThreads = 4096;
+    ui->workerThreads->setRange(1, maxThreads);
+    ui->workerThreads->setValue(std::max(1, configured));
 }
 
 void SettingWindow::saveSettings()
@@ -35,6 +43,7 @@ void SettingWindow::saveSettings()
     if(ui->enablePreview->isChecked()){
     settings.setValue("previewTimer", ui->previewTimer->value());
     }
+    settings.setValue("jobs/numThreads", ui->workerThreads->value());
 }
 
 void SettingWindow::on_buttonBox_accepted()

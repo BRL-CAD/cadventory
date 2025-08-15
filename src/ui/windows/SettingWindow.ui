@@ -81,6 +81,35 @@
     </property>
    </widget>
   </widget>
+   <widget class="QLabel" name="threadsLabel">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>70</y>
+     <width>141</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Worker threads:</string>
+   </property>
+  </widget>
+  <widget class="QSpinBox" name="workerThreads">
+   <property name="geometry">
+    <rect>
+     <x>180</x>
+     <y>68</y>
+     <width>88</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="minimum">
+    <number>1</number>
+   </property>
+   <property name="maximum">
+    <number>4096</number>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections>
