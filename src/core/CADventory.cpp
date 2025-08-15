@@ -94,7 +94,25 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
         this->jobService->setRootPaths(root.toStdString());
 
         // quit automatically after JobManager completes since we're just indexing
-        connect(static_cast<QtJobServiceBase*>(jobService.get()), &QtJobServiceBase::finished, qApp, &QCoreApplication::quit);
+        auto Qt_cast_jobService = static_cast<QtJobServiceBase*>(jobService.get());
+        connect(Qt_cast_jobService, &QtJobServiceBase::finished, qApp, &QCoreApplication::quit);
+        connect(Qt_cast_jobService, &QtJobServiceBase::statsUpdated, Qt_cast_jobService,
+                [&, barWidth = 30](const JobServiceStats& st) {
+                    const std::size_t done = st.jobsNew;
+                    const std::size_t total = st.modelsProcessed;
+
+                    const double pct   = (total ? double(done) / double(total) : 1.0);
+                    const int    fill  = int(pct * barWidth + 0.5);
+
+                    std::cout << '\r'
+                              << '[' << std::string(fill, '=') << std::string(barWidth - fill, ' ')
+                              << "] " << std::setw(3) << int(pct * 100.0 + 0.5) << "% "
+                              << '(' << done << '/' << total << ')'
+                              << std::flush;
+
+                    if (total > 0 && done == total) 
+                        std::cout << std::endl;
+                });
 
         // no gui
         this->gui = false;
