@@ -79,13 +79,15 @@ TEST_CASE("Object Management and Transactions", "[Model]") {
     REQUIRE(fixture.model->insertModel(testModel) == true);
 
     auto fetchedModel = fixture.model->getModelByFilePath(testModel.file_path);
+    REQUIRE(fetchedModel.id > 0);
 
     // Test inserting and retrieving objects
     SECTION("Insert and Retrieve Objects") {
         ObjectData obj1 = {0, fetchedModel.id, "Object1", -1, false};
-        REQUIRE(fixture.model->insertObject(obj1) != -1);
+        int parentId = fixture.model->insertObject(obj1);
+        REQUIRE(parentId != -1);
 
-        ObjectData obj2 = {0, fetchedModel.id, "Object2", 0, true};
+        ObjectData obj2 = {0, fetchedModel.id, "Object2", parentId, true};
         REQUIRE(fixture.model->insertObject(obj2) != -1);
 
         auto objects = fixture.model->getObjectsForModel(fetchedModel.id);
@@ -265,17 +267,26 @@ TEST_CASE("Model: Get Selected Models", "[Model]") {
 TEST_CASE("Model: Update Object Parent ID", "[Model]") {
     ModelTestFixture fixture(TEST_NAME);
 
-    // Insert a sample object into the database
-    ObjectData object = {0, 1, "Object", -1, false}; // Object with no parent initially
-    int objectId = fixture.model->insertObject(object);
-    REQUIRE(objectId != -1); // Ensure the object is inserted successfully
+    // create a model in db
+    ModelData md{0, "Model", "./pf", "{}", "Title", {}, "Author", "/path/A", "Library", false, false, false, {}};
+    REQUIRE(fixture.model->insertModel(md));
+    int modelId = fixture.model->getModelByFilePath(md.file_path).id;
+    REQUIRE(modelId > 0);
 
-    // Verify that the parent ID can be updated successfully
+    // create a 'parent' object
+    int parentId = fixture.model->insertObject({0, modelId, "Parent", -1, false});
+    REQUIRE(parentId != -1);
+
+    // create a 'child' object (no parent yet)
+    int childId = fixture.model->insertObject({0, modelId, "Child", -1, false});
+    REQUIRE(childId != -1);
+
     SECTION("Update Parent ID Successfully") {
-        REQUIRE(fixture.model->updateObjectParentId(objectId, 100) == true); // Update parent ID to 100
+        REQUIRE(fixture.model->updateObjectParentId(childId, parentId) == true);
 
-        auto updatedObject = fixture.model->getObjectById(objectId);
-        REQUIRE(updatedObject.parent_object_id == 100); // Confirm the parent ID update
+        auto updated = fixture.model->getObjectById(childId);
+        REQUIRE(updated.object_id == childId);
+        REQUIRE(updated.parent_object_id == parentId);      // Confirm the parent ID update
     }
 }
 
@@ -294,9 +305,19 @@ TEST_CASE("Model: Delete Tables", "[Model]") {
 TEST_CASE("Model: Get All Tags", "[Model]") {
     ModelTestFixture fixture(TEST_NAME);
 
+    // create a model
+    ModelData md1{0, "ModelA", "./pfA", "{}", "Title", {}, "Author", "/path/A", "Library", false, false, false, {}};
+    ModelData md2{0, "ModelB", "./pfB", "{}", "Title", {}, "Author", "/path/B", "Library", false, false, false, {}};
+    REQUIRE(fixture.model->insertModel(md1));
+    REQUIRE(fixture.model->insertModel(md2));
+    int modelId1 = fixture.model->getModelByFilePath(md1.file_path).id;
+    int modelId2 = fixture.model->getModelByFilePath(md2.file_path).id;
+    REQUIRE(modelId1 > 0);
+    REQUIRE(modelId2 > 0);
+
     // Insert sample tags into the database
-    REQUIRE(fixture.model->addTagToModel(1, "Tag1") == true); // Add "Tag1" to model with ID 1
-    REQUIRE(fixture.model->addTagToModel(2, "Tag2") == true); // Add "Tag2" to model with ID 2
+    REQUIRE(fixture.model->addTagToModel(modelId1, "Tag1") == true); // Add "Tag1" to model1
+    REQUIRE(fixture.model->addTagToModel(modelId2, "Tag2") == true); // Add "Tag2" to model2
 
     // Verify that all tags are retrieved correctly
     SECTION("Retrieve All Tags") {

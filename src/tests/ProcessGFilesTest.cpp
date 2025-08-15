@@ -13,9 +13,9 @@
 const std::string TEST_NAME = "cadventory_PGFTest";
 
 // Helper function to create a test ModelData object
-ModelData createTestModelData(int id, const std::string& shortName, const std::string& filePath) {
-    return ModelData{
-        id,                 // id
+ModelData createTestModelData(Model& model, const std::string& shortName, const std::string& filePath) {
+    ModelData md {
+        0,                  // id
         shortName,          // short_name
         filePath,           // primary_file
         "",                 // override_info
@@ -29,6 +29,11 @@ ModelData createTestModelData(int id, const std::string& shortName, const std::s
         false,              // is_included
         {}                  // tags
     };
+
+    REQUIRE(model.insertModel(md));
+
+    // get model entry
+    return model.getModelByFilePath(filePath);
 }
 
 // Helper function to copy test file from source into the temp directory
@@ -61,6 +66,7 @@ TEST_CASE("ProcessGFiles - Initialization", "[ProcessGFiles]") {
 // Test processing a file (using `annual_gift_man.g`)
 TEST_CASE("ProcessGFiles - File Processing", "[ProcessGFiles]") {
     ModelTestFixture fixture(TEST_NAME);
+    Model model(fixture.tempDir.string());
     ProcessGFiles processor(fixture.model.get());
 
     SECTION("Process annual_gift_man.g file") {
@@ -68,7 +74,7 @@ TEST_CASE("ProcessGFiles - File Processing", "[ProcessGFiles]") {
         std::filesystem::path testFilePath = copyTestFileToTemp("annual_gift_man.g", fixture.tempDir);
 
         // Create a ModelData object with correct fields
-        ModelData modelData = createTestModelData(1, "annual_gift_man", testFilePath.string());
+        ModelData modelData = createTestModelData(model, "annual_gift_man", testFilePath.string());
         if (!std::filesystem::exists(modelData.primary_file)) {
             FAIL("annual_gift_man.g file error");
         }

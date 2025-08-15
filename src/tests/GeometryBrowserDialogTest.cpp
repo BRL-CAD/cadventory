@@ -11,6 +11,21 @@ class GeometryBrowserDialogTest : public QObject {
 private:
     QTemporaryDir tempDir; // Temporary directory for testing
 
+    // helper: create a minimal model row and return its id
+    static int createDummyModelRow(Model& model) {
+        ModelData md{};
+        md.short_name   = "dummy.g";
+        md.file_path    = "dummy.g";
+        md.is_included  = true;
+        md.is_processed = false;
+
+        model.insertModel(md);
+
+        // fetch the actual id via file_path
+        const auto got = model.getModelByFilePath(md.file_path);
+        return got.id;
+    }
+
 private slots:
     // Initialize the test case and verify the temporary directory is valid
     void initTestCase() {
@@ -25,10 +40,13 @@ private slots:
         QString tempPath = tempDir.path();
         Model model(tempPath.toStdString());
 
+        int modelId = createDummyModelRow(model);
+        QVERIFY(modelId > 0);
+
         // Insert mock data representing a parent-child hierarchy
-        model.insertObject({1, 1, "RootObject", -1, false});
-        model.insertObject({2, 1, "ChildObject1", 1, false});
-        model.insertObject({3, 1, "ChildObject2", 1, false});
+        model.insertObject({1, modelId, "RootObject", -1, false});
+        model.insertObject({2, modelId, "ChildObject1", 1, false});
+        model.insertObject({3, modelId, "ChildObject2", 1, false});
 
         GeometryBrowserDialog dialog(1, &model);
         dialog.show();
@@ -49,8 +67,11 @@ private slots:
         QString tempPath = tempDir.path();
         Model model(tempPath.toStdString());
 
+        int modelId = createDummyModelRow(model);
+        QVERIFY(modelId > 0);
+
         // Insert a single mock object
-        model.insertObject({1, 1, "RootObject", -1, false});
+        model.insertObject({1, modelId, "RootObject", -1, false});
 
         GeometryBrowserDialog dialog(1, &model);
         dialog.show();
@@ -68,9 +89,12 @@ private slots:
         QString tempPath = tempDir.path();
         Model model(tempPath.toStdString());
 
+        int modelId = createDummyModelRow(model);
+        QVERIFY(modelId > 0);
+
         // Insert two mock objects at the same level
-        model.insertObject({1, 1, "RootObject", -1, false});
-        model.insertObject({2, 1, "SiblingObject", -1, false});
+        model.insertObject({1, modelId, "RootObject", -1, false});
+        model.insertObject({2, modelId, "SiblingObject", -1, false});
 
         GeometryBrowserDialog dialog(1, &model);
         dialog.show();
@@ -97,9 +121,12 @@ private slots:
         QString tempPath = tempDir.path();
         Model model(tempPath.toStdString());
 
+        int modelId = createDummyModelRow(model);
+        QVERIFY(modelId > 0);
+
         // Insert mock data with parent-child relationships
-        model.insertObject({1, 1, "ParentObject", -1, false});
-        model.insertObject({2, 1, "ChildObject", 1, false});
+        model.insertObject({1, modelId, "ParentObject", -1, false});
+        model.insertObject({2, modelId, "ChildObject", 1, false});
 
         GeometryBrowserDialog dialog(1, &model);
         dialog.show();
