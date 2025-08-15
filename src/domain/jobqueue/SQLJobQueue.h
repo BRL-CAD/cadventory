@@ -53,6 +53,9 @@ public:
     // recycle jobs with claimed time > maxAge
     void rescueStale(std::chrono::seconds maxAge);
 
+    // total count of jobs in db
+    int totalCount();
+
 private:
     // db connection
     sqlite3*     m_db      = nullptr;
@@ -64,6 +67,7 @@ private:
     sqlite3_stmt* m_get = nullptr;
     sqlite3_stmt* m_fin = nullptr;
     sqlite3_stmt* m_rqs = nullptr;
+    sqlite3_stmt* m_cnt = nullptr;
 
     // helpers
     void prepare();

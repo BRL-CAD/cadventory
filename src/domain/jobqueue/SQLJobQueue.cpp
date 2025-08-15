@@ -72,6 +72,8 @@ constexpr const char* RESCUE_SQL =
     " WHERE claimed_by IS NOT NULL"
     "   AND (strftime('%s','now') - CAST(claimed_at AS REAL)) > ?1;";
 
+constexpr const char* COUNT_SQL =
+    "SELECT COUNT(*) FROM jobs;";
 
 #ifndef MODEL_DB_INTEGRATION
 SQLJobQueue::SQLJobQueue(const std::filesystem::path& rootDir)
@@ -108,6 +110,7 @@ SQLJobQueue::~SQLJobQueue() {
     sqlite3_finalize(m_get);
     sqlite3_finalize(m_fin);
     sqlite3_finalize(m_rqs);
+    sqlite3_finalize(m_cnt);
     if (m_ownConn)
         sqlite3_close(m_db);
 }
@@ -119,6 +122,7 @@ void SQLJobQueue::prepare() {
     ck(sqlite3_prepare_v2(m_db, GET_SQL,    -1, &m_get, nullptr));
     ck(sqlite3_prepare_v2(m_db, FINISH_SQL, -1, &m_fin, nullptr));
     ck(sqlite3_prepare_v2(m_db, RESCUE_SQL, -1, &m_rqs, nullptr));
+    ck(sqlite3_prepare_v2(m_db, COUNT_SQL,  -1, &m_cnt, nullptr));
 }
 
 #ifndef MODEL_DB_INTEGRATION
@@ -231,6 +235,16 @@ void SQLJobQueue::rescueStale(std::chrono::seconds maxAge) {
     sqlite3_bind_int64(m_rqs, 1, maxAge.count());
     ck(sqlite3_step(m_rqs));
     sqlite3_reset(m_rqs);
+}
+
+int SQLJobQueue::totalCount() {
+    sqlite3_reset(m_cnt);
+    int rc = sqlite3_step(m_cnt);
+
+    int cnt = (rc == SQLITE_ROW) ? static_cast<uint64_t>(sqlite3_column_int64(m_cnt, 0)) : 0;
+
+    sqlite3_reset(m_cnt);
+    return cnt;
 }
 
 void SQLJobQueue::ck(int rc) {
