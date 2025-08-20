@@ -33,9 +33,6 @@ void JobManager::serviceLoop() {
         md.is_processed = false;
         md.is_included  = true;   // new files are included by default
 
-        if (repo.insertModel(md))
-            ++inserted;
-
         if (inserted % UPDATE_EVERY == 0) {
             // periodic stats push
             updateStats([&](JobServiceStats& st) {
@@ -43,6 +40,9 @@ void JobManager::serviceLoop() {
                 st.jobsNew         = inserted;
             });
         }
+
+        if (repo.insertModel(md))
+            ++inserted;
     }
 
     // update stats
