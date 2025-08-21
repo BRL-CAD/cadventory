@@ -1,20 +1,15 @@
 #include "CADventory.h"
+#include "UiShim.h"
 
 #include <iostream>
 
 #include <QCoreApplication>
-#include <QPixmap>
 #include <QTimer>
 #include <QString>
 #include <QDir>
 #include <QSettings>
-#include <QMessageBox>
-#include <QProgressDialog>
 #include <QCommandLineParser>
 
-#include "MainWindow.h"
-#include "SplashDialog.h"
-#include "FilesystemIndexer.h"
 #include "OllamaCLIService.h"
 #include "JobManager.h"
 #include "JobWorker.h"
@@ -133,6 +128,9 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
     } else {
         this->jobService = std::make_unique<JobWorker>();
     }
+
+    if (!cad_ui::guiBuilt() && !parser.isSet("worker") && !parser.isSet("index"))
+        qCritical() << "Built headless: supply --index or --worker to do anything.";
 }
 
 
@@ -144,8 +142,6 @@ CADventory::~CADventory()
         jobService->stop();
 
     s_instance = nullptr;
-    delete window;
-    delete splash;
 }
 
 void CADventory::run() {
@@ -155,9 +151,11 @@ void CADventory::run() {
         return;
     }
 
+    // gui flow
+    cad_ui::showSplash(*this);
     // slight delay and then show our main window
     QTimer::singleShot(250, this, [this]() {
-        initMainWindow();
+        cad_ui::initMainWindow(*this);
 
         // TODO: we don't expect to index on startup anymore (instead we assume a job manager
         //       has already indexed and we're pulling the cache from the db. What stats do we 
@@ -167,6 +165,7 @@ void CADventory::run() {
     });
 }
 
+#if 0
 void CADventory::initMainWindow()
 {
     window = new MainWindow();
@@ -286,5 +285,5 @@ void CADventory::indexDirectory(const char *path)
 
     emit indexingComplete(message.toUtf8().constData());
 }
-
+#endif
 

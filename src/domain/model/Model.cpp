@@ -2,15 +2,18 @@
 
 #include <QBuffer>
 #include <QDebug>
-#include <QImageReader>
-#include <QImageWriter>
-#include <QPixmap>
 #include <QVariant>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <set>
 #include <sstream>
+
+#if CADVENTORY_WITH_GUI
+#include <QImageReader>
+#include <QImageWriter>
+#include <QPixmap>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -135,6 +138,7 @@ QVariant Model::data(const QModelIndex& index, int role) const {
         return tagList;
 	}
     case ThumbnailRole:
+#if CADVENTORY_WITH_GUI
       if (!modelData.thumbnail.empty()) {
         QPixmap thumbnail;
         thumbnail.loadFromData(
@@ -142,6 +146,7 @@ QVariant Model::data(const QModelIndex& index, int role) const {
             static_cast<uint>(modelData.thumbnail.size()), "PNG");
         return thumbnail;
       }
+#endif
       return QVariant();
     case AuthorRole:
       return QString::fromStdString(modelData.author);

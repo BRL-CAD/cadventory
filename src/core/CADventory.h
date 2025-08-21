@@ -2,8 +2,6 @@
 #define CADVENTORY_H
 
 #include <QObject>
-#include <QMainWindow>
-#include <QSplashScreen>
 #include <memory>
 
 #include "ILLMService.h"
@@ -20,8 +18,7 @@ public:
     ~CADventory();
     static CADventory* instance() { return s_instance; }
 
-    void showSplash();
-    void run();		// kicks off file indexing
+    void run();
 
     AIModelTagging* getTagger() const { return tagger.get(); }
     IJobService* getJobService() const { return jobService.get(); }
@@ -30,7 +27,7 @@ signals:
   void indexingComplete(const char *summary);
 
 private slots:
-    void indexDirectory(const char *path);
+    //void indexDirectory(const char *path);
 
 private:
     // helper functions
@@ -44,10 +41,7 @@ private:
     std::unique_ptr<AIModelTagging> tagger;
     std::unique_ptr<IJobService>    jobService;
 
-    // state
-    QMainWindow* window = nullptr;
-    QWidget* splash = nullptr;
-    bool loaded = false;
+    // config
     bool gui = true;		// default gui enabled
 };
 

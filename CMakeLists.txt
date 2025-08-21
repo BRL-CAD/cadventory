@@ -8,7 +8,19 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Gui Concurrent)
+# Add option for disabling gui in headless environments
+option(CADVENTORY_WITH_GUI "Build with Qt Widgets/Gui" ON)
+
+# always needed qt
+set(_qt_components Core Concurrent)
+set(_qt_modules Qt6::Core Qt6::Concurrent)
+if(CADVENTORY_WITH_GUI)
+  # needed with Gui
+  list(APPEND _qt_components Gui Widgets)
+  list(APPEND _qt_modules Qt6::Widgets Qt6::Gui)
+endif()
+
+find_package(Qt6 REQUIRED COMPONENTS ${_qt_components})
 qt_standard_project_setup()
 
 # Flag adjustments for Qt requirements
@@ -62,30 +74,7 @@ set(SRCS
   src/domain/processing/ReportGeneratorWorker.cpp
   src/domain/processing/IDirectiveHandler.cpp
   src/domain/processing/sha1.cpp
-
-  src/ui/filesystem/FileSystemModelWithCheckboxes.cpp
-  src/ui/filesystem/FileSystemFilterProxyModel.cpp
-  src/ui/filesystem/ModelFilterProxyModel.cpp
-  src/ui/widgets/GeometryBrowserDialog.cpp
-  src/ui/widgets/ModelCardDelegate.cpp
-  src/ui/widgets/ModelView.cpp
-  src/ui/windows/LibraryWindow.cpp
-  src/ui/windows/MainWindow.cpp
-  src/ui/windows/ReportGenerationWindow.cpp
-  src/ui/windows/SettingWindow.cpp
-  src/ui/windows/SplashDialog.cpp
 )
-
-set(UIS
-  src/ui/widgets/modelview.ui
-
-  src/ui/windows/librarywindow.ui
-  src/ui/windows/mainwindow.ui
-  src/ui/windows/reportgenerationwindow.ui
-  src/ui/windows/SettingWindow.ui
-  src/ui/windows/splash.ui
-)
-
 set(HEADERS
   src/core/CADventory.h
   src/core/executeCommand.h
@@ -108,19 +97,48 @@ set(HEADERS
   src/domain/processing/ProcessHandler.h
   src/domain/processing/ThumbHandler.h
   src/domain/processing/sha1.h
-
-  src/ui/filesystem/FileSystemFilterProxyModel.h
-  src/ui/filesystem/FileSystemModelWithCheckboxes.h
-  src/ui/filesystem/ModelFilterProxyModel.h
-  src/ui/widgets/GeometryBrowserDialog.h
-  src/ui/widgets/ModelCardDelegate.h
-  src/ui/widgets/ModelView.h
-  src/ui/windows/LibraryWindow.h
-  src/ui/windows/MainWindow.h
-  src/ui/windows/ReportGenerationWindow.h
-  src/ui/windows/SettingWindow.h
-  src/ui/windows/SplashDialog.h
 )
+set(UIS
+  src/ui/UiShim.h
+)
+
+if(CADVENTORY_WITH_GUI)
+  list(APPEND SRCS
+    src/ui/filesystem/FileSystemModelWithCheckboxes.cpp
+    src/ui/filesystem/FileSystemFilterProxyModel.cpp
+    src/ui/filesystem/ModelFilterProxyModel.cpp
+    src/ui/widgets/GeometryBrowserDialog.cpp
+    src/ui/widgets/ModelCardDelegate.cpp
+    src/ui/widgets/ModelView.cpp
+    src/ui/windows/LibraryWindow.cpp
+    src/ui/windows/MainWindow.cpp
+    src/ui/windows/ReportGenerationWindow.cpp
+    src/ui/windows/SettingWindow.cpp
+    src/ui/windows/SplashDialog.cpp
+  )
+  list(APPEND HEADERS
+    src/ui/filesystem/FileSystemFilterProxyModel.h
+    src/ui/filesystem/FileSystemModelWithCheckboxes.h
+    src/ui/filesystem/ModelFilterProxyModel.h
+    src/ui/widgets/GeometryBrowserDialog.h
+    src/ui/widgets/ModelCardDelegate.h
+    src/ui/widgets/ModelView.h
+    src/ui/windows/LibraryWindow.h
+    src/ui/windows/MainWindow.h
+    src/ui/windows/ReportGenerationWindow.h
+    src/ui/windows/SettingWindow.h
+    src/ui/windows/SplashDialog.h
+  )
+  list(APPEND UIS
+    src/ui/widgets/modelview.ui
+
+    src/ui/windows/librarywindow.ui
+    src/ui/windows/mainwindow.ui
+    src/ui/windows/reportgenerationwindow.ui
+    src/ui/windows/SettingWindow.ui
+    src/ui/windows/splash.ui
+  )
+endif()
 
 set(CMAKE_AUTORCC ON)
 # qt_add_executable automatically handles AUTOUIC, AUTOMOC, AUTORCC
@@ -148,12 +166,19 @@ set(SRC_INCLUDE_DIRECTORIES
 # Note dependencies and include directories
 target_include_directories(cadventory PRIVATE ${SRC_INCLUDE_DIRECTORIES})
 
+# export so we can use in code
+target_compile_definitions(cadventory PUBLIC CADVENTORY_WITH_GUI=$<BOOL:${CADVENTORY_WITH_GUI}>)
+
+# Qt links
+target_link_libraries(cadventory PRIVATE ${_qt_modules})
+
+# sqlite links
 if (DEFINED CADVENTORY_USE_SQLITE)
-  target_link_libraries(cadventory PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui Qt6::Concurrent ${SQLITE_LIBRARY})
+  target_link_libraries(cadventory PRIVATE ${SQLITE_LIBRARY})
 else()
   target_include_directories(cadventory PRIVATE ${sqlite_INCLUDE_DIR})
   add_dependencies(cadventory sqlite_static)
-  target_link_libraries(cadventory PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui Qt6::Concurrent sqlite_static)
+  target_link_libraries(cadventory PRIVATE sqlite_static)
 endif()
 
 # --- Begin BRL-CAD Configuration ---
@@ -227,7 +252,7 @@ endif()
 if(WIN32)
   # Function to copy Qt DLLs for a given target
   function(copy_qt_dlls target)
-    foreach(qt_module IN ITEMS Qt6::Core Qt6::Widgets Qt6::Gui)
+    foreach(qt_module IN ITEMS ${_qt_modules})
       if(CMAKE_BUILD_TYPE MATCHES "Debug")
         get_target_property(lib_location ${qt_module} IMPORTED_LOCATION_DEBUG)
       else()

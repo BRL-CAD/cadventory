@@ -1,4 +1,4 @@
-#include <QApplication>
+#include "UiShim.h"
 
 #include "QtMessageHandler.h"	    // initLogging()
 #include "CADventory.h"
@@ -8,11 +8,10 @@ int main(int argc, char **argv)
 {
     initLogging();
 
-    QApplication qt(argc, argv);
+    cad_ui::AppT app(argc, argv);
 
-    CADventory app(argc, argv);
-    app.showSplash();
-    app.run();
+    CADventory cadventory(argc, argv);
+    cadventory.run();
 
-    return qt.exec();
+    return app.exec();
 }
