@@ -29,11 +29,11 @@ void SettingWindow::loadSettings()
     ui->previewTimer->setValue(previewLimit);
 
     // set on command line?
-    const int configured = settings.value("jobs/numThreads", 1).toInt();
+    const int configured = settings.value("jobs/numThreads", 0).toInt();
 
     const int maxThreads = 4096;
-    ui->workerThreads->setRange(1, maxThreads);
-    ui->workerThreads->setValue(std::max(1, configured));
+    ui->workerThreads->setRange(0, maxThreads);
+    ui->workerThreads->setValue(std::max(0, configured));
 }
 
 void SettingWindow::saveSettings()

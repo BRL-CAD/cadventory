@@ -73,7 +73,7 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
     if (parser.isSet("num-cpus")) {
         bool ok = false;
         int val = parser.value("num-cpus").toInt(&ok);
-        if (ok && val > 0) {
+        if (ok && val >= 0) {
             QSettings().setValue("jobs/numThreads", val);
             QSettings().sync();
         }

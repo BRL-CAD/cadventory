@@ -116,8 +116,13 @@ void JobWorker::serviceLoop() {
     // spawn worker threads that inf. process jobs until stopFlag is true
     std::atomic<bool> stopFlag{false};
     QSettings settings;
-    size_t threadCount = settings.value("jobs/numThreads", 1).toInt();
+    size_t threadCount = settings.value("jobs/numThreads", 0).toInt();
     std::cerr << "[JobWorker::ServiceLoop()] jobs/numThreads: " << threadCount << "\n";
+    // assume we dont want the JobWorker to do anything
+    if (!threadCount) {
+        service->stop();
+        return;
+    }
     auto threads = spawnWorkerThreads(jobsDir(), dataDir(), rootDir(), service, threadCount, stopFlag);
 
     using clock = std::chrono::steady_clock;
