@@ -128,7 +128,7 @@ void MainWindow::openLibrary()
     if (!button)
         return;
 
-    QString lookupKey = button->text();
+    QString lookupKey = button->toolTip();
     Library* foundLibrary = nullptr;
 
     for (Library* lib : libraries) {
