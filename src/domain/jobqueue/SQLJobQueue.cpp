@@ -139,31 +139,49 @@ void SQLJobQueue::prepare() {
 bool SQLJobQueue::createJob(const std::string& fileId,
                             const std::string& directive,
                             const std::string& sourcePath)
-{
-    sqlite3_reset(m_ins); sqlite3_clear_bindings(m_ins);
-    sqlite3_bind_text(m_ins, 1, fileId.c_str(),  -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(m_ins, 2, directive.c_str(),-1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(m_ins, 3, sourcePath.c_str(),-1, SQLITE_TRANSIENT);
 #else
 bool SQLJobQueue::createJob(long long        modelId,
                             const std::string& fileId,
                             const std::string& directive,
                             const std::string& sourcePath)
-{
-    sqlite3_reset(m_ins); sqlite3_clear_bindings(m_ins);
-    sqlite3_bind_int64(m_ins, 1, modelId);
-    sqlite3_bind_text (m_ins, 2, fileId.c_str(),  -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text (m_ins, 3, directive.c_str(),-1, SQLITE_TRANSIENT);
-    sqlite3_bind_text (m_ins, 4, sourcePath.c_str(),-1, SQLITE_TRANSIENT);
 #endif
-    int rc = sqlite3_step(m_ins);
-    ck(rc == SQLITE_DONE ? SQLITE_OK : rc);
+{
+    for (int retries = 0; retries < MAX_RETRIES; ++retries) {
+        sqlite3_reset(m_ins);
+        sqlite3_clear_bindings(m_ins);
+#ifndef MODEL_DB_INTEGRATION
+        sqlite3_bind_text(m_ins, 1, fileId.c_str(),  -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(m_ins, 2, directive.c_str(),-1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(m_ins, 3, sourcePath.c_str(),-1, SQLITE_TRANSIENT);
+#else
+        sqlite3_bind_int64(m_ins, 1, modelId);
+        sqlite3_bind_text (m_ins, 2, fileId.c_str(),  -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text (m_ins, 3, directive.c_str(),-1, SQLITE_TRANSIENT);
+        sqlite3_bind_text (m_ins, 4, sourcePath.c_str(),-1, SQLITE_TRANSIENT);
+#endif
 
-    // clear statement and release lock
+        int rc = sqlite3_step(m_ins);
+
+        if (rc == SQLITE_DONE) {
+            // success
+            sqlite3_reset(m_ins);
+            return sqlite3_changes(m_db) > 0;
+        }
+
+        if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
+            // try again
+            sqlite3_reset(m_ins); // MUST reset before re-stepping
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+
+        // hard error
+        ck(rc);
+    }
+
+    // exceeded retries
     sqlite3_reset(m_ins);
-
-    // changes == 0 -> row already present; INSERT ignored
-    return sqlite3_changes(m_db) > 0;
+    return false;
 }
 
 std::optional<JobDescriptor> SQLJobQueue::claimJob(const std::string& workerId) {
