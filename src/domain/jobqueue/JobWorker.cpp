@@ -63,19 +63,16 @@ static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
 
             // 'brains': claim and handle jobs
             while (!stopFlag.load()) {
-                auto jobOpt = queue.claimJob(workerId);
-                if (!jobOpt) {
-                    // no job to claim; slight delay and try again
-                    std::this_thread::sleep_for(std::chrono::milliseconds(200 + pollJitterMs));
-                    continue;
-                }
+                try {
+                    auto jobOpt = queue.claimJob(workerId);
+                    if (!jobOpt) {
+                        // no job to claim; slight delay and try again
+                        std::this_thread::sleep_for(std::chrono::milliseconds(200 + pollJitterMs));
+                        continue;
+                    }
 
-                // got a job
-                auto job = *jobOpt;
-
-                auto it = handlers.find(job.directive);
-                if (it != handlers.end()) {
-                    // found a valid handler
+                    // got a job
+                    auto job = *jobOpt;
                     bool success = false;
 
                     // signal start
@@ -83,23 +80,25 @@ static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
                         service->directiveStarted(QString::fromStdString(job.directive),
                                                   QString::fromStdString(job.fileId));
 
+                    // lazy: try will catch if we dont have a handler, or if something goes wrong within it
                     try {
-                        auto ret = it->second->handle(job, stopFlag);
-                        success = ret.success;
+                        success = handlers.at(job.directive)->handle(job, stopFlag).success;
                     } catch (...) {
-                        // something went wrong
                         success = false;
                     }
 
                     // signal finish
                     if (service)
                         service->directiveFinished(QString::fromStdString(job.directive),
-                                                   QString::fromStdString(job.fileId),
-                                                   success);
-                }
+                                                    QString::fromStdString(job.fileId),
+                                                    success);
 
-                // whether we passed or failed, finsh the job
-                queue.finish(job);
+                    // whether we passed or failed, finsh the job
+                    queue.finish(job);
+                } catch (const std::exception&) {
+                    // something probably went awry with jobqueue claim/finish. Don't kill the thread
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                }
             }
         });
     }
