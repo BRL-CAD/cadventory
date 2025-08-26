@@ -96,8 +96,11 @@ SQLJobQueue::SQLJobQueue(const std::filesystem::path& rootDir)
     ck(sqlite3_open_v2(dbPath.c_str(), &m_db,
                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE |
                        SQLITE_OPEN_FULLMUTEX, nullptr));
-    sqlite3_busy_timeout(m_db, 1000);   // 1s busy timeout
-    ck(sqlite3_exec(m_db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr));
+    sqlite3_busy_timeout(m_db, 5000);   // 5s busy timeout
+    ck(sqlite3_exec(m_db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr));
+    ck(sqlite3_exec(m_db, "PRAGMA journal_mode=DELETE;", nullptr, nullptr, nullptr));
+    ck(sqlite3_exec(m_db, "PRAGMA synchronous=FULL;", nullptr, nullptr, nullptr));
+    ck(sqlite3_exec(m_db, "PRAGMA mmap_size=0;", nullptr, nullptr, nullptr));
     ck(sqlite3_exec(m_db, CREATE_TABLE, nullptr, nullptr, nullptr));
     prepare();
 }
@@ -164,53 +167,87 @@ bool SQLJobQueue::createJob(long long        modelId,
 }
 
 std::optional<JobDescriptor> SQLJobQueue::claimJob(const std::string& workerId) {
-    ck(sqlite3_exec(m_db, "BEGIN;", nullptr, nullptr, nullptr));
+    for (int retries = 0; retries < MAX_RETRIES; ++retries) {
+        int rc = sqlite3_exec(m_db, "BEGIN IMMEDIATE;", nullptr, nullptr, nullptr);
+        if (rc == SQLITE_BUSY) {
+            // try again
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+        ck(rc);
 
-    sqlite3_reset(m_clm);
-    sqlite3_clear_bindings(m_clm);
-    sqlite3_bind_text(m_clm, 1, workerId.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(m_clm,  2, m_staleTimeoutSecs);
+        sqlite3_reset(m_clm);
+        sqlite3_clear_bindings(m_clm);
+        sqlite3_bind_text(m_clm, 1, workerId.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(m_clm,  2, m_staleTimeoutSecs);
 
-    int rc = sqlite3_step(m_clm);
-    if (rc == SQLITE_DONE) {             // queue empty
-        ck(sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, nullptr));
-        return std::nullopt;
+        rc = sqlite3_step(m_clm);
+        if (rc == SQLITE_DONE) {             // queue empty
+            sqlite3_reset(m_clm);
+            ck(sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, nullptr));
+            return std::nullopt;
+        }
+
+        if (rc == SQLITE_ROW) {
+            long long id = sqlite3_column_int64(m_clm, 0);
+
+            rc = sqlite3_step(m_clm);            // advance to SQLITE_DONE
+            sqlite3_reset(m_clm);                // release locks
+            if (rc != SQLITE_DONE) {
+                // something bad happened - rollback
+                sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
+                if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
+                    // try again
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    continue;
+                }
+                ck(rc);
+            }
+            // at this point we should have a claimed, valid row
+
+            ck(sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, nullptr));
+
+            // build descriptor
+            sqlite3_reset(m_get);
+            sqlite3_bind_int64(m_get, 1, id);
+
+            rc = sqlite3_step(m_get);
+            if (rc != SQLITE_ROW) {
+                sqlite3_reset(m_get);
+                return std::nullopt;
+            }
+
+            auto safeTxt = [](sqlite3_stmt* st, int idx)->std::string {
+                const unsigned char* p = sqlite3_column_text(st, idx);
+                return p ? reinterpret_cast<const char*>(p) : "";
+            };
+
+            JobDescriptor jd;
+            jd.id         = id;
+            jd.fileId     = safeTxt(m_get, 1);
+            jd.directive  = safeTxt(m_get, 2);
+            jd.sourcePath = safeTxt(m_get, 3);
+            jd.claimedBy  = workerId;
+            jd.claimedAt  = sqlite3_column_double(m_get, 4);
+
+            sqlite3_reset(m_get);
+            return jd;
+        }
+
+        // unexpected rc: rollback and try again
+        sqlite3_reset(m_clm);
+        sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
+        if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
+            // try again
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
+
+        // final check
+        ck(rc);
     }
-    ck(rc);                              // SQLITE_ROW
 
-    long long id = sqlite3_column_int64(m_clm, 0);
-
-    rc = sqlite3_step(m_clm);            // advance to SQLITE_DONE
-    ck(rc);
-    sqlite3_reset(m_clm);                // release locks
-
-    ck(sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, nullptr));
-
-    // build descriptor
-    sqlite3_reset(m_get);
-    sqlite3_bind_int64(m_get, 1, id);
-
-    rc = sqlite3_step(m_get);
-    if (rc != SQLITE_ROW) {
-        sqlite3_reset(m_get);
-        return std::nullopt;
-    }
-
-    auto safeTxt = [](sqlite3_stmt* st, int idx)->std::string {
-        const unsigned char* p = sqlite3_column_text(st, idx);
-        return p ? reinterpret_cast<const char*>(p) : "";
-    };
-
-    JobDescriptor jd;
-    jd.id         = id;
-    jd.fileId     = safeTxt(m_get, 1);
-    jd.directive  = safeTxt(m_get, 2);
-    jd.sourcePath = safeTxt(m_get, 3);
-    jd.claimedBy  = workerId;
-    jd.claimedAt  = sqlite3_column_double(m_get, 4);
-
-    sqlite3_reset(m_get);
-    return jd;
+    return std::nullopt;
 }
 
 void SQLJobQueue::finish(const JobDescriptor& jd) {
@@ -229,12 +266,24 @@ void SQLJobQueue::finish(const JobDescriptor& jd) {
 
         sqlite3_reset(m_fin);
         sqlite3_bind_int64(m_fin, 1, jd.id);
-        ck(sqlite3_step(m_fin));       // DELETE row
+        rc = sqlite3_step(m_fin);       // DELETE row
         sqlite3_reset(m_fin);
+
+        // unexpected rc: rollback and try again
+        if (rc != SQLITE_DONE) {
+            sqlite3_exec(m_db, "ROLLBACK;", nullptr, nullptr, nullptr);
+            if (rc == SQLITE_BUSY || rc == SQLITE_LOCKED) {
+                // try again
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                ++retries;
+                continue;
+            }
+            ck(rc);
+        }
 
         ck(sqlite3_exec(m_db, "COMMIT;", nullptr, nullptr, nullptr));
         return;                        // success
-    } while (retries < 50);            // ~0.5 s worst-case
+    } while (retries < MAX_RETRIES);
 
     throw std::runtime_error("finish(): database busy");
 }

@@ -37,10 +37,11 @@ Model::Model(const std::string& libraryPath, QObject* parent)
   } else {
     std::cout << "Opened database at " << dbPath << " successfully" << std::endl;
 
-    sqlite3_busy_timeout(db, 1000); // 1s
+    sqlite3_busy_timeout(db, 5000); // 5s
     sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
-    sqlite3_exec(db, "PRAGMA journal_mode = WAL;", nullptr, nullptr, nullptr);
-    sqlite3_exec(db, "PRAGMA synchronous = NORMAL;", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "PRAGMA journal_mode=DELETE;", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "PRAGMA synchronous=FULL;",   nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "PRAGMA mmap_size=0;",        nullptr, nullptr, nullptr);
 
     createTables();
 
