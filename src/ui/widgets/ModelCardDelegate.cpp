@@ -22,6 +22,7 @@ void ModelCardDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opt
     QString title = index.data(Model::TitleRole).toString();
     QString author = index.data(Model::AuthorRole).toString();
     bool isSelected = index.data(Model::IsSelectedRole).toBool();
+    const bool processed = index.data(Model::IsProcessedRole).toBool();
 
     // Draw background
     if (option.state & QStyle::State_Selected) {
@@ -68,14 +69,22 @@ void ModelCardDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opt
 
     /*icon.paint(painter, iconR, Qt::AlignCenter, QIcon::Normal, QIcon::On);
     painter->restore();*/
-    QIcon magnifyIcon = QIcon::fromTheme("edit-find");
-    if (magnifyIcon.isNull()) {
-        // Fallback: use a standard Qt icon that is adaptive
-        magnifyIcon = QApplication::style()->standardIcon(QStyle::SP_FileDialogContentsView);
-    }
+    // draw magnifying glass button if we're processed; otherwise show 'not processed'
+    if (processed) {
+        QIcon magnifyIcon = QIcon::fromTheme("edit-find");
+        if (magnifyIcon.isNull()) {
+            // Fallback: use a standard Qt icon that is adaptive
+            magnifyIcon = QApplication::style()->standardIcon(QStyle::SP_FileDialogContentsView);
+        }
 
-    // Draw the adaptive magnifying glass icon in the icon rectangle.
-    magnifyIcon.paint(painter, iconRect(option), Qt::AlignCenter, QIcon::Normal, QIcon::On);
+        // Draw the adaptive magnifying glass icon in the icon rectangle.
+        magnifyIcon.paint(painter, iconRect(option), Qt::AlignCenter, QIcon::Normal, QIcon::On);
+    } else {
+        painter->setPen(QColor(140,140,140));
+        painter->drawText(iconR.adjusted(-120, 0, 0, 0),
+                          Qt::AlignRight | Qt::AlignVCenter,
+                          QStringLiteral("(not processed)"));
+    }
 }
 
 QSize ModelCardDelegate::sizeHint(const QStyleOptionViewItem& option,
@@ -92,6 +101,10 @@ bool ModelCardDelegate::editorEvent(QEvent* event, QAbstractItemModel* model,
         QPoint pos = mouseEvent->pos();
 
         if (iconRect(option).contains(pos)) {
+            if (!index.data(Model::IsProcessedRole).toBool()) {
+                // if we're not processed, don't allow an accidental click
+                return true;
+            }
             int modelId = index.data(Model::IdRole).toInt();
             emit modelViewClicked(modelId);
 

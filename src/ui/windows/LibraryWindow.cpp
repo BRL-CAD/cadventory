@@ -397,9 +397,8 @@ void LibraryWindow::populateExplorerModel() {
     for (int i = 0; i < model->rowCount(); ++i) {
         QModelIndex index = model->index(i, 0);
         
-        // Only include processed models
-        if (model->data(index, Model::IsProcessedRole).toBool() && 
-            model->data(index, Model::IsIncludedRole).toBool()) {
+        // show all included models
+        if (model->data(index, Model::IsIncludedRole).toBool()) {
             
             // Get model data
             int modelId = model->data(index, Model::IdRole).toInt();

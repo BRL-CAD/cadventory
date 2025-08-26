@@ -13,9 +13,8 @@ ModelFilterProxyModel::ModelFilterProxyModel(QObject* parent)
 bool ModelFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex& sourceParent) const {
     QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
 
-    // Check if the model is included and processed
-    if (!sourceModel()->data(index, Model::IsIncludedRole).toBool() ||
-        !sourceModel()->data(index, Model::IsProcessedRole).toBool()) {
+    // Check if the model is included
+    if (!sourceModel()->data(index, Model::IsIncludedRole).toBool()) {
         return false;
     }
 
