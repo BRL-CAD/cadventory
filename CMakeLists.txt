@@ -11,6 +11,8 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 # Add option for disabling gui in headless environments
 option(CADVENTORY_WITH_GUI "Build with Qt Widgets/Gui" ON)
 
+find_package(Threads REQUIRED)
+
 # always needed qt
 set(_qt_components Core Concurrent)
 set(_qt_modules Qt6::Core Qt6::Concurrent)
