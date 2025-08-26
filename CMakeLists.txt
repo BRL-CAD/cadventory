@@ -315,6 +315,83 @@ if(WIN32)
   endforeach()
 endif()
 
+# rpath settings for non-windows
+if(NOT WIN32)
+  # Function to get directory of an imported target's runtime library (Qt, BRL, etc.)
+  function(_get_imported_dir OUT_VAR TGT)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+      get_target_property(_loc ${TGT} IMPORTED_LOCATION_DEBUG)
+    elseif(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+      get_target_property(_loc ${TGT} IMPORTED_LOCATION_RELWITHDEBINFO)
+    elseif(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
+      get_target_property(_loc ${TGT} IMPORTED_LOCATION_MINSIZEREL)
+    else()
+      get_target_property(_loc ${TGT} IMPORTED_LOCATION_RELEASE)
+    endif()
+
+    # resolve loc
+    if(NOT _loc)
+      get_target_property(_loc ${TGT} IMPORTED_LOCATION)
+    endif()
+    if(NOT _loc)
+      get_target_property(_loc ${TGT} LOCATION)
+    endif()
+    if(NOT _loc)
+      message(FATAL_ERROR "Could not determine imported location for ${TGT}")
+    endif()
+
+    get_filename_component(_dir "${_loc}" DIRECTORY)
+    set(${OUT_VAR} "${_dir}" PARENT_SCOPE)
+  endfunction()
+
+  # collect BRL-CAD targets
+  set(RPATH_DIRS "")
+  foreach(lib ${BRLCAD_LIBRARIES})
+    if(IS_ABSOLUTE "${lib}")
+      get_filename_component(_bdir "${lib}" DIRECTORY)
+      list(APPEND RPATH_DIRS "${_bdir}")
+    endif()
+  endforeach()
+  if (BRLCAD_ROOT AND EXISTS "${BRLCAD_ROOT}/lib")
+    list(APPEND RPATH_DIRS "${BRLCAD_ROOT}/lib")
+  endif()
+
+  # collect qt targets
+  foreach(mod IN LISTS _qt_modules)
+    if(TARGET ${mod})
+      _get_imported_dir(_qt_dir ${mod})
+      list(APPEND RPATH_DIRS "${_qt_dir}")
+    endif()
+  endforeach()
+
+  # dedupe
+  list(REMOVE_DUPLICATES RPATH_DIRS)
+
+  # use modern RUNPATH on ELF and allow $ORIGIN in build rpath
+  if(UNIX AND NOT APPLE)
+    target_link_options(cadventory PRIVATE -Wl,--enable-new-dtags)
+  endif()
+  set(CMAKE_BUILD_RPATH_USE_ORIGIN ON)
+
+  # apple vs linux per-platform origin token
+  if(APPLE)
+    set(_ORIGIN_RPATH "@loader_path;@loader_path/../lib")
+  else()
+    set(_ORIGIN_RPATH "$ORIGIN;$ORIGIN/../lib")
+  endif()
+
+  # BUILD_RPATH: BRL-CAD + Qt + origin fallbacks (run from build tree)
+  # INSTALL_RPATH: BRL-CAD + origin fallbacks (run after install)
+  set(_BUILD_RPATH   "${RPATH_DIRS};${_ORIGIN_RPATH}")
+  set(_INSTALL_RPATH "${RPATH_DIRS};${_ORIGIN_RPATH}")
+
+  # apply to target
+  set_target_properties(cadventory PROPERTIES
+    BUILD_RPATH   "${_BUILD_RPATH}"
+    INSTALL_RPATH "${_INSTALL_RPATH}"
+  )
+endif()
+
 # Testing
 enable_testing()
 add_subdirectory(src/tests)
