@@ -64,6 +64,8 @@ private slots:
     void onInclusionChanged(const QModelIndex& index, bool included);
     void onIndexingComplete();
     void onDirectoryLoaded(const QString& path);
+    void onExpandOneLevelClicked();
+    void onCollapseAllClicked();
 
 private:
     void setupModelsAndViews();
@@ -74,6 +76,10 @@ private:
 
     void processNextFile();
     void onTagsGeneratedFromBatch(const QStringList& tags);
+
+    // Filesystem tree-view
+    int m_fsTargetDepth = 1;			// default 'on-start' depth = 1
+    void expandFilesystemToDepth(int depth);    // depth <0 = expand all
 
     Library* library;
     MainWindow* mainWindow;

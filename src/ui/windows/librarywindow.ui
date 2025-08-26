@@ -344,17 +344,49 @@
       <number>0</number>
      </property>
      <item>
-      <widget class="QTreeView" name="fileSystemTreeView">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-         <horstretch>1</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </widget>
+      <widget class="QWidget" name="fsContainer">
+       <layout class="QVBoxLayout" name="fsContainerLayout">
+        <property name="leftMargin"><number>6</number></property>
+        <property name="topMargin"><number>6</number></property>
+        <property name="rightMargin"><number>6</number></property>
+        <property name="bottomMargin"><number>6</number></property>
+        <item> <!-- Controls row -->
+         <layout class="QHBoxLayout" name="fsControlsLayout">
+          <item>
+           <widget class="QPushButton" name="expandOneLevelButton">
+            <property name="text"><string>Expand Depth +1</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="collapseAllButton">
+            <property name="text"><string>Collapse All</string></property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="fsControlsSpacer">
+            <property name="orientation"><enum>Qt::Horizontal</enum></property>
+            <property name="sizeHint">
+             <size><width>40</width><height>20</height></size>
+            </property>
+           </spacer>
+          </item>
+         </layout> <!-- layout fsControlsLayout -->
+        </item> <!-- Controls row -->
+        <item> <!-- Tree-view w/ check boxes-->
+         <widget class="QTreeView" name="fileSystemTreeView">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>1</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </item>
+       </layout> <!-- layout fsContainerLayout -->
+      </widget> <!-- widget fsContainer -->
+     </item> <!-- Tree-view w/ check boxes-->
+    </layout> <!-- layout filesystemLayout -->
+   </widget> <!-- widget filesystemTab -->
   </widget>
   <widget class="QLabel" name="currentLibrary">
    <property name="geometry">

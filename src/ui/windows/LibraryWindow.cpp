@@ -8,6 +8,7 @@
 #include "ReportGenerationWindow.h"
 #include "ReportGeneratorWorker.h"
 #include "FileSystemFilterProxyModel.h"
+#include "FileSystemModelWithCheckboxes.h"
 
 #include <QThread>
 #include <QMessageBox>
@@ -352,14 +353,14 @@ void LibraryWindow::setupModelsAndViews() {
     // Set icon size (if desired)
     ui.fileSystemTreeView->setIconSize(QSize(24, 24));
 
-    // Expand all nodes currently loaded
-    ui.fileSystemTreeView->expandAll();
+    // Expand Filesystem
+    expandFilesystemToDepth(m_fsTargetDepth);
+    connect(ui.expandOneLevelButton, &QPushButton::clicked, this, &LibraryWindow::onExpandOneLevelClicked);
+    connect(ui.collapseAllButton, &QPushButton::clicked, this, &LibraryWindow::onCollapseAllClicked);
 
     // Connect signals
-    connect(fileSystemModel, &QFileSystemModel::directoryLoaded,
-            this, &LibraryWindow::onDirectoryLoaded);
-    connect(fileSystemModel, &FileSystemModelWithCheckboxes::inclusionChanged,
-            this, &LibraryWindow::onInclusionChanged);
+    connect(fileSystemModel, &QFileSystemModel::directoryLoaded, this, &LibraryWindow::onDirectoryLoaded);
+    connect(fileSystemModel, &FileSystemModelWithCheckboxes::inclusionChanged, this, &LibraryWindow::onInclusionChanged);
 }
 
 void LibraryWindow::setupExplorerView() {
@@ -735,8 +736,43 @@ void LibraryWindow::onIndexingComplete() {
                                  {Qt::CheckStateRole});
 }
 
-void LibraryWindow::onDirectoryLoaded(const QString& /*path*/) {
+void LibraryWindow::onDirectoryLoaded(const QString& path) {
     fileSystemProxyModel->invalidate();
-    ui.fileSystemTreeView->expandAll();
+    ui.statusLabel->setText(tr("Loaded %1").arg(path));
+    ui.fileSystemTreeView->viewport()->update();
 }
 
+void LibraryWindow::expandFilesystemToDepth(int depth) {
+    auto *treeview = ui.fileSystemTreeView;
+    const QModelIndex rootIdx = treeview->rootIndex();
+    if (!rootIdx.isValid())
+        return;
+
+    treeview->setUpdatesEnabled(false);
+    if (depth < 0) {
+        treeview->expandRecursively(rootIdx);           // full expand
+    } else {
+        treeview->expandRecursively(rootIdx, depth);    // bounded depth
+    }
+    treeview->setUpdatesEnabled(true);
+}
+
+void LibraryWindow::onExpandOneLevelClicked() {
+    if (m_fsTargetDepth < 0) {
+        // already expaned to 'all'
+        expandFilesystemToDepth(-1);
+        return;
+    }
+
+    ++m_fsTargetDepth;                 // move to next depth
+    expandFilesystemToDepth(m_fsTargetDepth);
+}
+
+void LibraryWindow::onCollapseAllClicked() {
+    auto *treeview = ui.fileSystemTreeView;
+
+    treeview->setUpdatesEnabled(false);
+    treeview->collapseAll();                      // purely visual; dont re-walk
+    treeview->expand(treeview->rootIndex());      // keep root visible
+    treeview->setUpdatesEnabled(true);
+}

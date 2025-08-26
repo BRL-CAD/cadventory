@@ -37,6 +37,9 @@ private:
 
     mutable QMutex m_checkStatesMutex;
     mutable QHash<QString, Qt::CheckState> m_checkStates;
+
+    QSet<QString>                   m_loadedDirs;      // directories that QFileSystemModel has loaded
+    QHash<QString, Qt::CheckState>  m_pendingDirState; // desired state to apply once a dir loads
 };
 
 #endif // FILESYSTEMMODELWITHCHECKBOXES_H
