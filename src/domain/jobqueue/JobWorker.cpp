@@ -106,6 +106,21 @@ static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
     return threads;
 }
 
+struct safeThreadExit {
+    // RAII
+    std::vector<std::thread>& threads;
+    std::atomic<bool>& stopFlag;
+
+    ~safeThreadExit() {
+        // signal threads to stop and join
+        stopFlag.store(true);
+        for (auto& thread : threads) {
+            if (thread.joinable())
+                thread.join();
+        }
+    }
+};
+
 void JobWorker::serviceLoop() {
     // TODO: a lot of these should collapse into a 'Library'?
     Model            repo(rootDir());       // get unprocessed models
@@ -123,6 +138,7 @@ void JobWorker::serviceLoop() {
         return;
     }
     auto threads = spawnWorkerThreads(jobsDir(), dataDir(), rootDir(), service, threadCount, stopFlag);
+    safeThreadExit _guard{threads, stopFlag};
 
     using clock = std::chrono::steady_clock;
     const auto refreshInterval = std::chrono::seconds(5);
@@ -161,12 +177,5 @@ void JobWorker::serviceLoop() {
 
         // pause before re-poll
         std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-
-    // stopped running: signal threads to stop and join
-    stopFlag.store(true);
-    for (auto& t : threads) {
-        if (t.joinable())
-            t.join();
     }
 }
