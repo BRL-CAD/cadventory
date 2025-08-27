@@ -55,7 +55,7 @@ public:
     void rescueStale(std::chrono::seconds maxAge);
 
     // total count of jobs in db
-    int totalCount();
+    int64_t totalCount();
 
 private:
     // db connection
@@ -72,11 +72,8 @@ private:
 
     // helpers
     void prepare();
-    static void ck(int rc);
+    void ck(int rc, sqlite3_stmt* st = nullptr);
 
     // amount of time before job is considered stale and is viable to be re-claimed
     int m_staleTimeoutSecs = 600;    // 10m
-
-    // number of retries claim/finish will attempt to avoid db busy/locks
-    const int MAX_RETRIES = 50;     // (worst-case) ~0.5s with 10ms backoff
 };
