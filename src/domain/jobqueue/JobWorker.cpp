@@ -185,13 +185,11 @@ void JobWorker::serviceLoop() {
 
                 // enqueue "process" jobs
                 for (auto const& modelData : unproc) {
-                    /* NOTE: for this pass, we use just the absolute filepath to enqueue a "process" job
+                    /* NOTE: for this pass, we use just the filepath to enqueue a "process" job
                      * since we don't have any file introspection yet. Subsequent jobs get a 
-                     * proper fileId which should more uniquely identify the file and link it to
-                     * a unique output directory
+                     * proper fileId which should more uniquely identify the file contents
                      */
-                    std::string dummyId = std::to_string(std::hash<std::string>{}(modelData.file_path));
-                    queue.createJob(dummyId, "process", modelData.file_path);
+                    queue.createJob(modelData.file_path, "process", modelData.file_path);
                 }
 
                 // assume we queued jobs
