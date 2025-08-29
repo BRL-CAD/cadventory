@@ -140,42 +140,68 @@ void JobWorker::serviceLoop() {
     auto threads = spawnWorkerThreads(jobsDir(), dataDir(), rootDir(), service, threadCount, stopFlag);
     safeThreadExit _guard{threads, stopFlag};
 
+    // time-keeping
     using clock = std::chrono::steady_clock;
-    const auto refreshInterval = std::chrono::seconds(5);
-    auto lastRefresh = clock::now();
+    const auto refreshInterval = std::chrono::seconds(5);   // refresh job count
+    const auto scanInterval = std::chrono::seconds(15);     // scan model repo db
+    const auto idleDelay = std::chrono::milliseconds(200);
 
-    // main loop: poll -> enqueue -> drain -> repeat
+    // force initial checks
+    size_t job_cnt = 0;
+    auto lastRefresh = clock::now() - refreshInterval;
+    auto lastScan = clock::now() - scanInterval;
+
+    // main loop: drain -> enqueue -> repeat
     while (state() == JobServiceState::Running) {
-        // poll unprocessed models
-        auto unproc = repo.getIncludedNotProcessedModels();
+        try {
+            const auto now = clock::now();
 
-        // enqueue "process" jobs
-        for (auto const& modelData : unproc) {
-            /* NOTE: for this pass, we use just the absolute filepath to enqueue a "process" job
-             * since we don't have any file introspection yet. Subsequent jobs get a 
-             * proper fileId which should more uniquely identify the file and link it to
-             * a unique output directory
-             */
-            std::string dummyId = std::to_string(std::hash<std::string>{}(modelData.file_path));
-            queue.createJob(dummyId, "process", modelData.file_path);
+            // refresh job count periodically (emit to service if we have one)
+            if (now - lastRefresh >= refreshInterval) {
+                lastRefresh = now;
+                job_cnt = queue.totalCount();
+
+                if (service) {
+                    service->emitRefreshSuggested();
+                    service->updateStats([&](JobServiceStats& st) {
+                        st.jobsNew = job_cnt;
+                    });
+                }
+            }
+
+            // spin while we still have jobs
+            if (job_cnt > 0) {
+                // wait for a refresh
+                std::this_thread::sleep_for(refreshInterval);
+                continue;
+            }
+
+            // no queued work found: consider scalling the repo
+            if (now - lastScan >= scanInterval) {
+                lastScan = now;
+
+                // fetch unprocessed models
+                auto unproc = repo.getIncludedNotProcessedModels();
+
+                // enqueue "process" jobs
+                for (auto const& modelData : unproc) {
+                    /* NOTE: for this pass, we use just the absolute filepath to enqueue a "process" job
+                     * since we don't have any file introspection yet. Subsequent jobs get a 
+                     * proper fileId which should more uniquely identify the file and link it to
+                     * a unique output directory
+                     */
+                    std::string dummyId = std::to_string(std::hash<std::string>{}(modelData.file_path));
+                    queue.createJob(dummyId, "process", modelData.file_path);
+                }
+
+                // assume we queued jobs
+                job_cnt = unproc.size();
+            }
+        } catch (const std::exception&) {
+            // ignore any errors thrown so loop always stays alive
         }
 
-        // spin while we work through job queue
-        // TODO: implement pendingCount()
-        /*while (queue.pendingCount() > 0 && state() == JobServiceState::Running) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        }*/
-
-        // poke service to refresh periodically
-        if (service && clock::now() - lastRefresh >= refreshInterval) {
-            lastRefresh = clock::now();
-            service->emitRefreshSuggested();
-            service->updateStats([&](JobServiceStats& st) {
-                st.jobsNew = queue.totalCount();
-            });
-        }
-
-        // pause before re-poll
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        // light idle delay to avoid tight loops
+        std::this_thread::sleep_for(idleDelay);
     }
 }
