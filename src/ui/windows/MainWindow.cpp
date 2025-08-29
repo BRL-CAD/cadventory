@@ -91,12 +91,12 @@ MainWindow::~MainWindow()
     }
 }
 
-void MainWindow::addLibrary(const char* label, const char* path)
+Library* MainWindow::addLibrary(const char* label, const char* path)
 {
     for (Library* lib : libraries) {
         if (QString(lib->name()) == QString(label) && QString(lib->path()) == QString(path)) {
             std::cout << "Library [" << label << "] already exists, skipping add." << std::endl;
-            return;
+            return nullptr;
         }
     }
 
@@ -104,12 +104,6 @@ void MainWindow::addLibrary(const char* label, const char* path)
 
     Library* newlib = new Library(label, path);
     libraries.push_back(newlib);
-    size_t files = newlib->indexFiles();
-
-    QString libCount = files ? QString("Found ") + QString::number(files) + QString(" indexed file(s) in ") + label :
-                               QString("No .cadventory file found. Run with --index");
-    this->updateStatusLabel(libCount.toStdString().c_str());
-
 
     QAction *lib = new QAction(tr(label),this);
     removelib->addAction(lib);
@@ -119,6 +113,8 @@ void MainWindow::addLibrary(const char* label, const char* path)
 
     // Add a button for the new library
     addLibraryButton(label, path);
+
+    return newlib;
 }
 
 
@@ -139,6 +135,11 @@ void MainWindow::openLibrary()
     }
 
     if (foundLibrary) {
+        // ensure we have latest state of the database
+        const QString loading_msg = "Opening: " + QString::fromUtf8(foundLibrary->name()) + "... (this could take a while)";
+        this->updateStatusLabel(loading_msg.toStdString().c_str());
+        foundLibrary->loadDatabase();
+
         LibraryWindow* libraryWindow = new LibraryWindow(this->centralWidget());
         std::cout << "Opening library " << foundLibrary->name() << std::endl;
 
@@ -229,6 +230,9 @@ void MainWindow::addLibraryButton(const char* label, const char* /*path*/)
 void MainWindow::updateStatusLabel(const char* status)
 {
     ui.indexingStatus->setText(status);
+
+    // ensure we display immediately
+    QCoreApplication::processEvents();
 }
 
 QString MainWindow::getStatusLabel(){
@@ -241,8 +245,22 @@ void MainWindow::on_addLibraryButton_clicked()
     if (!folderPath.isEmpty()) {
         QString name = QFileInfo(folderPath).fileName();
 
+        QString adding = "Adding: \'" + name + "\'... (this could take a minute)";
+        this->updateStatusLabel(adding.toStdString().c_str());
+
         // Add the library and its button
-        addLibrary(name.toStdString().c_str(), folderPath.toStdString().c_str());
+        if (Library* lib = addLibrary(name.toStdString().c_str(), folderPath.toStdString().c_str())) {
+            // added library - index and show how many rows in db
+            size_t files = lib->indexFiles();
+            QString libCount = files ? QString("Found ") + QString::number(files) + QString(" indexed file(s) in ") + name :
+                                       QString("No entries found in .cadventory. Run with --index");
+            this->updateStatusLabel(libCount.toStdString().c_str());
+        } else {
+            // didn't add.
+            QString alreadyExists = "Could not add \'" + name + "\'. Is it already added?";
+            this->updateStatusLabel(alreadyExists.toStdString().c_str());
+        }
+
         saveState();
     }
 }
@@ -273,7 +291,7 @@ size_t MainWindow::loadState()
         QString path = settings.value("path").toString();
 
 
-        addLibrary(name.toStdString().c_str(), path.toStdString().c_str());
+        (void)addLibrary(name.toStdString().c_str(), path.toStdString().c_str());
     }
     settings.endArray();
 

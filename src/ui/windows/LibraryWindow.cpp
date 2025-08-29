@@ -640,6 +640,7 @@ void LibraryWindow::on_backButton_clicked() {
         this->mainWindow->editMenu->removeAction(reload);
         disconnect(reload, nullptr, nullptr, nullptr);
         this->mainWindow->returnCentralWidget();
+        this->mainWindow->updateStatusLabel("Select or add a new library"); // reset status message
         qDebug() << "MainWindow shown";
     } else {
         qDebug() << "mainWindow is null";

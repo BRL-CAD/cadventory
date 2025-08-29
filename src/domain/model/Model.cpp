@@ -44,8 +44,6 @@ Model::Model(const std::string& libraryPath, QObject* parent)
     sqlite3_exec(db, "PRAGMA mmap_size=0;",        nullptr, nullptr, nullptr);
 
     createTables();
-
-    loadModelsFromDatabase();
   }
 }
 
