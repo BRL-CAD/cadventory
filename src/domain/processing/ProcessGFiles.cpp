@@ -14,6 +14,8 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <unordered_set>
+#include <unordered_map>
 
 #include "sha1.h"
 
@@ -165,8 +167,49 @@ void ProcessGFiles::extractTitle(ModelData& modelData, struct ged* gedp)
     }
 }
 
-void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp)
-{
+struct safeRtInternal {
+    // RAII rt_db_internal
+    rt_db_internal intern{};
+    bool ok{false};
+    safeRtInternal(struct directory* dp, struct db_i* dbip) {
+        ok = (rt_db_get_internal(&intern, dp, dbip, nullptr, &rt_uniresource) >= 0);
+    }
+    ~safeRtInternal() {
+        if (ok) rt_db_free_internal(&intern);
+    }
+};
+
+// edge de-dup (parent_dp*, child_dp*)
+using Edge = std::pair<const directory*, const directory*>;
+struct EdgeHash {
+    size_t operator()(const Edge& e) const noexcept {
+        auto h1 = std::hash<const void*>{}(e.first);
+        auto h2 = std::hash<const void*>{}(e.second);
+
+        // hash_combine
+        return h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2));
+    }
+};
+// convenience defines
+struct QNode { int parentId; const directory* parentDp; int depth; };
+using EdgeSet       = std::unordered_set<Edge, EdgeHash>;
+using ChildSet      = std::unordered_set<const directory*>;
+using ChildrenCache = std::unordered_map<const directory*, ChildSet>;
+using DpByName      = std::unordered_map<std::string, const directory*>;
+
+// context passed to the BFS walker
+struct ProcessGFiles::WalkCtx {
+    Model*          model;
+    ged*            gedp;
+    int             modelId;
+    const DpByName& dpByName;
+    ChildrenCache&  childrenCache;
+    EdgeSet&        seenEdges;
+    int             maxDepthEdges;
+    std::string     selectedName;
+};
+
+void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp) {
     qDebug() << "[ProcessGFiles::extractObjects] Started for model ID:" << modelData.id;
 
     if (!gedp || !gedp->dbip) {
@@ -175,190 +218,168 @@ void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp)
         return;
     }
 
-    // Initialize the directory pointer to list top-level objects
-    struct directory** dir = nullptr;
-    qDebug() << "[ProcessGFiles::extractObjects] Listing top-level objects from the database.";
-    size_t dir_count = db_ls(gedp->dbip, DB_LS_TOPS, nullptr, &dir);
-    if (dir_count == 0) {
-        std::cerr << "[ProcessGFiles::extractObjects] No objects found in database." << std::endl;
+    // depth limit in edges from a 'tops' object
+    QSettings settings;
+    int maxDepthEdges = std::max(settings.value("objects/maxDepthEdges", 1).toInt(), 0);
+
+    // build name->dp, and collect tops & combs
+    DpByName dpByName;
+    std::vector<const directory*> tops;
+    std::vector<struct directory*> combs;
+
+    // check for a common-pattern 'tops' component
+    const std::string model_short_name = modelData.short_name;
+    std::unordered_set<std::string> objects_to_try = {
+        "all", "all.g",
+        model_short_name, model_short_name + ".g", model_short_name + ".c"
+    };
+    std::string selected_object_name;
+
+    // collect directories
+    struct directory* dp = nullptr;
+    FOR_ALL_DIRECTORY_START(dp, gedp->dbip) {
+        if (!dp || !dp->d_namep || dp->d_flags & RT_DIR_HIDDEN)
+            continue;
+        std::string name(dp->d_namep);
+
+        // map name to dp
+        dpByName.emplace(name, dp);
+
+        // keep track of all combs
+        if (dp->d_flags & RT_DIR_COMB)
+            combs.push_back(dp);
+
+        // no refs means we're a 'tops' object
+        if (dp->d_nref == 0) {
+            tops.push_back(dp);
+
+            if (selected_object_name.empty() && 
+                (objects_to_try.find(dp->d_namep) != objects_to_try.end())) {
+                // keep track of a common top object for default 'selection'
+                selected_object_name = std::string(dp->d_namep);
+            }
+        }
+    } FOR_ALL_DIRECTORY_END
+
+    // make sure we got something
+    if (dpByName.empty() || tops.empty()) {
         qDebug() << "[ProcessGFiles::extractObjects] No objects found in database for model ID:" << modelData.id;
         return;
     }
 
-    qDebug() << "[ProcessGFiles::extractObjects] Number of top-level objects found:" << dir_count;
+    // we didn't get lucky with common object_name, use first 'tops'
+    if (selected_object_name.empty() && !tops.empty())
+        selected_object_name = std::string(tops.front()->d_namep);
 
-    std::vector<std::string> tops_elements;
-    for (size_t i = 0; i < dir_count; ++i) {
-        tops_elements.push_back(dir[i]->d_namep);
-    }
+    // cache what we can
+    ChildrenCache childrenCache;    // unpack each comb once -> set of children
+    EdgeSet seenEdges;              // edges de-duped (parent_dp*, child_dp*)
 
-    std::string model_short_name = modelData.short_name;
-    std::vector<std::string> objects_to_try = {
-        "all", "all.g", model_short_name,
-        model_short_name + ".g", model_short_name + ".c"
-    };
-    std::string selected_object_name;
+    // walker context
+    WalkCtx ctx{ model, gedp, modelData.id, dpByName, childrenCache, seenEdges, 
+                 maxDepthEdges, selected_object_name };
 
-    // Check if any objects_to_try are in tops_elements
-    for (const auto& obj_name : objects_to_try) {
-        if (std::find(tops_elements.begin(), tops_elements.end(), obj_name) != tops_elements.end()) {
-            selected_object_name = obj_name;
-            break;
-        }
-    }
-
-    // If no match, select the first top-level object
-    if (selected_object_name.empty() && !tops_elements.empty()) {
-        selected_object_name = tops_elements.front();
-    }
-
-    qDebug() << "[ProcessGFiles::extractObjects] Selected object for thumbnail:" << QString::fromStdString(selected_object_name);
-
-    // Iterate over the directory entries for top-level objects
-    for (size_t i = 0; i < dir_count; ++i) {
-        std::string object_name(dir[i]->d_namep);
-        qDebug() << "[ProcessGFiles::extractObjects] Found top-level object name:" << QString::fromStdString(object_name);
-
+    // for each top, insert and BFS to depth
+    for (const directory* topDp : tops) {
         // Create ObjectData for the top-level object
         ObjectData topLevelObjData;
-
         topLevelObjData.model_id = modelData.id;
-        topLevelObjData.name = object_name;
-        topLevelObjData.parent_object_id = -1; // -1 indicates no parent
-        topLevelObjData.is_selected = (object_name == selected_object_name);
+        topLevelObjData.name = topDp->d_namep;
+        topLevelObjData.parent_object_id = -1;  // -1 indicates no parent
+        topLevelObjData.is_selected = (topLevelObjData.name == selected_object_name);
 
-        qDebug() << "[ProcessGFiles::extractObjects] Inserting top-level object - "
-            << "Model ID:" << topLevelObjData.model_id
-            << ", Name:" << QString::fromStdString(topLevelObjData.name)
-            << ", Parent Object ID:" << topLevelObjData.parent_object_id
-            << ", is_selected:" << topLevelObjData.is_selected;
-
-        int insertedTopLevelObjectId = model->insertObject(topLevelObjData);
-        if (insertedTopLevelObjectId == -1) {
-            qDebug() << "[ProcessGFiles::extractObjects] Failed to insert top-level object:"
-                << QString::fromStdString(topLevelObjData.name)
-                << "for model ID:" << topLevelObjData.model_id;
+        const int topId = model->insertObject(topLevelObjData);
+        if (topId == -1)
             continue;
-        }
-        else {
-            topLevelObjData.object_id = insertedTopLevelObjectId;
-            qDebug() << "[ProcessGFiles::extractObjects] Successfully inserted top-level object:"
-                << QString::fromStdString(topLevelObjData.name)
-                << "with ID:" << insertedTopLevelObjectId << "for model ID:" << topLevelObjData.model_id;
-        }
 
-        // If this top-level object is a combination, retrieve and insert its children
-        if (dir[i]->d_flags & RT_DIR_COMB) {
-            qDebug() << "[ProcessGFiles::extractObjects] Object" << QString::fromStdString(object_name) << "is a combination. Retrieving children.";
-            insertChildObjects(modelData, gedp, topLevelObjData, selected_object_name);
-        }
-        else {
-            qDebug() << "[ProcessGFiles::extractObjects] Object" << QString::fromStdString(object_name) << "is a primitive. No child objects to insert.";
-        }
+        insertChildObjects(topId, topDp, ctx);
     }
 
-    // Free the directory list for top-level objects
-    bu_free(dir, "free directory list");
-    qDebug() << "[ProcessGFiles::extractObjects] Completed for model ID:" << modelData.id;
+    qDebug() << "[ProcessGFiles::extractObjects] Done. Depth edges =" << maxDepthEdges;
 }
 
-void ProcessGFiles::insertChildObjects(ModelData& modelData, struct ged* gedp, const ObjectData& parentObjData, const std::string& selected_object_name)
-{
-    qDebug() << "[ProcessGFiles::insertChildObjects] Started for parent object ID:" << parentObjData.object_id << "Name:" << QString::fromStdString(parentObjData.name);
-
-    struct directory* parent_dir = db_lookup(gedp->dbip, parentObjData.name.c_str(), LOOKUP_QUIET);
-    if (!parent_dir) {
-        qDebug() << "[ProcessGFiles::insertChildObjects] Parent object" << QString::fromStdString(parentObjData.name) << "not found in database.";
-        return;
-    }
-
-    if (!(parent_dir->d_flags & RT_DIR_COMB)) {
-        qDebug() << "[ProcessGFiles::insertChildObjects] Parent object" << QString::fromStdString(parentObjData.name) << "is not a combination. No children to insert.";
-        return;
-    }
-
-    struct rt_db_internal intern;
-    struct rt_comb_internal* comb;
-    if (rt_db_get_internal(&intern, parent_dir, gedp->dbip, nullptr, &rt_uniresource) < 0) {
-        qDebug() << "[ProcessGFiles::insertChildObjects] Error retrieving internal representation for object" << QString::fromStdString(parentObjData.name);
-        return;
-    }
-
-    comb = static_cast<struct rt_comb_internal*>(intern.idb_ptr);
-
-    if (!comb->tree) {
-        qDebug() << "[ProcessGFiles::insertChildObjects] Combination" << QString::fromStdString(parentObjData.name) << "has no children.";
-        rt_db_free_internal(&intern);
-        return;
-    }
-
-    // Retrieve child objects
-    std::vector<std::string> children;
-    db_tree_list_comb_children(comb->tree, children);
-
-    qDebug() << "[ProcessGFiles::insertChildObjects] Number of children found for object" << QString::fromStdString(parentObjData.name) << ":" << children.size();
-
-    // Insert each child object into the database
-    for (const auto& child_name : children) {
-        qDebug() << "[ProcessGFiles::insertChildObjects] Processing child object name:" << QString::fromStdString(child_name);
-
-        // Lookup the child's directory entry
-        struct directory* child_dir = db_lookup(gedp->dbip, child_name.c_str(), LOOKUP_QUIET);
-        if (!child_dir) {
-            qDebug() << "[ProcessGFiles::insertChildObjects] Child object" << QString::fromStdString(child_name) << "not found in database.";
-            continue;
-        }
-
-        // Create ObjectData for the child
-        ObjectData childObjData;
-        childObjData.model_id = modelData.id;
-        childObjData.name = child_name;
-        childObjData.parent_object_id = parentObjData.object_id; // The parent's object ID
-        childObjData.is_selected = (child_name == selected_object_name);
-
-        qDebug() << "[ProcessGFiles::insertChildObjects] Inserting child object -"
-            << "Model ID:" << childObjData.model_id
-            << ", Name:" << QString::fromStdString(childObjData.name)
-            << ", Parent Object ID:" << childObjData.parent_object_id
-            << ", is_selected:" << childObjData.is_selected;
-
-        int childInsertedObjectId = model->insertObject(childObjData);
-        if (childInsertedObjectId == -1) {
-            qDebug() << "[ProcessGFiles::insertChildObjects] Failed to insert child object:"
-                << QString::fromStdString(childObjData.name)
-                << "for parent object ID:" << parentObjData.object_id << "model ID:" << childObjData.model_id;
-        }
-        else {
-            childObjData.object_id = childInsertedObjectId;
-            qDebug() << "[ProcessGFiles::insertChildObjects] Successfully inserted child object:"
-                << QString::fromStdString(childObjData.name)
-                << "with ID:" << childInsertedObjectId << "for parent object ID:" << parentObjData.object_id << "model ID:" << childObjData.model_id;
-        }
-    }
-
-    rt_db_free_internal(&intern);
-
-    qDebug() << "[ProcessGFiles::insertChildObjects] Completed for parent object ID:" << parentObjData.object_id << "Name:" << QString::fromStdString(parentObjData.name);
-}
-
-void db_tree_list_comb_children(const union tree* tree, std::vector<std::string>& children) {
+void db_tree_list_comb_children(const union tree* tree,
+                                const DpByName& dpByName,
+                                ChildSet& children) {
     if (!tree) return;
+    RT_CK_TREE(tree);
 
     switch (tree->tr_op) {
-    case OP_UNION:
-    case OP_INTERSECT:
-    case OP_SUBTRACT:
-    case OP_XOR:
-        db_tree_list_comb_children(tree->tr_b.tb_left, children);
-        db_tree_list_comb_children(tree->tr_b.tb_right, children);
-        break;
-    case OP_DB_LEAF:
-        if (tree->tr_l.tl_name) {
-            children.push_back(tree->tr_l.tl_name);
+        case OP_UNION:
+        case OP_INTERSECT:
+        case OP_SUBTRACT:
+        case OP_XOR:
+            db_tree_list_comb_children(tree->tr_b.tb_left,  dpByName, children);
+            db_tree_list_comb_children(tree->tr_b.tb_right, dpByName, children);
+            break;
+        case OP_DB_LEAF:
+            if (tree->tr_l.tl_name) {
+                auto it = dpByName.find(std::string(tree->tr_l.tl_name));
+                if (it != dpByName.end()) {
+                    const directory* cdp = it->second;
+                    if (cdp && !(cdp->d_flags & RT_DIR_HIDDEN)) {
+                        children.insert(cdp);
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+void ProcessGFiles::insertChildObjects(int parentId, const directory* parentDp, const WalkCtx& ctx) {
+    // if not a comb or depth limit is 0, we're done
+    if (!(parentDp->d_flags & RT_DIR_COMB) || ctx.maxDepthEdges == 0)
+        return;
+
+    // use queue for BFS
+    std::queue<QNode> queue;
+    queue.push(QNode{parentId, parentDp, 0});
+
+    while (!queue.empty()) {
+        auto [parentId, parentDp, depth] = queue.front();
+        queue.pop();
+        if (depth >= ctx.maxDepthEdges)
+            continue;
+
+        // fetch or build children set for this comb
+        auto ccit = ctx.childrenCache.find(parentDp);
+        if (ccit == ctx.childrenCache.end()) {
+            ChildSet children;
+            safeRtInternal guard(const_cast<directory*>(parentDp), ctx.gedp->dbip);
+            if (guard.ok) {
+                auto* comb = static_cast<rt_comb_internal*>(guard.intern.idb_ptr);
+                if (comb && comb->tree) {
+                    db_tree_list_comb_children(comb->tree, ctx.dpByName, children);
+                }
+            }
+
+            ccit = ctx.childrenCache.emplace(parentDp, std::move(children)).first;
         }
-        break;
-    default:
-        break;
+        const ChildSet& children = ccit->second;
+
+        for (const directory* childDp : children) {
+            Edge edge{parentDp, childDp};
+            if (!ctx.seenEdges.insert(edge).second)
+                continue; // already processed
+
+            // Create ObjectData for child
+            ObjectData childObjData;
+            childObjData.model_id = ctx.modelId;
+            childObjData.name = childDp->d_namep;
+            childObjData.parent_object_id = parentId;
+            childObjData.is_selected = (childObjData.name == ctx.selectedName);
+
+            const int childId = model->insertObject(childObjData);
+            if (childId == -1)
+                continue;
+
+            // continue BFS if child is a comb and we haven't hit depth limit
+            if ((childDp->d_flags & RT_DIR_COMB) && (depth + 1 < ctx.maxDepthEdges)) {
+                queue.push(QNode{childId, childDp, depth + 1});
+            }
+        }
     }
 }
 

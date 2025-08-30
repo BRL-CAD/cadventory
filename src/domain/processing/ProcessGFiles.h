@@ -8,6 +8,7 @@
 #include <optional>
 
 #include "Model.h"
+#include <brlcad/ged.h>		// for directory
 #include <brlcad/rt/geom.h>
 
 class ProcessGFiles {
@@ -26,7 +27,10 @@ public:
 private:
     void extractTitle(ModelData& modelData, struct ged* gedp);
     void extractObjects(ModelData& modelData, struct ged* gedp);
-    void insertChildObjects(ModelData& modelData, struct ged* gedp, const ObjectData& parentObjData, const std::string& selected_object_name);
+
+    struct WalkCtx;	// forward declare, .cpp actually implements
+    // BFS walker: inserts children under parent
+    void insertChildObjects(int parentId, const directory* parentDp, const WalkCtx& ctx);
 
     // Thumbnail generation and command utility methods
     bool generateThumbnail(ModelData& modelData, const std::string& selected_object_name);
@@ -37,7 +41,5 @@ private:
 
     Model* model;
 };
-
-void db_tree_list_comb_children(const union tree *tree, std::vector<std::string>& children);
 
 #endif  // PROCESSGFILES_H
