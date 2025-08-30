@@ -1,5 +1,6 @@
 #include "CADventory.h"
 #include "UiShim.h"
+#include "QtMessageHandler.h"
 
 #include <iostream>
 
@@ -28,12 +29,16 @@ static void addOptions(QCommandLineParser& parser) {
     QCommandLineOption numCpusOpt(QStringList{"j", "num-cpus"},
                                 "Number of worker threads",
                                 "#");
+    // declare -v so parser accepts it; MessageHandler class manually parses for stacking -v
+    QCommandLineOption verboseOpt(QStringList{"v"},
+                                "Increase verbosity (max logging at -vv)");
     // TODO: --worker (no gui worker)
 
     parser.addOption(indexOpt);
     parser.addOption(workerOpt);
     parser.addOption(resetOpt);
     parser.addOption(numCpusOpt);
+    parser.addOption(verboseOpt);
     parser.addHelpOption();
 }
 
@@ -69,6 +74,9 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
         QSettings().clear();
         QSettings().sync();
     }
+
+    // use MessageHandler to parse the raw arguments so we can support stacking -vv
+    MessageHandler::instance().applyVerbosityFlags(QCoreApplication::arguments());
 
     if (parser.isSet("num-cpus")) {
         bool ok = false;
