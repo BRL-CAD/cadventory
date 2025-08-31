@@ -74,13 +74,13 @@ ScanStats DirectoryScanner::scan(const std::string&              root,
                             progressCb(stats.scanned, stats.queued);
                     }
                 } catch (const fs::filesystem_error& e) {
-                    std::cerr << "WARNING: Unable to access " << entry.path() << " - " << e.what() << '\n';
+                    LOG_ERR << "WARNING: Unable to access " << entry.path() << " - " << e.what() << LOG_ENDL;
                 }
             }
         }
         catch (const fs::filesystem_error&) {
             // handle fs security and/or attributes silently for now..
-            // std::cerr << "WARNING: Skipping " << dir << " - " << e.what() << std::endl;
+            // LOG_ERR << "WARNING: Skipping " << dir << " - " << e.what() << LOG_ENDL;
         }
     }
 

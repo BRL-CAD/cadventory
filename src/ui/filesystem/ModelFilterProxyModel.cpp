@@ -1,5 +1,6 @@
 #include "ModelFilterProxyModel.h"
 #include "Model.h"
+#include "Logger.h"
 #include <QRegularExpression>
 #include <QVariant>
 #include <QMetaType>
@@ -28,7 +29,7 @@ bool ModelFilterProxyModel::filterAcceptsRow(int sourceRow, const QModelIndex& s
     if (filterRole() == Model::TagsRole) {
         // Handle tag list search
         QStringList tags = data.toStringList();
-		qDebug() << "Tags:" << tags;
+		LOG_DEBUG << "Tags:" << tags << LOG_ENDL;
         for (const QString& tag : tags) {
             if (tag.contains(filterRegularExpression())) {
                 return true;

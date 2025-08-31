@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <sstream>
 #include "executeCommand.h"
+#include "Logger.h"
 
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS  
@@ -48,7 +49,7 @@ std::vector<std::string> fetchObjectFiles(const std::string& path) {
 
     // Debugging: Final check on the collected object files
     if (objectFiles.empty()) {
-        std::cerr << "ERROR: Object files vector is still empty after parsing!" << std::endl;
+        LOG_ERR << "ERROR: Object files vector is still empty after parsing!" << LOG_ENDL;
     }
 
     return objectFiles;

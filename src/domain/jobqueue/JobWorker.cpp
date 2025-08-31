@@ -1,4 +1,5 @@
 #include "JobWorker.h"
+#include "Logger.h"
 
 #include <unordered_map>
 #include <vector>
@@ -131,7 +132,7 @@ void JobWorker::serviceLoop() {
     std::atomic<bool> stopFlag{false};
     QSettings settings;
     size_t threadCount = settings.value("jobs/numThreads", 0).toInt();
-    std::cerr << "[JobWorker::ServiceLoop()] jobs/numThreads: " << threadCount << "\n";
+    LOG_ERR << "[JobWorker::ServiceLoop()] jobs/numThreads: " << threadCount << LOG_ENDL;
     // assume we dont want the JobWorker to do anything
     if (!threadCount) {
         service->stop();

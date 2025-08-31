@@ -1,6 +1,6 @@
 #include "CADventory.h"
 #include "UiShim.h"
-#include "QtMessageHandler.h"
+#include "Logger.h"
 
 #include <iostream>
 
@@ -29,7 +29,7 @@ static void addOptions(QCommandLineParser& parser) {
     QCommandLineOption numCpusOpt(QStringList{"j", "num-cpus"},
                                 "Number of worker threads",
                                 "#");
-    // declare -v so parser accepts it; MessageHandler class manually parses for stacking -v
+    // declare -v so parser accepts it; Logger class manually parses for stacking -v
     QCommandLineOption verboseOpt(QStringList{"v"},
                                 "Increase verbosity (max logging at -vv)");
     // TODO: --worker (no gui worker)
@@ -75,8 +75,8 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
         QSettings().sync();
     }
 
-    // use MessageHandler to parse the raw arguments so we can support stacking -vv
-    MessageHandler::instance().applyVerbosityFlags(QCoreApplication::arguments());
+    // use Logger to parse the raw arguments so we can support stacking -vv
+    Logger::instance().applyVerbosityFlags(QCoreApplication::arguments());
 
     if (parser.isSet("num-cpus")) {
         bool ok = false;
@@ -107,14 +107,14 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
                     const double pct   = (total ? double(done) / double(total) : 1.0);
                     const int    fill  = int(pct * barWidth + 0.5);
 
-                    std::cout << '\r'
-                              << '[' << std::string(fill, '=') << std::string(barWidth - fill, ' ')
-                              << "] " << std::setw(3) << int(pct * 100.0 + 0.5) << "% "
-                              << '(' << done << '/' << total << ')'
-                              << std::flush;
+                    LOG_RAW << '\r'
+                            << '[' << std::string(fill, '=') << std::string(barWidth - fill, ' ')
+                            << "] " << std::setw(3) << int(pct * 100.0 + 0.5) << "% "
+                            << '(' << done << '/' << total << ')'
+                            << std::flush;
 
                     if (total > 0 && done == total) 
-                        std::cout << std::endl;
+                        LOG_RAW << '\n';
                 });
 
         // no gui
@@ -138,13 +138,13 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
     }
 
     if (!cad_ui::guiBuilt() && !parser.isSet("worker") && !parser.isSet("index"))
-        qCritical() << "Built headless: supply --index or --worker to do anything.";
+        LOG_ERR << "Built headless: supply --index or --worker to do anything." << LOG_ENDL;
 }
 
 
 CADventory::~CADventory()
 {
-    qDebug() << "CADventory destructor called - cleaning up resources";
+    LOG_DEBUG << "CADventory destructor called - cleaning up resources" << LOG_ENDL;
 
     if (jobService)
         jobService->stop();
@@ -193,7 +193,7 @@ void CADventory::initMainWindow()
 
     // sanity
     splash = nullptr;
-    qInfo() << "Done loading.";
+    LOG_INFO << "Done loading." << LOG_ENDL;
 }
 
 
@@ -233,7 +233,7 @@ void CADventory::showSplash()
 
 void CADventory::indexDirectory(const char *path)
 {
-    qInfo() << "Indexing...";
+    LOG_INFO << "Indexing..." << LOG_ENDL;
     FilesystemIndexer f(path);
 
     f.setProgressCallback([this](const std::string& msg) {
@@ -258,27 +258,27 @@ void CADventory::indexDirectory(const char *path)
     });
 
     f.indexDirectory(path);
-    qInfo() << "... (found" << f.indexed() << "files) indexing done.";
+    LOG_INFO << "... (found" << f.indexed() << "files) indexing done." << LOG_ENDL;
 
     // TODO: we probably want to define these somewhere higher up as we expand support to more file types
     std::vector<std::string> geometryfilesuffixes{".g"};
     std::vector<std::string> imgfilesuffixes{".png", ".jpg", ".gif"};
 
-    qInfo() << "Scanning...";
+    LOG_INFO << "Scanning..." << LOG_ENDL;
     std::vector<std::string> geometryfiles = f.findFilesWithSuffixes(geometryfilesuffixes);
     std::vector<std::string> imgfiles = f.findFilesWithSuffixes(imgfilesuffixes);
-    qInfo() << "...scanning done.";
+    LOG_INFO << "...scanning done." << LOG_ENDL;
 
-    qInfo() << "Found" << geometryfiles.size() << "geometry files";
-    qInfo() << "Found" << imgfiles.size() << "image files";
+    LOG_INFO << "Found" << geometryfiles.size() << "geometry files" << LOG_ENDL;
+    LOG_INFO << "Found" << imgfiles.size() << "image files" << LOG_ENDL;
 
     for (const auto& file : geometryfiles) {
-        qInfo() << "Geometry: " + QString::fromStdString(file);
+        LOG_INFO << "Geometry: " + QString::fromStdString(file) << LOG_ENDL;
     }
     // TODO: improve logging options verbosity
 #if 0
   for (const auto& file : imgfiles) {
-    qInfo() << "Image: " + QString::fromStdString(file);
+    LOG_INFO << "Image: " + QString::fromStdString(file) << LOG_ENDL;
   }
 #endif
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef QT_CORE_LIB
+
 #include <QMessageLogContext>
 #include <QFile>
 #include <QTextStream>
@@ -9,14 +11,14 @@
 
 const QString DEFAULT_LOG_NAME("cadventory.log");
 
-class MessageHandler {
+class Logger {
 public:
     // singleton
-    static MessageHandler& instance() { static MessageHandler inst; return inst; }
+    static Logger& instance() { static Logger inst; return inst; }
 
     void init(const QString& _logPath = DEFAULT_LOG_NAME) {
         logPath = _logPath;
-        qInstallMessageHandler(&MessageHandler::qtHandler);
+        qInstallMessageHandler(&Logger::qtHandler);
     }
 
     //  -v  -> qInfo()
@@ -34,7 +36,7 @@ public:
     }
 
 private:
-    MessageHandler() = default;
+    Logger() = default;
 
     static void qtHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
         // filter verbosity level
@@ -113,5 +115,28 @@ private:
 /* install the handler. NOTE: this MUST be called before constructing the application */
 inline void initLogging()
 {
-    MessageHandler::instance().init();
+    Logger::instance().init();
 }
+
+#define LOG_RAW     std::cout   // no timestamp or formatting
+#define LOG_DEBUG   qDebug()
+#define LOG_INFO    qInfo()
+#define LOG_WARN    qWarning()
+#define LOG_ERR     qCritical()
+#define LOG_ENDL    ""          // qt handler already has newline
+
+#else   // QT_CORE_LIB
+
+#include <iostream>
+
+// empty stub
+inline void initLogging() {}
+
+#define LOG_RAW     std::cout
+#define LOG_DEBUG   std::cout
+#define LOG_INFO    std::cout
+#define LOG_WARN    std::cerr
+#define LOG_ERR     std::cerr
+#define LOG_ENDL    std::endl
+
+#endif

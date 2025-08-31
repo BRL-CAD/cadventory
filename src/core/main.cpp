@@ -1,6 +1,6 @@
 #include "UiShim.h"
 
-#include "QtMessageHandler.h"	    // initLogging()
+#include "Logger.h"	    // initLogging()
 #include "CADventory.h"
 
 

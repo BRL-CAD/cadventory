@@ -3,6 +3,7 @@
 #include "SettingWindow.h"
 #include "MainWindow.h"
 #include "LibraryWindow.h"
+#include "Logger.h"
 
 #include <iostream>
 #include <QFileDialog>
@@ -28,11 +29,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     if (addButton) {
         addButton->setStyleSheet("QPushButton { padding-top: -10px; }");
     }
-
-    // Explain how to reset the list
-    std::cout << "To manually reset on Mac:" << std::endl
-              << "  defaults delete org.brlcad.CADventory" << std::endl;
-    std::cout << "To reset via app, run with --no-gui option." << std::endl;
 
 
     fileMenu = new QMenu(tr("&File"),this);
@@ -78,7 +74,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     // Load previously saved libraries
     size_t loaded = loadState();
     if (loaded) {
-        std::cout << "Loaded " << loaded << " previously registered libraries" << std::endl;
+        LOG_DEBUG << "Loaded " << loaded << " previously registered libraries" << LOG_ENDL;
     }
 
 }
@@ -95,12 +91,12 @@ Library* MainWindow::addLibrary(const char* label, const char* path)
 {
     for (Library* lib : libraries) {
         if (QString(lib->name()) == QString(label) && QString(lib->path()) == QString(path)) {
-            std::cout << "Library [" << label << "] already exists, skipping add." << std::endl;
+            LOG_DEBUG << "Library [" << label << "] already exists, skipping add." << LOG_ENDL;
             return nullptr;
         }
     }
 
-    std::cout << "Adding library [" << label << "] => " << path << std::endl;
+    LOG_DEBUG << "Adding library [" << label << "] => " << path << LOG_ENDL;
 
     Library* newlib = new Library(label, path);
     libraries.push_back(newlib);
@@ -141,7 +137,7 @@ void MainWindow::openLibrary()
         foundLibrary->loadDatabase();
 
         LibraryWindow* libraryWindow = new LibraryWindow(this->centralWidget());
-        std::cout << "Opening library " << foundLibrary->name() << std::endl;
+        LOG_DEBUG << "Opening library " << foundLibrary->name() << LOG_ENDL;
 
         // Set the main window pointer using a setter method
         libraryWindow->setMainWindow(this);
@@ -158,7 +154,7 @@ void MainWindow::openLibrary()
         libraryWindow->loadFromLibrary(foundLibrary);
 
 
-        std::cout << "Loaded library " << foundLibrary->name() << std::endl;
+        LOG_DEBUG << "Loaded library " << foundLibrary->name() << LOG_ENDL;
 
 
     } else {
@@ -210,7 +206,7 @@ void MainWindow::addLibraryButton(const char* label, const char* /*path*/)
     /* add our new button */
     int row = (buttons) / COLUMNS;
     int column = (buttons) % COLUMNS;
-        qDebug() << "row = "<<row<< " column = "<<column;
+    LOG_DEBUG << "row = "<< row << " column = "<< column << LOG_ENDL;
     ui.gridLayout->addWidget(newButton, row, column);
 
     /* once we have a lot of buttons, make them all smaller */
@@ -385,10 +381,10 @@ void MainWindow::removeLibrary()
 
             QPushButton* button = qobject_cast<QPushButton*>(item->widget());
             if (button && button->text() == QString::fromLocal8Bit(foundLibrary->name())){
-                qDebug() << ui.gridLayout->count();
+                LOG_DEBUG << ui.gridLayout->count() << LOG_ENDL;
                 ui.gridLayout->removeWidget(button);
                 delete button;
-                qDebug() << ui.gridLayout->count();
+                LOG_DEBUG << ui.gridLayout->count() << LOG_ENDL;
 
 
 

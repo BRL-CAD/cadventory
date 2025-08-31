@@ -1,5 +1,6 @@
 #include "ReportGeneratorWorker.h"
 #include "ProcessGFiles.h"
+#include "Logger.h"
 #include <QDebug>
 #include <filesystem>
 
@@ -14,7 +15,7 @@ ReportGeneratorWorker::ReportGeneratorWorker(Model* model, std::string output_di
 }
 
 void ReportGeneratorWorker::process() {
-  qDebug() << "ReportGeneratorWorker::process() started";
+  LOG_DEBUG << "ReportGeneratorWorker::process() started" << LOG_ENDL;
   ProcessGFiles processor(model);
 
   // need output_directory
@@ -24,8 +25,7 @@ void ReportGeneratorWorker::process() {
 
   for (const auto& modelData : selectedModels) {
     if(QThread::currentThread()->isInterruptionRequested()){
-      std::cout << "gen report interrupted" << std::endl;
-      qDebug() << "ReportGeneratorWorker::process() stopping due to interruption request";
+      LOG_DEBUG << "ReportGeneratorWorker::process() stopping due to interruption request" << LOG_ENDL;
       break;
     }
     std::string g_file_name = modelData.short_name;
@@ -38,9 +38,9 @@ void ReportGeneratorWorker::process() {
         model->getObjectsForModel(modelData.id);
 
     if (associatedObjects.empty()) {
-      std::cout << "No associated objects for this model.\n";
+      LOG_DEBUG << "No associated objects for this model." << LOG_ENDL;
     } else {
-      std::cout << "Associated Objects (" << associatedObjects.size() << "):\n";
+      LOG_DEBUG << "Associated Objects (" << associatedObjects.size() << "):" << LOG_ENDL;
 
       for (const auto& obj : associatedObjects) {
         if (obj.is_selected) {
@@ -73,5 +73,5 @@ void ReportGeneratorWorker::process() {
   // Emit finished signal to indicate processing is complete
   emit finishedReport();
   emit finished();
-  qDebug() << "ReportGeneratorWorker::process() finished";
+  LOG_DEBUG << "ReportGeneratorWorker::process() finished" << LOG_ENDL;
 }

@@ -1,4 +1,5 @@
 #include "executeCommand.h"
+#include "Logger.h"
 #include <iostream>
 #include <cstdio>
 #include <stdexcept>
@@ -24,14 +25,14 @@ std::string executeCommandNoWindowWithRedirection(const std::string& command,
     HANDLE hInput = CreateFileA(inputFile.c_str(), GENERIC_READ, FILE_SHARE_READ,
         NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hInput == INVALID_HANDLE_VALUE) {
-        std::cerr << "Failed to open input file: " << inputFile << std::endl;
+        LOG_ERR << "Failed to open input file: " << inputFile << LOG_ENDL;
         return "";
     }
 
     HANDLE hOutput = CreateFileA(outputFile.c_str(), GENERIC_WRITE, 0,
         NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hOutput == INVALID_HANDLE_VALUE) {
-        std::cerr << "Failed to open output file: " << outputFile << std::endl;
+        LOG_ERR << "Failed to open output file: " << outputFile << LOG_ENDL;
         CloseHandle(hInput);
         return "";
     }
@@ -54,7 +55,7 @@ std::string executeCommandNoWindowWithRedirection(const std::string& command,
         CREATE_NO_WINDOW,
         NULL, NULL,
         &si, &pi)) {
-        std::cerr << "CreateProcess failed\n";
+        LOG_ERR << "CreateProcess failed" << LOG_ENDL;
         CloseHandle(hInput);
         CloseHandle(hOutput);
         return "";
@@ -136,7 +137,7 @@ std::string executeCommandNoWindow(const std::string& command) {
     sa.bInheritHandle = TRUE;
     sa.lpSecurityDescriptor = NULL;
     if (!CreatePipe(&hStdOutRead, &hStdOutWrite, &sa, 0)) {
-        std::cerr << "Stdout pipe creation failed\n";
+        LOG_ERR << "Stdout pipe creation failed" << LOG_ENDL;
         return "";
     }
 
@@ -154,7 +155,7 @@ std::string executeCommandNoWindow(const std::string& command) {
         NULL,
         &si,
         &pi)) {
-        std::cerr << "CreateProcess failed\n";
+        LOG_ERR << "CreateProcess failed" << LOG_ENDL;
         CloseHandle(hStdOutWrite);
         CloseHandle(hStdOutRead);
         return "";

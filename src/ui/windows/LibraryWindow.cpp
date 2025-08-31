@@ -4,6 +4,7 @@
 #include "MainWindow.h"
 #include "GeometryBrowserDialog.h"
 #include "ModelView.h"
+#include "Logger.h"
 // #include "AdvancedOptionsDialog.h"
 #include "ReportGenerationWindow.h"
 #include "ReportGeneratorWorker.h"
@@ -51,7 +52,7 @@ LibraryWindow::LibraryWindow(QWidget* parent)
 }
 
 LibraryWindow::~LibraryWindow() {
-    qDebug() << "LibraryWindow destructor called";
+    LOG_DEBUG << "LibraryWindow destructor called" << LOG_ENDL;
 
     if (jobSvc)
         jobSvc->stop();
@@ -157,7 +158,7 @@ void LibraryWindow::processNextFile() {
     }
 
     QString filepath = QString::fromStdString(filesToTag[currentFileIndex]);
-    qDebug() << "Processing file:" << filepath;
+    LOG_DEBUG << "Processing file:" << filepath << LOG_ENDL;
 
     // get our tagger, start generating
     AIModelTagging* tagger = CADventory::instance()->getTagger();
@@ -277,9 +278,9 @@ void LibraryWindow::onGenerateAllTagsClicked() {
     ui.generateAllTagsButton->setEnabled(false);
 
     // debug print
-    qDebug() << "Generating tags for the following models:";
+    LOG_DEBUG << "Generating tags for the following models:" << LOG_ENDL;
     for (const std::string& rel : relativePaths) {
-        qDebug() << QString::fromStdString(rel);
+        LOG_DEBUG << QString::fromStdString(rel) << LOG_ENDL;
     }
 
     // reset index?
@@ -323,7 +324,7 @@ void LibraryWindow::setupModelsAndViews() {
 
     // Setup file system model with checkboxes
     QString libraryPath = QString::fromStdString(library->fullPath);
-    qDebug() << "Library Path in setupModelsAndViews:" << libraryPath;
+    LOG_DEBUG << "Library Path in setupModelsAndViews:" << libraryPath << LOG_ENDL;
 
     // Create the FileSystemModelWithCheckboxes
     fileSystemModel = new FileSystemModelWithCheckboxes(model, libraryPath, this);
@@ -340,7 +341,7 @@ void LibraryWindow::setupModelsAndViews() {
     QModelIndex rootIndex = fileSystemModel->index(libraryPath);
     QModelIndex proxyRootIndex = fileSystemProxyModel->mapFromSource(rootIndex);
     ui.fileSystemTreeView->setRootIndex(proxyRootIndex);
-    qDebug() << "Set root index of fileSystemTreeView to proxyRootIndex.";
+    LOG_DEBUG << "Set root index of fileSystemTreeView to proxyRootIndex." << LOG_ENDL;
 
     // Hide columns other than the name
     for (int i = 1; i < fileSystemModel->columnCount(); ++i) {
@@ -441,7 +442,7 @@ void LibraryWindow::populateExplorerModel() {
 void LibraryWindow::onExplorerModelClicked(const QModelIndex& index) {
     // Get the model ID from the item data
     int modelId = explorerModel->data(index, Qt::UserRole).toInt();
-    qDebug() << "Explorer model clicked:" << modelId;
+    LOG_DEBUG << "Explorer model clicked:" << modelId << LOG_ENDL;
     
     // Find the corresponding model in the main model
     for (int i = 0; i < model->rowCount(); ++i) {
@@ -601,7 +602,7 @@ void LibraryWindow::onGenerateReportButtonClicked() {
 
 void LibraryWindow::onSettingsClicked(int modelId) {
     // Handle settings button click
-    qDebug() << "Settings button clicked for model ID:" << modelId;
+    LOG_DEBUG << "Settings button clicked for model ID:" << modelId << LOG_ENDL;
     // Implement settings dialog or other actions here
 }
 
@@ -626,14 +627,14 @@ void LibraryWindow::onModelProcessed(const QString& directive, const QString& id
 }
 
 void LibraryWindow::on_backButton_clicked() {
-    qDebug() << "Back button clicked";
+    LOG_DEBUG << "Back button clicked" << LOG_ENDL;
 
     if (jobSvc)
         jobSvc->stop();
 
     // Hide the LibraryWindow
     this->hide();
-    qDebug() << "LibraryWindow hidden";
+    LOG_DEBUG << "LibraryWindow hidden" << LOG_ENDL;
 
     // Show the MainWindow
     if (mainWindow) {
@@ -641,9 +642,9 @@ void LibraryWindow::on_backButton_clicked() {
         disconnect(reload, nullptr, nullptr, nullptr);
         this->mainWindow->returnCentralWidget();
         this->mainWindow->updateStatusLabel("Select or add a new library"); // reset status message
-        qDebug() << "MainWindow shown";
+        LOG_DEBUG << "MainWindow shown" << LOG_ENDL;
     } else {
-        qDebug() << "mainWindow is null";
+        LOG_DEBUG << "mainWindow is null" << LOG_ENDL;
     }
 }
 
@@ -651,12 +652,12 @@ void LibraryWindow::reloadLibrary() {
     std::string path = library->fullPath; //+ "/.cadventory/metadata.db";
     fs::path filePath(path);
 
-    qDebug() << QString::fromStdString(filePath.string());
+    LOG_DEBUG << QString::fromStdString(filePath.string()) << LOG_ENDL;
 
     // Check if the file exists
     if (fs::exists(filePath)) {
 
-        qDebug() << "reloadLibrary is called" ;
+        LOG_DEBUG << "reloadLibrary is called" << LOG_ENDL;
         try {
 
                 // Reload the library
@@ -667,19 +668,19 @@ void LibraryWindow::reloadLibrary() {
                 this->loadFromLibrary(library);
 
         } catch (const fs::filesystem_error& e) {
-            std::cerr << "Error: " << e.what() << std::endl;
+            LOG_ERR << "Error: " << e.what() << LOG_ENDL;
         }
     } else {
-        std::cout << "'.cadventory' does not exist." << std::endl;
+        LOG_WARN << "'.cadventory' does not exist." << LOG_ENDL;
     }
 }
 
 void LibraryWindow::onModelViewClicked(int modelId) {
-    qDebug() << "Model view clicked for model ID:" << modelId;
+    LOG_DEBUG << "Model view clicked for model ID:" << modelId << LOG_ENDL;
     ModelView* modelView = new ModelView(modelId, model, this);
 
     connect(modelView, &ModelView::tagsUpdated, this, [this]() {
-        qDebug() << "Tags updated - refreshing proxy model";
+        LOG_DEBUG << "Tags updated - refreshing proxy model" << LOG_ENDL;
         model->refreshModelData(); 
         availableModelsProxyModel->invalidate();
         });
@@ -688,7 +689,7 @@ void LibraryWindow::onModelViewClicked(int modelId) {
 }
 
 void LibraryWindow::onGeometryBrowserClicked(int modelId) {
-    qDebug() << "Geometry browser clicked for model ID:" << modelId;
+    LOG_DEBUG << "Geometry browser clicked for model ID:" << modelId << LOG_ENDL;
 
     GeometryBrowserDialog* dialog = new GeometryBrowserDialog(modelId, model, this);
     dialog->exec();
@@ -721,7 +722,7 @@ void LibraryWindow::onInclusionChanged(const QModelIndex& index, bool /*included
 }
 
 void LibraryWindow::onIndexingComplete() {
-    qDebug() << "Indexing complete";
+    LOG_DEBUG << "Indexing complete" << LOG_ENDL;
 
     // Refresh model data
     model->refreshModelData();

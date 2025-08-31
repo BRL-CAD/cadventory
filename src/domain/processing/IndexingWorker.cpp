@@ -1,5 +1,6 @@
 #include "IndexingWorker.h"
 #include "ProcessGFiles.h"
+#include "Logger.h"
 #include "Model.h"
 #include <QDebug>
 #include <filesystem>
@@ -14,17 +15,17 @@ IndexingWorker::IndexingWorker(Library* library, QObject* parent)
 
 
 void IndexingWorker::stop() {
-    qDebug() << "IndexingWorker::stop() called";
+    LOG_DEBUG << "IndexingWorker::stop() called" << LOG_ENDL;
     m_stopRequested.store(true);
 }
 
 void IndexingWorker::requestReindex() {
-    qDebug() << "Indexing reindex requested";
+    LOG_DEBUG << "Indexing reindex requested" << LOG_ENDL;
     m_reindexRequested.store(true);
 }
 
 void IndexingWorker::process() {
-    qDebug() << "IndexingWorker::process() started";
+    LOG_DEBUG << "IndexingWorker::process() started" << LOG_ENDL;
 
     while (true) {
         // Reset reindex request for this iteration
@@ -42,7 +43,7 @@ void IndexingWorker::process() {
             // If no models to process, check if reindex was requested
             if (!m_reindexRequested.load()) {
                 emit finished();
-                qDebug() << "IndexingWorker::process() finished with no models to process";
+                LOG_DEBUG << "IndexingWorker::process() finished with no models to process" << LOG_ENDL;
                 return;
             }
             // If reindex was requested, continue to the next iteration
@@ -51,7 +52,7 @@ void IndexingWorker::process() {
 
         for (const auto& modelData : modelsToProcess) {
             if (m_stopRequested.load()) {
-                qDebug() << "IndexingWorker::process() stopping due to stop request";
+                LOG_DEBUG << "IndexingWorker::process() stopping due to stop request" << LOG_ENDL;
                 break;
             }
             int percentage = (processedFiles * 100) / totalFiles;
@@ -71,7 +72,7 @@ void IndexingWorker::process() {
         // Check if a reindex was requested during processing
         if (!m_reindexRequested.load()) {
             emit finished();
-            qDebug() << "IndexingWorker::process() finished";
+            LOG_DEBUG << "IndexingWorker::process() finished" << LOG_ENDL;
             return;
         }
     }

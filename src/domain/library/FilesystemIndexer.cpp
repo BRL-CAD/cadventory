@@ -1,5 +1,6 @@
 
 #include "FilesystemIndexer.h"
+#include "Logger.h"
 
 #include <filesystem>
 #include <iostream>
@@ -22,7 +23,7 @@ std::vector<std::string>
 FilesystemIndexer::findFilesWithSuffixes(const std::vector<std::string>& suffixes) {
   std::vector<std::string> matchingFiles;
   for (const auto& suffix : suffixes) {
-    // std::cout << "looking for " << suffix << std::endl;
+    // LOG_DEBUG << "looking for " << suffix << LOG_ENDL;
     auto it = fileIndex.find(suffix);
     if (it != fileIndex.end()) {
       matchingFiles.insert(matchingFiles.end(), it->second.begin(), it->second.end());
@@ -79,12 +80,12 @@ FilesystemIndexer::indexDirectory(const std::string& dir, long depth) {
             callback(std::string("Indexing ") + entry.path().u8string());
         }
       } catch (const std::filesystem::filesystem_error& e) {
-        std::cerr << "WARNING: Unable to access " << entry.path() << " - " << e.what() << std::endl;
+        LOG_ERR << "WARNING: Unable to access " << entry.path().string() << " - " << e.what() << LOG_ENDL;
       }
     }
   } catch (const std::filesystem::filesystem_error& /*e*/) {
     // handle fs security and/or attributes silently for now..
-    // std::cerr << "WARNING: Skipping " << dir << " - " << e.what() << std::endl;
+    // LOG_ERR << "WARNING: Skipping " << dir << " - " << e.what() << LOG_ENDL;
   }
 
   // clear out so we can re-index later
@@ -122,12 +123,12 @@ FilesystemIndexer::indexDirectory(const std::string& dir) {
           count++;
         }
       } else {
-        std::cerr << "Skipping due to insufficient permissions: " << it->path() << std::endl;
+        LOG_ERR << "Skipping due to insufficient permissions: " << it->path() << LOG_ENDL;
         it.disable_recursion_pending();
       }
       ++it;
     } catch (const std::filesystem::filesystem_error& e) {
-      std::cerr << "Warning: Skipped directory due to permissions - " << e.what() << std::endl;
+      LOG_ERR << "Warning: Skipped directory due to permissions - " << e.what() << LOG_ENDL;
       it.disable_recursion_pending();
 
       /* try to continue, but may be invalidated */
@@ -135,7 +136,7 @@ FilesystemIndexer::indexDirectory(const std::string& dir) {
         ++it;
     }
   }
-  std::cout << "dir count is " << count << std::endl;
+  LOG_DEBUG << "dir count is " << count << LOG_ENDL;
 }
 #endif
 

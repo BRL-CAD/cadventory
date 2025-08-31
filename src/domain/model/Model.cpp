@@ -9,6 +9,8 @@
 #include <set>
 #include <sstream>
 
+#include "Logger.h"
+
 #if CADVENTORY_WITH_GUI
 #include <QImageReader>
 #include <QImageWriter>
@@ -32,10 +34,10 @@ Model::Model(const std::string& libraryPath, QObject* parent)
   if (sqlite3_open_v2(dbPath.c_str(), &db,
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
                       nullptr) != SQLITE_OK) {
-    std::cerr << "Can't open database at " << dbPath << ": "
-              << sqlite3_errmsg(db) << std::endl;
+    LOG_ERR << "Can't open database at " << dbPath << ": "
+              << sqlite3_errmsg(db) << LOG_ENDL;
   } else {
-    std::cout << "Opened database at " << dbPath << " successfully" << std::endl;
+    LOG_DEBUG << "Opened database at " << dbPath << " successfully" << LOG_ENDL;
 
     sqlite3_busy_timeout(db, 5000); // 5s
     sqlite3_exec(db, "PRAGMA foreign_keys = ON;", nullptr, nullptr, nullptr);
@@ -54,7 +56,7 @@ Model::~Model() {
 }
 
 bool Model::createTables() {
-  std::cout << "Creating tables..." << std::endl;
+  LOG_DEBUG << "Creating tables..." << LOG_ENDL;
   std::string sqlModels = R"(
         CREATE TABLE IF NOT EXISTS models (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -197,20 +199,20 @@ bool Model::insertModel(const ModelData& modelData) {
   int maxSuffix = 1000;  // Prevent infinite loop
   while (shortNameExists(short_name)) {
     if (suffix > maxSuffix) {
-      std::cerr << "Error: Could not generate a unique short_name for "
-                << modelData.short_name << std::endl;
+      LOG_ERR << "Error: Could not generate a unique short_name for "
+                << modelData.short_name << LOG_ENDL;
       return false;
     }
     short_name = modelData.short_name + "_" + std::to_string(suffix++);
-    qDebug() << "Generated new short_name:"
-             << QString::fromStdString(short_name);
+    LOG_DEBUG << "Generated new short_name:"
+             << QString::fromStdString(short_name) << LOG_ENDL;
   }
 
   // Ensure file_path is unique
   std::string generic_filepath = std::filesystem::path(modelData.file_path).generic_string();
   if (filePathExists(generic_filepath)) {
-    std::cerr << "Model with file_path " << generic_filepath
-              << " already exists." << std::endl;
+    LOG_WARN << "Model with file_path " << generic_filepath
+              << " already exists." << LOG_ENDL;
     return false;
   }
 
@@ -242,7 +244,7 @@ bool Model::insertModel(const ModelData& modelData) {
 
     int rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-      std::cerr << "Insert model failed: " << sqlite3_errmsg(db) << std::endl;
+      LOG_ERR << "Insert model failed: " << sqlite3_errmsg(db) << LOG_ENDL;
       sqlite3_finalize(stmt);
       return false;
     }
@@ -257,13 +259,13 @@ bool Model::insertModel(const ModelData& modelData) {
     models.push_back(modelDataWithId);
     endInsertRows();
 
-    qDebug() << "Model inserted successfully with id:" << id
-             << ", short_name:" << QString::fromStdString(short_name);
+    LOG_DEBUG << "Model inserted successfully with id:" << id
+              << ", short_name:" << QString::fromStdString(short_name)
+              << LOG_ENDL;
 
     return true;
   } else {
-    std::cerr << "SQL error in insertModel: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in insertModel: " << sqlite3_errmsg(db) << LOG_ENDL;
     return false;
   }
 }
@@ -279,13 +281,13 @@ bool Model::shortNameExists(const std::string& short_name) {
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
       count = sqlite3_column_int(stmt, 0);
-      qDebug() << "shortNameExists - count for"
-               << QString::fromStdString(short_name) << ":" << count;
+      LOG_DEBUG << "shortNameExists - count for"
+                << QString::fromStdString(short_name) << ":" << count
+                << LOG_ENDL;
     }
     sqlite3_finalize(stmt);
   } else {
-    std::cerr << "SQL error in shortNameExists: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in shortNameExists: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   return count > 0;
@@ -297,21 +299,22 @@ bool Model::filePathExists(const std::string& file_path) {
   int count = 0;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
-  qDebug() << "Checking if file_path exists:"
-           << QString::fromStdString(file_path);
+  LOG_DEBUG << "Checking if file_path exists:"
+            << QString::fromStdString(file_path)
+            << LOG_ENDL;
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
     sqlite3_bind_text(stmt, 1, file_path.c_str(), -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
       count = sqlite3_column_int(stmt, 0);
-      qDebug() << "filePathExists - count for"
-               << QString::fromStdString(file_path) << ":" << count;
+      LOG_DEBUG << "filePathExists - count for"
+                << QString::fromStdString(file_path) << ":" << count
+                << LOG_ENDL;
     }
     sqlite3_finalize(stmt);
   } else {
-    std::cerr << "SQL error in filePathExists: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in filePathExists: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   return count > 0;
@@ -329,8 +332,8 @@ bool Model::updateModel(int id, const ModelData& modelData) {
 
     // check for file_path conflicts
     if (filePathExists(modelData.file_path) && existingModel.file_path != modelData.file_path) {
-        std::cerr << "Another model with file_path " << modelData.file_path
-                  << " already exists." << std::endl;
+        LOG_ERR << "Another model with file_path " << modelData.file_path
+                << " already exists." << LOG_ENDL;
         return false;
     }
 
@@ -360,7 +363,7 @@ bool Model::updateModel(int id, const ModelData& modelData) {
     // prepare stmt
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        std::cerr << "SQL error in updateModel: " << sqlite3_errmsg(db) << std::endl;
+        LOG_ERR << "SQL error in updateModel: " << sqlite3_errmsg(db) << LOG_ENDL;
         return false;
     }
 
@@ -389,7 +392,7 @@ bool Model::updateModel(int id, const ModelData& modelData) {
     // do the sql update
     int rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        std::cerr << "Update model failed: " << sqlite3_errmsg(db) << std::endl;
+        LOG_ERR << "Update model failed: " << sqlite3_errmsg(db) << LOG_ENDL;
         sqlite3_finalize(stmt);
         return false;
     }
@@ -402,12 +405,12 @@ bool Model::updateModel(int id, const ModelData& modelData) {
     if (sqlite3_prepare_v2(db, sqlDeleteTags.c_str(), -1, &deleteStmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_int(deleteStmt, 1, id);
         if (sqlite3_step(deleteStmt) != SQLITE_DONE) {
-            std::cerr << "Failed to delete existing tags: " << sqlite3_errmsg(db) << std::endl;
+            LOG_ERR << "Failed to delete existing tags: " << sqlite3_errmsg(db) << LOG_ENDL;
         }
 
         sqlite3_finalize(deleteStmt);
     } else {
-        std::cerr << "SQL error in delete existing tags: " << sqlite3_errmsg(db) << std::endl;
+        LOG_ERR << "SQL error in delete existing tags: " << sqlite3_errmsg(db) << LOG_ENDL;
     }
     // then, add the new tags
     for (const auto& tag : modelData.tags) {
@@ -470,7 +473,7 @@ bool Model::deleteModel(int id) {
     sqlite3_bind_int(stmt, 1, id);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
-      std::cerr << "Delete model failed: " << sqlite3_errmsg(db) << std::endl;
+      LOG_ERR << "Delete model failed: " << sqlite3_errmsg(db) << LOG_ENDL;
       sqlite3_finalize(stmt);
       return false;
     }
@@ -488,8 +491,7 @@ bool Model::deleteModel(int id) {
 
     return true;
   } else {
-    std::cerr << "SQL error in deleteModel: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in deleteModel: " << sqlite3_errmsg(db) << LOG_ENDL;
     return false;
   }
 }
@@ -508,8 +510,7 @@ bool Model::modelExists(int id) {
     }
     sqlite3_finalize(stmt);
   } else {
-    std::cerr << "SQL error in modelExists: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in modelExists: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   return count > 0;
@@ -525,7 +526,7 @@ std::optional<ModelData> Model::getModelById(int id) {
     std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        std::cerr << "SQL prepare error in getModelById: " << sqlite3_errmsg(db) << std::endl;
+        LOG_ERR << "SQL prepare error in getModelById: " << sqlite3_errmsg(db) << LOG_ENDL;
         return std::nullopt;
     }
 
@@ -533,7 +534,7 @@ std::optional<ModelData> Model::getModelById(int id) {
     ModelData model;
 
     if (sqlite3_step(stmt) != SQLITE_ROW) {
-        std::cerr << "Failed to select model: " << sqlite3_errmsg(db) << std::endl;
+        LOG_ERR << "Failed to select model: " << sqlite3_errmsg(db) << LOG_ENDL;
         sqlite3_finalize(stmt);
         return std::nullopt;
     }
@@ -586,8 +587,8 @@ ModelData Model::getModelByFilePath(const std::string& filePath) {
     sqlite3_bind_text(stmt, 1, generic_filepath.c_str(), -1, SQLITE_TRANSIENT);
 
     // Debugging statements
-    // qDebug() << "Executing SQL:" << QString::fromStdString(sql);
-    // qDebug() << "With filePath:" << QString::fromStdString(filePath);
+    // LOG_DEBUG << "Executing SQL:" << QString::fromStdString(sql) << LOG_ENDL;
+    // LOG_DEBUG << "With filePath:" << QString::fromStdString(filePath) << LOG_ENDL;
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
       model.id = sqlite3_column_int(stmt, 0);
@@ -628,17 +629,18 @@ ModelData Model::getModelByFilePath(const std::string& filePath) {
       model.is_processed = sqlite3_column_int(stmt, 10) != 0;
       model.is_included = sqlite3_column_int(stmt, 11) != 0;
 
-      qDebug() << "Model found with id:" << model.id
-               << "and filePath:" << QString::fromStdString(model.file_path);
+      LOG_DEBUG << "Model found with id:" << model.id
+                << "and filePath:" << QString::fromStdString(model.file_path)
+                << LOG_ENDL;
     } else {
-      qDebug() << "No model found with filePath:"
-               << QString::fromStdString(generic_filepath);
+      LOG_DEBUG << "No model found with filePath:"
+                << QString::fromStdString(generic_filepath)
+                << LOG_ENDL;
     }
 
     sqlite3_finalize(stmt);
   } else {
-    std::cerr << "Failed to select model by file path: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "Failed to select model by file path: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   return model;
@@ -692,17 +694,18 @@ void Model::loadModelsFromDatabase() {
     endResetModel();
 
   } else {
-    std::cerr << "Failed to select models: " << sqlite3_errmsg(db) << std::endl;
+    LOG_ERR << "Failed to select models: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 }
 
 int Model::hashModel(const std::string& modelDir) {
-  qDebug() << "hashModel called with modelDir:"
-           << QString::fromStdString(modelDir);
+  LOG_DEBUG << "hashModel called with modelDir:"
+            << QString::fromStdString(modelDir)
+            << LOG_ENDL;
 
   std::ifstream file(modelDir, std::ios::binary);
   if (!file.is_open()) {
-    std::cerr << "Could not open file for hashing: " << modelDir << std::endl;
+    LOG_ERR << "Could not open file for hashing: " << modelDir << LOG_ENDL;
     return 0;
   }
 
@@ -713,25 +716,25 @@ int Model::hashModel(const std::string& modelDir) {
   std::hash<std::string> hasher;
   int hashValue = static_cast<int>(hasher(fileContents));
 
-  qDebug() << "Hash value for" << QString::fromStdString(modelDir) << ":"
-           << hashValue;
+  LOG_DEBUG << "Hash value for" << QString::fromStdString(modelDir) << ":"
+            << hashValue << LOG_ENDL;
 
   return hashValue;
 }
 
 void Model::printModel(const ModelData& modelData) {
-  std::cout << "Model ID: " << modelData.id << std::endl;
-  std::cout << "Short Name: " << modelData.short_name << std::endl;
-  std::cout << "Primary File: " << modelData.primary_file << std::endl;
-  std::cout << "Override Info: " << modelData.override_info << std::endl;
-  std::cout << "Title: " << modelData.title << std::endl;
-  std::cout << "Author: " << modelData.author << std::endl;
-  std::cout << "File Path: " << modelData.file_path << std::endl;
-  std::cout << "Library Name: " << modelData.library_name << std::endl;
-  std::cout << "Is Selected: " << (modelData.is_selected ? "Yes" : "No")
-            << std::endl;
-  std::cout << "Thumbnail Size: " << modelData.thumbnail.size() << " bytes"
-            << std::endl;
+  LOG_DEBUG << "Model ID: " << modelData.id << LOG_ENDL;
+  LOG_DEBUG << "Short Name: " << modelData.short_name << LOG_ENDL;
+  LOG_DEBUG << "Primary File: " << modelData.primary_file << LOG_ENDL;
+  LOG_DEBUG << "Override Info: " << modelData.override_info << LOG_ENDL;
+  LOG_DEBUG << "Title: " << modelData.title << LOG_ENDL;
+  LOG_DEBUG << "Author: " << modelData.author << LOG_ENDL;
+  LOG_DEBUG << "File Path: " << modelData.file_path << LOG_ENDL;
+  LOG_DEBUG << "Library Name: " << modelData.library_name << LOG_ENDL;
+  LOG_DEBUG << "Is Selected: " << (modelData.is_selected ? "Yes" : "No")
+            << LOG_ENDL;
+  LOG_DEBUG << "Thumbnail Size: " << modelData.thumbnail.size() << " bytes"
+            << LOG_ENDL;
 }
 
 std::string Model::getHiddenDirectoryPath() const { return hiddenDirPath; }
@@ -741,7 +744,7 @@ bool Model::executeSQL(const std::string& sql) {
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
   int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
   if (rc != SQLITE_OK) {
-    std::cerr << "SQL error in executeSQL: " << errMsg << std::endl;
+    LOG_ERR << "SQL error in executeSQL: " << errMsg << LOG_ENDL;
     sqlite3_free(errMsg);
     return false;
   }
@@ -769,15 +772,15 @@ bool Model::setData(const QModelIndex& index, const QVariant& value, int role) {
       sqlite3_bind_int(stmt, 2, modelData.id);
 
       if (sqlite3_step(stmt) != SQLITE_DONE) {
-        std::cerr << "Failed to update is_selected in database: "
-                  << sqlite3_errmsg(db) << std::endl;
+        LOG_ERR << "Failed to update is_selected in database: "
+                  << sqlite3_errmsg(db) << LOG_ENDL;
         sqlite3_finalize(stmt);
         return false;
       }
       sqlite3_finalize(stmt);
     } else {
-      std::cerr << "SQL error in setData when updating is_selected: "
-                << sqlite3_errmsg(db) << std::endl;
+      LOG_ERR << "SQL error in setData when updating is_selected: "
+                << sqlite3_errmsg(db) << LOG_ENDL;
       return false;
     }
 
@@ -795,15 +798,15 @@ bool Model::setData(const QModelIndex& index, const QVariant& value, int role) {
       sqlite3_bind_int(stmt, 2, modelData.id);
 
       if (sqlite3_step(stmt) != SQLITE_DONE) {
-        std::cerr << "Failed to update is_included in database: "
-                  << sqlite3_errmsg(db) << std::endl;
+        LOG_ERR << "Failed to update is_included in database: "
+                  << sqlite3_errmsg(db) << LOG_ENDL;
         sqlite3_finalize(stmt);
         return false;
       }
       sqlite3_finalize(stmt);
     } else {
-      std::cerr << "SQL error in setData when updating is_included: "
-                << sqlite3_errmsg(db) << std::endl;
+      LOG_ERR << "SQL error in setData when updating is_included: "
+                << sqlite3_errmsg(db) << LOG_ENDL;
       return false;
     }
 
@@ -831,8 +834,7 @@ int Model::insertObject(const ObjectData& obj) {
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-    std::cerr << "SQL error in insertObject: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in insertObject: " << sqlite3_errmsg(db) << LOG_ENDL;
     return -1;
   }
 
@@ -848,7 +850,7 @@ int Model::insertObject(const ObjectData& obj) {
   sqlite3_bind_int(stmt, 4, obj.is_selected ? 1 : 0);
 
   if (sqlite3_step(stmt) != SQLITE_DONE) {
-    std::cerr << "Insert object failed: " << sqlite3_errmsg(db) << std::endl;
+    LOG_ERR << "Insert object failed: " << sqlite3_errmsg(db) << LOG_ENDL;
     sqlite3_finalize(stmt);
     return -1;
   }
@@ -867,15 +869,14 @@ bool Model::deleteObjectsForModel(int model_id) {
     sqlite3_bind_int(stmt, 1, model_id);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
-      std::cerr << "Delete objects failed: " << sqlite3_errmsg(db) << std::endl;
+      LOG_ERR << "Delete objects failed: " << sqlite3_errmsg(db) << LOG_ENDL;
       sqlite3_finalize(stmt);
       return false;
     }
     sqlite3_finalize(stmt);
     return true;
   } else {
-    std::cerr << "SQL error in deleteObjectsForModel: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in deleteObjectsForModel: " << sqlite3_errmsg(db) << LOG_ENDL;
     return false;
   }
 }
@@ -911,8 +912,7 @@ std::vector<ObjectData> Model::getObjectsForModel(int model_id) {
     }
     sqlite3_finalize(stmt);
   } else {
-    std::cerr << "Failed to retrieve objects: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "Failed to retrieve objects: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   return objects;
@@ -933,8 +933,7 @@ bool Model::updateObjectSelection(int object_id, bool is_selected) {
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-    std::cerr << "SQL error in updateObjectSelection: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in updateObjectSelection: " << sqlite3_errmsg(db) << LOG_ENDL;
     return false;
   }
 
@@ -942,8 +941,7 @@ bool Model::updateObjectSelection(int object_id, bool is_selected) {
   sqlite3_bind_int(stmt, 2, object_id);
 
   if (sqlite3_step(stmt) != SQLITE_DONE) {
-    std::cerr << "Update object selection failed: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "Update object selection failed: " << sqlite3_errmsg(db) << LOG_ENDL;
     sqlite3_finalize(stmt);
     return false;
   }
@@ -965,8 +963,7 @@ bool Model::updateObject(const ObjectData& obj) {
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-    std::cerr << "SQL error in updateObject: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in updateObject: " << sqlite3_errmsg(db) << LOG_ENDL;
     return false;
   }
 
@@ -980,7 +977,7 @@ bool Model::updateObject(const ObjectData& obj) {
   sqlite3_bind_int(stmt, 4, obj.object_id);
 
   if (sqlite3_step(stmt) != SQLITE_DONE) {
-    std::cerr << "Update object failed: " << sqlite3_errmsg(db) << std::endl;
+    LOG_ERR << "Update object failed: " << sqlite3_errmsg(db) << LOG_ENDL;
     sqlite3_finalize(stmt);
     return false;
   }
@@ -1017,13 +1014,12 @@ ObjectData Model::getObjectById(int object_id) {
       obj.is_selected = sqlite3_column_int(stmt, 4) != 0;
     } else {
       // Handle the case where the object is not found
-      std::cerr << "Object with ID " << object_id << " not found." << std::endl;
+      LOG_ERR << "Object with ID " << object_id << " not found." << LOG_ENDL;
     }
 
     sqlite3_finalize(stmt);
   } else {
-    std::cerr << "SQL error in getObjectById: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in getObjectById: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   return obj;
@@ -1073,8 +1069,8 @@ std::vector<ObjectData> Model::getSelectedObjectsForModel(int model_id) {
     }
     sqlite3_finalize(stmt);
   } else {
-    std::cerr << "Failed to prepare statement in getSelectedObjectsForModel: "
-              << sqlite3_errmsg(db) << std::endl;
+    LOG_ERR << "Failed to prepare statement in getSelectedObjectsForModel: "
+              << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   return selectedObjects;
@@ -1091,8 +1087,7 @@ bool Model::updateObjectParentId(int object_id, int parent_object_id) {
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-    std::cerr << "SQL error in updateObjectParentId: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in updateObjectParentId: " << sqlite3_errmsg(db) << LOG_ENDL;
     return false;
   }
 
@@ -1100,8 +1095,7 @@ bool Model::updateObjectParentId(int object_id, int parent_object_id) {
   sqlite3_bind_int(stmt, 2, object_id);
 
   if (sqlite3_step(stmt) != SQLITE_DONE) {
-    std::cerr << "Update object parent ID failed: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "Update object parent ID failed: " << sqlite3_errmsg(db) << LOG_ENDL;
     sqlite3_finalize(stmt);
     return false;
   }
@@ -1123,7 +1117,7 @@ void Model::resetDatabase() {
     createTables();      // Recreate tables
     refreshModelData();  // Optional: Load initial data if necessary
   } else {
-    std::cerr << "Failed to delete tables." << std::endl;
+    LOG_ERR << "Failed to delete tables." << LOG_ENDL;
   }
 }
 
@@ -1217,8 +1211,8 @@ bool Model::removeTagFromModel(int modelId, const std::string& tagName) {
   sqlite3_bind_int(stmt, 1, modelId);
   sqlite3_bind_int(stmt, 2, tagId);
 
-  std::cout << "Removing tag " << tagName << " from model " << modelId
-            << std::endl;
+  LOG_DEBUG << "Removing tag " << tagName << " from model " << modelId
+            << LOG_ENDL;
 
   return executePreparedStatement(stmt);
 }
@@ -1262,8 +1256,8 @@ std::map<std::string, std::string> Model::getPropertiesForModel(int modelId) {
       }
     }
   } else {
-    std::cerr << "Failed to retrieve properties for model: "
-              << sqlite3_errmsg(db) << std::endl;
+    LOG_ERR << "Failed to retrieve properties for model: "
+              << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   std::vector<std::string> columns = {"short_name", "title", "author",
@@ -1287,7 +1281,7 @@ bool Model::setPropertyForModel(int modelId, const std::string& property,
       "author",     "file_path",    "library_name"};
 
   if (allowedProperties.find(property) == allowedProperties.end()) {
-    std::cerr << "Invalid property name: " << property << std::endl;
+    LOG_ERR << "Invalid property name: " << property << LOG_ENDL;
     return false;
   }
 
@@ -1305,8 +1299,7 @@ bool Model::setPropertyForModel(int modelId, const std::string& property,
 sqlite3_stmt* Model::prepareStatement(const std::string& sql) const {
   sqlite3_stmt* stmt;
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-    std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "Failed to prepare statement: " << sqlite3_errmsg(db) << LOG_ENDL;
     return nullptr;
   }
   return stmt;
@@ -1315,7 +1308,7 @@ sqlite3_stmt* Model::prepareStatement(const std::string& sql) const {
 bool Model::executePreparedStatement(sqlite3_stmt* stmt) {
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
   if (sqlite3_step(stmt) != SQLITE_DONE) {
-    std::cerr << "Execution failed: " << sqlite3_errmsg(db) << std::endl;
+    LOG_ERR << "Execution failed: " << sqlite3_errmsg(db) << LOG_ENDL;
     sqlite3_finalize(stmt);
     return false;
   }
@@ -1367,8 +1360,7 @@ std::vector<ModelData> Model::getIncludedModels() {
     }
     sqlite3_finalize(stmt);
   } else {
-    std::cerr << "Failed to select included models: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "Failed to select included models: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   return includedModels;
@@ -1388,8 +1380,8 @@ std::vector<ModelData> Model::getAll() {
     std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
     if (sqlite3_prepare_v2(db, SQL, -1, &stmt, nullptr) != SQLITE_OK) {
-        std::cerr << "[Model::getAll] SQL prepare error: "
-                  << sqlite3_errmsg(db) << std::endl;
+        LOG_ERR << "[Model::getAll] SQL prepare error: "
+                  << sqlite3_errmsg(db) << LOG_ENDL;
         return out;
     }
 
@@ -1443,8 +1435,7 @@ bool Model::isFileIncluded(const std::string& filePath) {
     }
     sqlite3_finalize(stmt);
   } else {
-    std::cerr << "SQL error in isFileIncluded: " << sqlite3_errmsg(db)
-              << std::endl;
+    LOG_ERR << "SQL error in isFileIncluded: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
   return included;
@@ -1493,8 +1484,8 @@ std::vector<ModelData> Model::getIncludedNotProcessedModels() {
 
         sqlite3_finalize(stmt);
     } else {
-        std::cerr << "[Model::getIncludedNotProcessedModels] SQL error: "
-                  << sqlite3_errmsg(db) << std::endl;
+        LOG_ERR << "[Model::getIncludedNotProcessedModels] SQL error: "
+                  << sqlite3_errmsg(db) << LOG_ENDL;
     }
 
     return notProcessedModels;

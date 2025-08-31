@@ -1,4 +1,5 @@
 #include "ReportGenerationWindow.h"
+#include "Logger.h"
 
 #include <QComboBox>
 #include <QDesktopServices>
@@ -57,7 +58,7 @@ ReportGenerationWindow::ReportGenerationWindow(QWidget* parent, Model* model,
 // does not forcefully interrupt
 void ReportGenerationWindow::onPauseReportButtonClicked() {
   generatingReportThread->requestInterruption();
-  std::cout << "interruption requested " << std::endl;
+  LOG_DEBUG << "interruption requested " << LOG_ENDL;
   ui->fileInProcess_label->setText(QString::fromStdString("Generation Stopped..."));
 
 }
@@ -149,7 +150,7 @@ void ReportGenerationWindow::onGenerateReportButtonClicked() {
 void ReportGenerationWindow::coverPage() {
   /* portrait mode
 
-  std::cout << "directory to save: " << output_directory << std::endl;
+  LOG_DEBUG << "directory to save: " << output_directory << LOG_ENDL;
   std::string report_filepath = output_directory + "/report_" + time + ".pdf";
 
   pdfWriter = new QPdfWriter(QString::fromStdString(report_filepath));
@@ -222,7 +223,7 @@ void ReportGenerationWindow::coverPage() {
   oss << std::put_time(&tm, "%m-%d-%Y, %H:%M:%S");
   auto time = oss.str();
 
-  // std::cout << "directory to save: " << output_directory << std::endl;
+  // LOG_DEBUG << "directory to save: " << output_directory << LOG_ENDL;
   std::string report_filepath = output_directory + "/report_" + time + ".pdf";
 
   pdfWriter = new QPdfWriter(QString::fromStdString(report_filepath));
@@ -258,7 +259,7 @@ void ReportGenerationWindow::coverPage() {
                         bottom_logo);
   } else {
     // TODO: draw brlcad logo from qt resource system/built in :)
-    std::cout << "default logo!!" << std::endl;
+    LOG_DEBUG << "default logo!!" << LOG_ENDL;
     QPixmap bottom_logo(":/src/assets/brlcad_logo.png");
     painter->drawPixmap(A4_MAXWIDTH_LS - Margin - bottom_logo.width(),
                         A4_MAXHEIGHT_LS - Margin - bottom_logo.height(),
@@ -345,7 +346,7 @@ void ReportGenerationWindow::tableOfContentsPage() {
                       QString::fromStdString("Report Generated on: " + time));
     // will need to adjust for windows, macos "local home" libraries
   } else {
-    std::cout << "error: new page failed" << std::endl;
+    LOG_DEBUG << "error: new page failed" << LOG_ENDL;
   }
 
   painter->drawText(x, y, "Geometry");
@@ -371,7 +372,7 @@ void ReportGenerationWindow::tableOfContentsPage() {
   }
 
   ProcessGFiles gFileProcessor(model);
-  std::cout << "generating gist reports" << std::endl;
+  LOG_DEBUG << "generating gist reports" << LOG_ENDL;
   painter->setFont(font);
   painter->rotate(90);
   */
@@ -459,7 +460,7 @@ void ReportGenerationWindow::tableOfContentsPage() {
 
         row_y += 100;
       } else {
-        std::cerr << "Error in creating new page" << std::endl;
+        LOG_ERR << "Error in creating new page" << LOG_ENDL;
       }
     }
 
@@ -541,12 +542,11 @@ void ReportGenerationWindow::onSuccessfulGistCall(
                       QString::fromStdString(std::to_string(page_number)));
 
   } else {
-    std::cerr << "Failed to create new PDF page. (onSuccessfulGistCall)"
-              << std::endl;
+    LOG_ERR << "Failed to create new PDF page. (onSuccessfulGistCall)" << LOG_ENDL;
   }
 
   int progress = (*num_file + 1) * 100 / (*tot_num_files);
-  // std::cout << "progress: " << progress << std::endl;
+  // LOG_DEBUG << "progress: " << progress << LOG_ENDL;
   ui->progressBar->setValue(progress);
   (*num_file)++;
 }
@@ -562,7 +562,7 @@ void ReportGenerationWindow::onFailedGistCall(const QString& filepath,
                     command.toStdString();
   QFont font("Helvetica", 18);
   QFont font_two("Helvetica", 6);
-  std::cout << "err: " << err << std::endl;
+  LOG_DEBUG << "err: " << err << LOG_ENDL;
   err_vec->push_back(err);
   if (pdfWriter->newPage()) {
     painter->setPen(Qt::black);
@@ -577,8 +577,7 @@ void ReportGenerationWindow::onFailedGistCall(const QString& filepath,
                       QString::fromStdString(std::to_string(page_number)));
 
   } else {
-    std::cerr << "Failed to create new PDF page. (onFailedGistCall)"
-              << std::endl;
+    LOG_ERR << "Failed to create new PDF page. (onFailedGistCall)" << LOG_ENDL;
   }
   int progress = (*num_file) * 100 / (*tot_num_files);
   ui->progressBar->setValue(progress);
@@ -603,7 +602,7 @@ void ReportGenerationWindow::onFinishedGeneratingReport() {
   if (!wfdir.exists()) {
     wfdir.mkpath(".");
   } else {
-    std::cout << "folder exists!" << std::endl;
+    LOG_DEBUG << "folder exists!" << LOG_ENDL;
   }
 
   // move model.working folders into .cadventory
@@ -619,16 +618,14 @@ void ReportGenerationWindow::onFinishedGeneratingReport() {
       QDir dir_temp_two;
       if (!dir_temp_two.rename(QString::fromStdString(model_working_path),
                                QString::fromStdString(dest))) {
-        std::cerr
-            << "Moving model.working file failed (onFinishedGeneratingReport)"
-            << std::endl;
+        LOG_ERR << "Moving model.working file failed (onFinishedGeneratingReport)" << LOG_ENDL;
       }
     }
   }
 
 
   // show error popup
-  std::cout << "Report Generated" << std::endl;
+  LOG_DEBUG << "Report Generated" << LOG_ENDL;
   if (err_vec->size()) {
     // Convert std::vector<std::string> to QString
     QString message;
@@ -666,21 +663,21 @@ ReportGenerationWindow::~ReportGenerationWindow() {
 
   // Ensure the indexing thread is stopped if it wasn't already
   if (generatingReportThread && generatingReportThread->isRunning()) {
-    qDebug() << "Waiting for generatingReportThread to finish in destructor";
+    LOG_DEBUG << "Waiting for generatingReportThread to finish in destructor" << LOG_ENDL;
     generatingReportThread->wait();
-    qDebug() << "generatingReportThread finished in destructor";
+    LOG_DEBUG << "generatingReportThread finished in destructor" << LOG_ENDL;
   }
 
   // Delete indexingWorker and indexingThread if they exist
   if (reporterWorker) {
     delete reporterWorker;
     reporterWorker = nullptr;
-    qDebug() << "reporterWorker deleted in destructor";
+    LOG_DEBUG << "reporterWorker deleted in destructor" << LOG_ENDL;
   }
 
   if (generatingReportThread) {
     delete generatingReportThread;
     generatingReportThread = nullptr;
-    qDebug() << "generatingReportThread deleted in destructor";
+    LOG_DEBUG << "generatingReportThread deleted in destructor" << LOG_ENDL;
   }
 }

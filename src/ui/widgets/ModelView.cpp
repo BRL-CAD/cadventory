@@ -11,6 +11,7 @@
 #include "CADventory.h"
 #include "AIModelTagging.h"
 #include "QtJobServiceBase.h"
+#include "Logger.h"
 
 #include <QtConcurrent>     
 #include <QFuture>          
@@ -94,8 +95,7 @@ void ModelView::populateProperties() {
   for (const auto& [key, value] : model->getPropertiesForModel(modelId)) {
     std::vector<std::string> editableProperties = {"short_name", "author"};
 
-    std::cout << "Key: " << key << ":: Value: " << value << "  i" << i++
-              << std::endl;
+    LOG_DEBUG << "Key: " << key << ":: Value: " << value << "  i" << i++ << LOG_ENDL;
     QListWidgetItem* keyItem =
         new QListWidgetItem(QString::fromStdString(key), ui.keysList);
     QString displayValue =
@@ -168,9 +168,9 @@ void ModelView::onRemoveTagClicked(QListWidgetItem* item) {
 }
 
 void ModelView::onOkClicked() {
-  std::cout << "onOkClicked" << std::endl;
+  LOG_DEBUG << "onOkClicked" << LOG_ENDL;
   model->updateModel(modelId, currModel);
-  std::cout << "updated model" << std::endl;
+  LOG_DEBUG << "updated model" << LOG_ENDL;
 
   // Update currModel properties
   for (int i = 0; i < ui.valuesList->count(); ++i) {
@@ -265,4 +265,4 @@ void ModelView::onGenerateTagsClicked() {
 }
 
 
-ModelView::~ModelView() { qDebug() << "ModelView destructor called"; }
+ModelView::~ModelView() { LOG_DEBUG << "ModelView destructor called" << LOG_ENDL; }
