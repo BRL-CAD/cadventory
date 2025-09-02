@@ -84,6 +84,7 @@ public:
     void resetDatabase();
 
     bool setModelProcessed(int id, bool is_processed);
+    bool updateThumbnailFromFile(int id, const std::string pngPath);
 
     // Getters (returns ModelData or std::nullopt on failure)
     std::optional<ModelData> getModelById(int id);

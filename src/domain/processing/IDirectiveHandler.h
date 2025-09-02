@@ -14,7 +14,11 @@ struct HandlerContext {
     std::filesystem::path outputPath;       // .cadventory/data/ab/abc123/objName/directive.ext
     std::string primaryObject;
     std::shared_ptr<ModelData> modeldata;
+    bool alreadyExists = false;
 };
+
+// behavior if needsHandled() comes across a job with existing output
+enum class ExistingBehavior { Skip, Load };
 
 struct HandlerResult {
     bool success;
@@ -37,7 +41,9 @@ protected:
         : _dataDir(dataDir), _service(service), _repo(repo) {}
 
     // return std::nullopt if job is already finished or no longer needed
-    std::optional<HandlerContext> needsHandled(const JobDescriptor& job, std::string ext);
+    std::optional<HandlerContext> needsHandled(const JobDescriptor& job,
+                                               std::string ext,
+                                               ExistingBehavior whenExists = ExistingBehavior::Skip);
 
     // members
     const std::filesystem::path _dataDir;

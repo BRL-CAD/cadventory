@@ -1,6 +1,8 @@
 #include "IDirectiveHandler.h"
 
-std::optional<HandlerContext> IDirectiveHandler::needsHandled(const JobDescriptor& job, std::string ext) {
+std::optional<HandlerContext> IDirectiveHandler::needsHandled(const JobDescriptor& job,
+                                                              std::string ext,
+                                                              ExistingBehavior whenExists) {
     // fetch model data for this job's source file
     ModelData existing = _repo.getModelByFilePath(job.sourcePath);
 
@@ -13,7 +15,7 @@ std::optional<HandlerContext> IDirectiveHandler::needsHandled(const JobDescripto
 
     // special case: if this is the initial process job, that's all we need
     if (job.directive == "process")
-        return HandlerContext{ {}, "", mdl };
+        return HandlerContext{ {}, "", mdl, false };
 
     // build our output path
     using std::filesystem::path;
@@ -23,10 +25,6 @@ std::optional<HandlerContext> IDirectiveHandler::needsHandled(const JobDescripto
         file_stem += "." + ext;
 
     const path outPath = dir / file_stem;
-
-    // verify we don't already have this output file
-    if (exists(outPath))
-        return std::nullopt;
 
     // lookup our primary object
     std::vector<ObjectData> selected = _repo.getSelectedObjectsForModel(mdl->id);
@@ -45,6 +43,11 @@ std::optional<HandlerContext> IDirectiveHandler::needsHandled(const JobDescripto
     // sanity: make sure parent directories are created
     create_directories(dir);
 
+    // verify we don't already have this output file, and handler doesn't need it if we do
+    const bool outputExists = exists(outPath);
+    if (outputExists && whenExists == ExistingBehavior::Skip)
+        return std::nullopt;
+
     // got everything we need - let the handler do the job
-    return HandlerContext{ outPath, primaryObj, mdl };
+    return HandlerContext{ outPath, primaryObj, mdl, outputExists };
 }

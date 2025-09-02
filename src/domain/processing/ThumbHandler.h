@@ -18,10 +18,16 @@ public:
 
     HandlerResult handle(const JobDescriptor& job, std::atomic<bool>& stopFlag) override {
 	// check this job is still needed
-        auto ctx = needsHandled(job, "png");
+        auto ctx = needsHandled(job, "png", ExistingBehavior::Load);
         if (!ctx)
-	    // TODO: if we failed because we already have a png, should we verify it's loaded in the model
 	    return {true,"no work to do"};
+
+	// already have the png generated; just update in model repo
+	if (ctx->alreadyExists) {
+	    bool success = _repo.updateThumbnailFromFile(ctx->modeldata->id, ctx->outputPath.string());
+	    std::string success_str = success ? "updated thumbnail from png" : "failed to update thumbnail";
+	    return {success, success_str};
+	}
 
 	// get our rt executable path
 	const QString rtExe = QStringLiteral(RT_EXECUTABLE_PATH);
@@ -80,22 +86,9 @@ public:
 	    return {false, "process didn't finish successfully"};
 	}
 
-	// TODO: old code reads thumbnail directly into model - do we still want to do that?
-	QFile thumbnailFile(ctx->outputPath);
-	if (!thumbnailFile.open(QIODevice::ReadOnly)) {
-	    return {false, "could not open output file"};
-	}
-	QByteArray thumbnailData = thumbnailFile.readAll();
-	thumbnailFile.close();
-	if (thumbnailData.isEmpty()) {
-	    return {false, "thumbnail file is empty"};
-	}
-	ModelData* ctx_md = ctx->modeldata.get();
-	ctx_md->thumbnail.assign(thumbnailData.begin(), thumbnailData.end());
-	_repo.updateModel(ctx_md->id, *ctx_md);
-
-	// success
-	return {true, ""};
+	bool success = _repo.updateThumbnailFromFile(ctx->modeldata->id, ctx->outputPath.string());
+	std::string success_str = success ? "updated thumbnail from png" : "failed to update thumbnail";
+	return {success, success_str};
 	// TODO: thumbnailFinished specific signal?
     }
 

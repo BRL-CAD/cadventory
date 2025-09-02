@@ -459,6 +459,70 @@ bool Model::setModelProcessed(int id, bool is_processed) {
     return true;
 }
 
+bool Model::updateThumbnailFromFile(int id, const std::string pngPath) {
+    // make sure we can open the file
+    std::ifstream file(pngPath, std::ios::binary);
+    if (!file) {
+        LOG_ERR << "updateThumbnailFromFile: open failed: " << pngPath << LOG_ENDL;
+        return false;
+    }
+
+    // read file
+    file.seekg(0, std::ios::end);
+    std::streamsize sz = file.tellg();
+    if (sz <= 0) {
+        LOG_ERR << "updateThumbnailFromFile: empty file: " << pngPath << LOG_ENDL;
+        return false;
+    }
+    // stuff into buffer
+    file.seekg(0, std::ios::beg);   // reset seek
+    std::vector<char> buf(static_cast<size_t>(sz));
+    if (!file.read(buf.data(), sz)) {
+        LOG_ERR << "updateThumbnailFromFile: read failed: " << pngPath << LOG_ENDL;
+        return false;
+    }
+
+    // DB update
+    std::lock_guard<std::recursive_mutex> lock(db_mutex);
+
+    static const char* SQL = "UPDATE models SET thumbnail = ?1 WHERE id = ?2;";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, SQL, -1, &stmt, nullptr) != SQLITE_OK) {
+        LOG_ERR << "updateThumbnailFromFile: prepare failed: " << sqlite3_errmsg(db) << LOG_ENDL;
+        return false;
+    }
+
+    int rc = SQLITE_OK;
+    rc |= sqlite3_bind_blob(stmt, 1, buf.data(), static_cast<int>(buf.size()), SQLITE_TRANSIENT);
+    rc |= sqlite3_bind_int(stmt,  2, id);
+    if (rc != SQLITE_OK) {
+        LOG_ERR << "updateThumbnailFromFile: bind failed" << LOG_ENDL;
+        sqlite3_finalize(stmt);
+        return false;
+    }
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    if (rc != SQLITE_DONE) {
+        LOG_ERR << "updateThumbnailFromFile: step failed: " << sqlite3_errmsg(db) << LOG_ENDL;
+        return false;
+    }
+
+    // update in-memory
+    for (int row = 0; row < static_cast<int>(models.size()); ++row) {
+        if (models[row].id == id) {
+            models[row].thumbnail.assign(buf.begin(), buf.end());
+
+            QModelIndex modelIndex = index(row);
+            emit dataChanged(modelIndex, modelIndex, { ThumbnailRole });
+            break;
+        }
+    }
+
+    return true;
+}
+
 bool Model::deleteModel(int id) {
   // First, delete associated objects
   if (!deleteObjectsForModel(id)) {
