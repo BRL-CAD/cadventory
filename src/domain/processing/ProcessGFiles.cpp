@@ -37,6 +37,26 @@ ProcessGFiles::ProcessGFiles(Model* model)
 {
 }
 
+bool ProcessGFiles::updateModelData(ModelData& modelData) {
+    modelData.is_processed = true;
+    auto existing = model->getModelById(modelData.id);
+    bool success = false;
+
+    if (existing.has_value()) {
+        success = model->updateModel(modelData.id, modelData);
+    } else {
+        success = model->insertModel(modelData);
+    }
+
+    if (!success) {
+        LOG_DEBUG << "[ProcessGFiles::updateModelData] Failed to update database for model ID:" 
+                  << modelData.id << LOG_ENDL;
+    }
+
+    return success;
+}
+
+
 std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
 {
     // Ensure we have a file path
@@ -103,20 +123,10 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
     updatedModelData.is_processed_dir = generateProcessDir(modelData.file_path, primaryObject);
 
     // Create or update our model
-    updatedModelData.is_processed = true;
-    auto existing = model->getModelById(updatedModelData.id);
-    bool success = false;
-    if (existing.has_value()) {
-        success = model->updateModel(updatedModelData.id, updatedModelData);
-    } else {
-        success = model->insertModel(updatedModelData);
-    }
-    if (!success) {
-        LOG_DEBUG << "[ProcessGFiles::processGFile] Failed to process in database for model ID:" 
-                  << updatedModelData.id << LOG_ENDL;
+    if (!updateModelData(updatedModelData))
         return std::nullopt;
-    }
 
+    // everything updated, return our final data
     return updatedModelData;
 }
 
@@ -267,8 +277,11 @@ void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp) {
 
     // make sure we got something
     if (dpByName.empty() || tops.empty()) {
+        // we we dont have any valid objects in the db, remove from inclusion
+        modelData.is_included = false;
+        (void)updateModelData(modelData);
         LOG_DEBUG << "[ProcessGFiles::extractObjects] No objects found in database for model ID:" 
-                  << modelData.id << LOG_ENDL;
+                  << modelData.id << ". Removed from selection" << LOG_ENDL;
         return;
     }
 

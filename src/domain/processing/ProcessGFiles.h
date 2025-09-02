@@ -32,6 +32,9 @@ private:
     // BFS walker: inserts children under parent
     void insertChildObjects(int parentId, const directory* parentDp, const WalkCtx& ctx);
 
+    // either create or update modelData in the Model repo
+    bool updateModelData(ModelData& modelData);
+
     // Thumbnail generation and command utility methods
     bool generateThumbnail(ModelData& modelData, const std::string& selected_object_name);
 
