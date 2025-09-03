@@ -82,7 +82,8 @@ bool Model::createTables() {
             parent_object_id INTEGER,
             is_selected INTEGER DEFAULT 0,
             FOREIGN KEY(model_id) REFERENCES models(id),
-            FOREIGN KEY(parent_object_id) REFERENCES objects(object_id)
+            FOREIGN KEY(parent_object_id) REFERENCES objects(object_id),
+            UNIQUE (model_id, name)
         );
     )";
 
@@ -889,21 +890,25 @@ Qt::ItemFlags Model::flags(const QModelIndex& index) const {
 
 // Object Operations
 int Model::insertObject(const ObjectData& obj) {
-  std::string sql = R"(
+  std::string upsert_sql = R"(
         INSERT INTO objects (model_id, name, parent_object_id, is_selected)
-        VALUES (?, ?, ?, ?);
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(model_id, name) DO UPDATE SET
+          parent_object_id = excluded.parent_object_id,
+          is_selected = excluded.is_selected
+        RETURNING object_id
     )";
 
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
-  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+  if (sqlite3_prepare_v2(db, upsert_sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
     LOG_ERR << "SQL error in insertObject: " << sqlite3_errmsg(db) << LOG_ENDL;
     return -1;
   }
 
   sqlite3_bind_int(stmt, 1, obj.model_id);
-  sqlite3_bind_text(stmt, 2, obj.name.c_str(), -1, SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 2, obj.name.c_str(), -1, SQLITE_TRANSIENT);
 
   if (obj.parent_object_id != -1) {
     sqlite3_bind_int(stmt, 3, obj.parent_object_id);
@@ -913,13 +918,13 @@ int Model::insertObject(const ObjectData& obj) {
 
   sqlite3_bind_int(stmt, 4, obj.is_selected ? 1 : 0);
 
-  if (sqlite3_step(stmt) != SQLITE_DONE) {
-    LOG_ERR << "Insert object failed: " << sqlite3_errmsg(db) << LOG_ENDL;
-    sqlite3_finalize(stmt);
-    return -1;
+  int object_id = -1;
+  if (sqlite3_step(stmt) == SQLITE_ROW) {
+    object_id = sqlite3_column_int(stmt, 0);
+  } else {
+    LOG_ERR << "insertObject step failed: " << sqlite3_errmsg(db) << LOG_ENDL;
   }
 
-  int object_id = static_cast<int>(sqlite3_last_insert_rowid(db));
   sqlite3_finalize(stmt);
   return object_id;
 }

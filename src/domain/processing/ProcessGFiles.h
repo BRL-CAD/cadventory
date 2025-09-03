@@ -26,7 +26,7 @@ public:
 
 private:
     void extractTitle(ModelData& modelData, struct ged* gedp);
-    void extractObjects(ModelData& modelData, struct ged* gedp);
+    void extractObjects(ModelData& modelData, struct ged* gedp, std::string& selected_object_name);
 
     struct WalkCtx;	// forward declare, .cpp actually implements
     // BFS walker: inserts children under parent

@@ -85,8 +85,16 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
     LOG_DEBUG << "[ProcessGFiles::processGFile] Title extracted:" 
               << QString::fromStdString(updatedModelData.title) << LOG_ENDL;
 
+    // get current selection if we have one so it can persist if we rebuild tree in extractObjects()
+    std::string primaryObject;
+    std::vector<ObjectData> selectedObjects = model->getSelectedObjectsForModel(updatedModelData.id);
+    if (!selectedObjects.empty()) {
+        // we *should* only have one selected object at a time, but just incase grab the front
+        primaryObject = selectedObjects.front().name;
+    }
+
     // Extract object data
-    extractObjects(updatedModelData, gedp.get());
+    extractObjects(updatedModelData, gedp.get(), primaryObject);
     std::vector<ObjectData> allObjects = model->getObjectsForModel(updatedModelData.id);
     if (allObjects.empty()) {
         LOG_DEBUG << "[ProcessGFiles::processGFile] No objects found for model ID:"
@@ -94,9 +102,8 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
         return std::nullopt;
     }
 
-    // Attempt to determine which object is our primary
-    std::string primaryObject;
-    std::vector<ObjectData> selectedObjects = model->getSelectedObjectsForModel(updatedModelData.id);
+    // get final selected object after extractObjects()
+    selectedObjects = model->getSelectedObjectsForModel(updatedModelData.id);
     if (!selectedObjects.empty()) {
         // use first selected object
         primaryObject = selectedObjects.front().name;
@@ -224,7 +231,7 @@ struct ProcessGFiles::WalkCtx {
     std::string     selectedName;
 };
 
-void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp) {
+void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp, std::string& selected_object_name) {
     LOG_DEBUG << "[ProcessGFiles::extractObjects] Started for model ID:" << modelData.id << LOG_ENDL;
 
     if (!gedp || !gedp->dbip) {
@@ -247,7 +254,6 @@ void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp) {
         "all", "all.g",
         model_short_name, model_short_name + ".g", model_short_name + ".c"
     };
-    std::string selected_object_name;
 
     // collect directories
     struct directory* dp = nullptr;
@@ -267,7 +273,7 @@ void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp) {
         if (dp->d_nref == 0) {
             tops.push_back(dp);
 
-            if (selected_object_name.empty() && 
+            if (selected_object_name.empty() &&
                 (objects_to_try.find(dp->d_namep) != objects_to_try.end())) {
                 // keep track of a common top object for default 'selection'
                 selected_object_name = std::string(dp->d_namep);
