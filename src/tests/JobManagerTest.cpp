@@ -37,6 +37,7 @@ TEST_CASE("JobManager seeds ModelRepo with all .g files", "[JobManager]") {
 
     // verify our .g was loaded into the ModelRepo
     Model repo(fixture.tempDir.string());
+    repo.refreshModelData();
     REQUIRE(repo.rowCount() == 1);
     auto loaded_models = repo.getIncludedNotProcessedModels();
     REQUIRE(loaded_models.size() == 1);
