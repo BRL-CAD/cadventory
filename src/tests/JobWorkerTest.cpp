@@ -3,6 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <QCoreApplication>
+#include <QSettings>
 #include <string>
 
 #include "ModelTestFixture.h"
@@ -43,6 +44,12 @@ TEST_CASE("JobWorker end-to-end pipeline", "[JobWorker]") {
     // need an app so we can start qt threads
     static int argc = 0;
     QCoreApplication app(argc, nullptr);
+    QCoreApplication::setOrganizationName("BRL-CAD");
+    QCoreApplication::setApplicationName("CADventoryTest");
+
+    // make sure we have one thread for the worker
+    QSettings().setValue("jobs/numThreads", 1);
+    QSettings().sync();
     // set up our JobWorker
     JobWorker worker;
     worker.setRootPaths(fixture.tempDir.string(), 

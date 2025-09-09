@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QSignalSpy>
 #include <QThread>
+#include <QSettings>
 #include <atomic>
 #include <string>
 #include <memory>
@@ -113,6 +114,12 @@ TEST_CASE("Full Job manager+worker pipeline", "[jobService]") {
     // need an app so we can start qt threads
     static int argc = 0;
     QCoreApplication app(argc, nullptr);
+    QCoreApplication::setOrganizationName("BRL-CAD");
+    QCoreApplication::setApplicationName("CADventoryTest");
+
+    // make sure we have one thread for the worker
+    QSettings().setValue("jobs/numThreads", 1);
+    QSettings().sync();
 
     // helper
     auto pumpQt = [](std::chrono::seconds secs) -> void {
