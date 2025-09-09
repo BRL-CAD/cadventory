@@ -132,12 +132,7 @@ void JobWorker::serviceLoop() {
     std::atomic<bool> stopFlag{false};
     QSettings settings;
     size_t threadCount = settings.value("jobs/numThreads", 0).toInt();
-    LOG_ERR << "[JobWorker::ServiceLoop()] jobs/numThreads: " << threadCount << LOG_ENDL;
-    // assume we dont want the JobWorker to do anything
-    if (!threadCount) {
-        service->stop();
-        return;
-    }
+    LOG_DEBUG << "[JobWorker::ServiceLoop()] jobs/numThreads: " << threadCount << LOG_ENDL;
     auto threads = spawnWorkerThreads(jobsDir(), dataDir(), rootDir(), service, threadCount, stopFlag);
     safeThreadExit _guard{threads, stopFlag};
 
@@ -178,7 +173,7 @@ void JobWorker::serviceLoop() {
             }
 
             // no queued work found: consider scalling the repo
-            if (now - lastScan >= scanInterval) {
+            if (threadCount && now - lastScan >= scanInterval) {
                 lastScan = now;
 
                 // fetch unprocessed models
