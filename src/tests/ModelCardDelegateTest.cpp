@@ -76,6 +76,8 @@ private slots:
 
         // Mock data for the index
         model.setData(index, 123, Model::IdRole);
+        // delegate only allows interaction w processed models
+        model.setData(index, true, Model::IsProcessedRole);
 
         ModelCardDelegate delegate;
 
