@@ -2,6 +2,7 @@
 #include <QTest>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QTreeView>
 #include "FileSystemModelWithCheckboxes.h"
 #include "Model.h"
 
@@ -11,6 +12,47 @@ class FileSystemModelWithCheckboxesTest : public QObject {
 
 private:
     QTemporaryDir tempDir; // Temporary directory for testing
+
+    void expandModelChildren(QFileSystemModel* model, const QString& dirPath, const QStringList& expectedNames) {
+        const int timeoutMs = 4000; // 4s default
+
+        // attach a treeview to root so we can populate the FileSystemModelWithCheckboxes
+        QModelIndex rootIdx = model->setRootPath(tempDir.path());
+        QTreeView view;
+        view.setModel(model);
+        view.setRootIndex(rootIdx);
+        view.expand(rootIdx);
+
+        QElapsedTimer timer;
+        timer.start();
+        // poll fetch until we populate the children
+        while(timer.elapsed() < timeoutMs) {
+            QModelIndex idx = model->index(dirPath);
+            if (model->canFetchMore(idx))
+                model->fetchMore(idx);
+
+            // keep track of names so we can exit
+            QStringList names;
+            for (int i = 0; i < model->rowCount(idx); ++i)
+                names << model->fileName(model->index(i, 0, idx));
+
+            // done?
+            bool all = true;
+            for (auto name : expectedNames) {
+                if (!names.contains(name)) {
+                    all = false;
+                    break;
+                }
+            }
+
+            // all names are accounted for; good to return early
+            if (all)
+                return;
+
+            // slight backoff and keep polling
+            QTest::qWait(15);
+        }
+    };
 
 private slots:
     // Initialize the test case and verify the temporary directory is valid
@@ -69,6 +111,8 @@ private slots:
 
         // Refresh the model to initialize states
         fileSystemModel.refresh();
+
+        expandModelChildren(&fileSystemModel, dirPath, {"child1.g", "child2.g"});
 
         QModelIndex dirIndex = fileSystemModel.index(dirPath);
         QModelIndex gFileIndex1 = fileSystemModel.index(gFilePath1);
@@ -149,6 +193,8 @@ private slots:
 
         // Refresh the model to initialize the states
         fileSystemModel.refresh();
+
+        expandModelChildren(&fileSystemModel, dirPath, {"testModel.g", "testFile.txt"});
 
         QModelIndex dirIndex = fileSystemModel.index(dirPath);
         QModelIndex gFileIndex = fileSystemModel.index(gFilePath);
