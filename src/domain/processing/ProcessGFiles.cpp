@@ -71,14 +71,18 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
         ged_open("db", db_filename, 0),
         ged_close
     );
-    if (!gedp) {
-        LOG_DEBUG << "[ProcessGFiles::processGFile] Unable to open BRL-CAD database at path:"
-            << QString::fromStdString(modelData.file_path) << LOG_ENDL;
-        return std::nullopt;
-    }
 
     // Create a working copy of the modelData
     ModelData updatedModelData = modelData;
+
+    if (!gedp) {
+        // if we can't open a valid gedp, remove from the inclusion
+        updatedModelData.is_included = false;
+        (void)updateModelData(updatedModelData);
+        LOG_INFO << "[ProcessGFiles::processGFile] Unable to open BRL-CAD database, removing from selection. Path:"
+            << QString::fromStdString(modelData.file_path) << LOG_ENDL;
+        return std::nullopt;
+    }
 
     // Extract title
     extractTitle(updatedModelData, gedp.get());
