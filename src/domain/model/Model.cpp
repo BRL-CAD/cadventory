@@ -194,6 +194,14 @@ bool Model::insertModel(const ModelData& modelData) {
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
+  // Ensure file_path is unique
+  std::string generic_filepath = std::filesystem::path(modelData.file_path).generic_string();
+  if (filePathExists(generic_filepath)) {
+    LOG_INFO << "Model with file_path " << generic_filepath
+             << " already exists." << LOG_ENDL;
+    return false;
+  }
+
   // Ensure short_name is unique by appending a suffix if necessary
   std::string short_name = modelData.short_name;
   int suffix = 1;
@@ -207,14 +215,6 @@ bool Model::insertModel(const ModelData& modelData) {
     short_name = modelData.short_name + "_" + std::to_string(suffix++);
     LOG_DEBUG << "Generated new short_name:"
              << QString::fromStdString(short_name) << LOG_ENDL;
-  }
-
-  // Ensure file_path is unique
-  std::string generic_filepath = std::filesystem::path(modelData.file_path).generic_string();
-  if (filePathExists(generic_filepath)) {
-    LOG_WARN << "Model with file_path " << generic_filepath
-              << " already exists." << LOG_ENDL;
-    return false;
   }
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
