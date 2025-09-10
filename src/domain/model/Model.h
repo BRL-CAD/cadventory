@@ -84,8 +84,10 @@ public:
     void resetDatabase();
 
     bool setModelProcessed(int id, bool is_processed);
+    bool setModelIncluded(int id, bool is_included);
     // set thumbnail in model from path to png. Will clear current thumbnail on error or empty pngPath
     bool updateThumbnailFromFile(int id, const std::string pngPath);
+    bool markAllNotIncluded();
 
     // Getters (returns ModelData or std::nullopt on failure)
     std::optional<ModelData> getModelById(int id);

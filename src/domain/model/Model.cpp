@@ -433,6 +433,67 @@ bool Model::updateModel(int id, const ModelData& modelData) {
     return true;
 }
 
+bool Model::markAllNotIncluded() {
+  std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  const char* SQL = "UPDATE models SET is_included = 0 WHERE is_included <> 0;";
+  char* err = nullptr;
+  if (sqlite3_exec(db, SQL, nullptr, nullptr, &err) != SQLITE_OK) {
+    LOG_ERR << "[Model::markAllNotIncluded] failed: " << err << LOG_ENDL;
+    sqlite3_free(err);
+    return false;
+  }
+
+  // refresh in-memory view
+  loadModelsFromDatabase();
+  return true;
+}
+
+bool Model::setModelIncluded(int id, bool included) {
+  std::lock_guard<std::recursive_mutex> lock(db_mutex);
+
+  static const char* SQL =
+      "UPDATE models SET is_included = ?1 "
+      "WHERE id = ?2 AND is_included <> ?1;";
+
+  sqlite3_stmt* stmt = nullptr;
+  if (sqlite3_prepare_v2(db, SQL, -1, &stmt, nullptr) != SQLITE_OK) {
+    LOG_ERR << "setModelIncluded: prepare failed: " << sqlite3_errmsg(db) << LOG_ENDL;
+    return false;
+  }
+
+  int rc = SQLITE_OK;
+  rc |= sqlite3_bind_int(stmt, 1, included ? 1 : 0);
+  rc |= sqlite3_bind_int(stmt, 2, id);
+  if (rc != SQLITE_OK) {
+    LOG_ERR << "setModelIncluded: bind failed" << LOG_ENDL;
+    sqlite3_finalize(stmt);
+    return false;
+  }
+
+  rc = sqlite3_step(stmt);
+  if (rc != SQLITE_DONE) {
+    LOG_ERR << "setModelIncluded: step failed: " << sqlite3_errmsg(db) << LOG_ENDL;
+    sqlite3_finalize(stmt);
+    return false;
+  }
+  const int changed = sqlite3_changes(db);
+  sqlite3_finalize(stmt);
+
+  // update in-memory
+  if (changed > 0) {
+    for (int row = 0; row < static_cast<int>(models.size()); ++row) {
+      if (models[row].id == id) {
+        models[row].is_included = included;
+        const QModelIndex modelIndex = index(row);
+
+        emit dataChanged(modelIndex, modelIndex, { IsIncludedRole });
+        break;
+      }
+    }
+  }
+  return true;
+}
+
 bool Model::setModelProcessed(int id, bool is_processed) {
     std::lock_guard<std::recursive_mutex> lock(db_mutex);
 
