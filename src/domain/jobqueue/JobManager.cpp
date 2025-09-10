@@ -1,4 +1,5 @@
 #include "JobManager.h"
+#include "Logger.h"
 
 #include <filesystem>
 
@@ -20,6 +21,7 @@ void JobManager::serviceLoop() {
 
     // insert bare-bones model rows (so our workers can find them)
     std::size_t inserted = 0;   // for stats
+    std::size_t scanned = 0;
     for (const auto& file : gFiles) {
         /* TODO: we'll eventually want to compare the current scan to what's in the repo
          * for a better state of new/deleted/updated files. But for now we'll just
@@ -37,18 +39,21 @@ void JobManager::serviceLoop() {
             // periodic stats push
             updateStats([&](JobServiceStats& st) {
                 st.modelsProcessed = gFiles.size(); // scanned
-                st.jobsNew         = inserted;
+                st.jobsNew         = scanned;
             });
         }
 
         if (repo.insertModel(md))
             ++inserted;
+
+        ++scanned;
     }
 
     // update stats
+    LOG_INFO << "[JobManager::serviceLoop] inserted " << inserted << " file(s)." << LOG_ENDL;
     updateStats([&](JobServiceStats& st) {
-        st.modelsProcessed = gFiles.size();      // models indexed
-        st.jobsNew         = inserted;           // models inserted into repo
+        st.modelsProcessed = inserted;          // models indexed
+        st.jobsNew         = inserted;          // models inserted into repo
     });
 
     // for now this is a one-pass loop. Eventually we'll want to poll or something while(running)

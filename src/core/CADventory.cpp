@@ -109,12 +109,13 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
 
                     LOG_RAW << '\r'
                             << '[' << std::string(fill, '=') << std::string(barWidth - fill, ' ')
-                            << "] " << std::setw(3) << int(pct * 100.0 + 0.5) << "% "
-                            << '(' << done << '/' << total << ')'
-                            << std::flush;
-
-                    if (total > 0 && done == total) 
-                        LOG_RAW << '\n';
+                            << "] " << std::setw(3) << int(pct * 100.0) << "%";
+                    if (total > 0 && done != total) {
+                        LOG_RAW << " (" << done << '/' << total << ')';
+                    } else {
+                        LOG_RAW << " - inserted " << total << " files.";
+                    }
+                    LOG_RAW << std::flush;
                 });
 
         // no gui
