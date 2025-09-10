@@ -461,27 +461,32 @@ bool Model::setModelProcessed(int id, bool is_processed) {
 }
 
 bool Model::updateThumbnailFromFile(int id, const std::string pngPath) {
-    // make sure we can open the file
-    std::ifstream file(pngPath, std::ios::binary);
-    if (!file) {
-        LOG_ERR << "updateThumbnailFromFile: open failed: " << pngPath << LOG_ENDL;
-        return false;
-    }
+    std::vector<char> buff;
+    bool haveBlob = false;
 
-    // read file
-    file.seekg(0, std::ios::end);
-    std::streamsize sz = file.tellg();
-    if (sz <= 0) {
-        LOG_ERR << "updateThumbnailFromFile: empty file: " << pngPath << LOG_ENDL;
-        return false;
-    }
-    // stuff into buffer
-    file.seekg(0, std::ios::beg);   // reset seek
-    std::vector<char> buf(static_cast<size_t>(sz));
-    if (!file.read(buf.data(), sz)) {
-        LOG_ERR << "updateThumbnailFromFile: read failed: " << pngPath << LOG_ENDL;
-        return false;
-    }
+    if (!pngPath.empty()) {
+        // make sure we can open the file
+        std::ifstream file(pngPath, std::ios::binary);
+        if (!file) {
+            LOG_DEBUG << "[Model::updateThumbnailFromFile] open failed (" << pngPath << ") - clearing" << LOG_ENDL;
+        } else {
+            // read file
+            file.seekg(0, std::ios::end);
+            std::streamsize sz = file.tellg();
+            if (sz <= 0) {
+                LOG_DEBUG << "[Model::updateThumbnailFromFile] empty file (" << pngPath << ") - clearing" << LOG_ENDL;
+            } else {
+                // stuff into buffer
+                file.seekg(0, std::ios::beg);   // reset seek
+                buff.resize(static_cast<size_t>(sz));
+                if (!file.read(buff.data(), sz)) {
+                    LOG_DEBUG << "[Model::updateThumbnailFromFile] read failed (" << pngPath << ") - clearing" << LOG_ENDL;
+                } else {
+                    haveBlob = true;
+                }
+            }
+        }
+    } /* else: we want to clear the current thumbnail */
 
     // DB update
     std::lock_guard<std::recursive_mutex> lock(db_mutex);
@@ -495,7 +500,10 @@ bool Model::updateThumbnailFromFile(int id, const std::string pngPath) {
     }
 
     int rc = SQLITE_OK;
-    rc |= sqlite3_bind_blob(stmt, 1, buf.data(), static_cast<int>(buf.size()), SQLITE_TRANSIENT);
+    if (haveBlob)
+        rc |= sqlite3_bind_blob(stmt, 1, buff.data(), static_cast<int>(buff.size()), SQLITE_TRANSIENT);
+    else
+        rc |= sqlite3_bind_null(stmt, 1);
     rc |= sqlite3_bind_int(stmt,  2, id);
     if (rc != SQLITE_OK) {
         LOG_ERR << "updateThumbnailFromFile: bind failed" << LOG_ENDL;
@@ -513,7 +521,10 @@ bool Model::updateThumbnailFromFile(int id, const std::string pngPath) {
     // update in-memory
     for (int row = 0; row < static_cast<int>(models.size()); ++row) {
         if (models[row].id == id) {
-            models[row].thumbnail.assign(buf.begin(), buf.end());
+            if (haveBlob)
+                models[row].thumbnail.assign(buff.begin(), buff.end());
+            else
+                models[row].thumbnail.clear();
 
             QModelIndex modelIndex = index(row);
             emit dataChanged(modelIndex, modelIndex, { ThumbnailRole });

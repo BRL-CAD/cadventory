@@ -142,6 +142,9 @@ void GeometryBrowserDialog::onItemChanged(QTreeWidgetItem* item, int column) {
 
             // invalidate the model so we can reprocess
             model->setModelProcessed(modelId, false);
+            // clear thumbnail
+            model->updateThumbnailFromFile(modelId, "");
+
             emit selectionChanged(modelId, itemName);
         } else {
             // If the item is unchecked, update the model

@@ -84,6 +84,7 @@ public:
     void resetDatabase();
 
     bool setModelProcessed(int id, bool is_processed);
+    // set thumbnail in model from path to png. Will clear current thumbnail on error or empty pngPath
     bool updateThumbnailFromFile(int id, const std::string pngPath);
 
     // Getters (returns ModelData or std::nullopt on failure)

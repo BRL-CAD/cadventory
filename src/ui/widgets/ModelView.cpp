@@ -64,6 +64,17 @@ ModelView::ModelView(int modelId, Model* model, QWidget* parent)
         }
     },
     Qt::QueuedConnection);
+
+    // refresh our current view if our service suggests it
+    connect(svc, &QtJobServiceBase::refreshSuggested, this,
+    [this]() {
+        // refresh model
+        if (auto md = this->model->getModelById(this->modelId)) {
+            this->currModel = *md;
+            loadPreviewImage();
+        }
+    },
+    Qt::QueuedConnection);
   }
 
   // connect geometryBrowser to clear our thumbnail on changes
@@ -83,6 +94,10 @@ void ModelView::loadPreviewImage() {
   thumbnail.loadFromData(
       reinterpret_cast<const uchar*>(currModel.thumbnail.data()),
       currModel.thumbnail.size());
+
+  if (!thumbnail)   // if we don't have a thumbnail leave label text
+      return;
+
   thumbnail = thumbnail.scaled(ui.previewLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
   ui.previewLabel->setPixmap(thumbnail);
 }
