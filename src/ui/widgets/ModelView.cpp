@@ -107,16 +107,23 @@ void ModelView::populateProperties() {
   ui.valuesList->clear();
   int i = 0;
 
+  // add is_included checkbox
+  QListWidgetItem* isIncluded_key = new QListWidgetItem(tr("is_included"), ui.keysList);
+  isIncluded_key->setFlags(isIncluded_key->flags() & ~Qt::ItemIsEditable);
+  QListWidgetItem* isIncluded_val = new QListWidgetItem(ui.valuesList);
+  // checkable; not text-editable
+  isIncluded_val->setFlags((isIncluded_val->flags() | Qt::ItemIsUserCheckable) & ~Qt::ItemIsEditable);
+  isIncluded_val->setCheckState(currModel.is_included ? Qt::Checked : Qt::Unchecked);
+  isIncluded_val->setData(Qt::UserRole, QStringLiteral("is_included"));
+
+  // add the rest of the properties
   for (const auto& [key, value] : model->getPropertiesForModel(modelId)) {
     std::vector<std::string> editableProperties = {"short_name", "author"};
 
     LOG_DEBUG << "Key: " << key << ":: Value: " << value << "  i" << i++ << LOG_ENDL;
-    QListWidgetItem* keyItem =
-        new QListWidgetItem(QString::fromStdString(key), ui.keysList);
-    QString displayValue =
-        value.empty() ? "(unknown)" : QString::fromStdString(value);
-    QListWidgetItem* valueItem =
-        new QListWidgetItem(displayValue, ui.valuesList);
+    QListWidgetItem* keyItem = new QListWidgetItem(QString::fromStdString(key), ui.keysList);
+    QString displayValue = value.empty() ? "(unknown)" : QString::fromStdString(value);
+    QListWidgetItem* valueItem = new QListWidgetItem(displayValue, ui.valuesList);
     keyItem->setFlags(keyItem->flags() & ~Qt::ItemIsEditable);
     if (std::find(editableProperties.begin(), editableProperties.end(), key) != editableProperties.end()) {
       valueItem->setFlags(valueItem->flags() | Qt::ItemIsEditable);
@@ -128,6 +135,43 @@ void ModelView::populateProperties() {
 void ModelView::onPropertyChanged(QListWidgetItem* item) {
   int row = ui.valuesList->row(item);  // Get the row of the changed item
   QString key = ui.keysList->item(row)->text();  // Get the corresponding key
+
+  // special check inclusion checkbox
+  if (key == QLatin1String("is_included")) {
+    const bool checked = (item->checkState() == Qt::Checked);
+
+    if (!model->setModelIncluded(modelId, checked)) {
+      // reset ui if we failed
+      const QSignalBlocker block(ui.valuesList);
+      item->setCheckState(currModel.is_included ? Qt::Checked : Qt::Unchecked);
+      QMessageBox::warning(this, tr("Update failed"), tr("Could not change inclusion state."));
+      return;
+    }
+
+    // update local cache
+    currModel.is_included = checked;
+
+    // disable when excluded
+    const bool enable = checked;
+    ui.tagsList->setEnabled(enable);
+    ui.addTagButton->setEnabled(enable);
+    ui.newTagLine->setEnabled(enable);
+    ui.generateTagsButton->setEnabled(enable);
+    ui.cancelTagButton->setEnabled(enable);
+    ui.verticalLayoutWidget->setEnabled(enable); // GeometryBrowser
+
+    if (!enable) {
+      ui.previewLabel->setPixmap(QPixmap());
+      ui.previewLabel->setText(tr("(excluded from library)"));
+    } else {
+      loadPreviewImage();
+    }
+
+    // dont do setModelProcessed(false)
+    return;
+  }
+
+  // regular text value updates
   QString value = item->text();                  // Get the new value
 
   // Update the properties map and the model
