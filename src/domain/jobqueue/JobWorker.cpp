@@ -82,8 +82,10 @@ static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
                                                   QString::fromStdString(job.fileId));
 
                     // lazy: try will catch if we dont have a handler, or if something goes wrong within it
+                    HandlerResult result;
                     try {
-                        success = handlers.at(job.directive)->handle(job, stopFlag).success;
+                        result = handlers.at(job.directive)->handle(job, stopFlag);
+                        success = result.success;
                     } catch (...) {
                         success = false;
                     }
@@ -91,11 +93,15 @@ static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
                     // signal finish
                     if (service)
                         service->directiveFinished(QString::fromStdString(job.directive),
-                                                    QString::fromStdString(job.fileId),
-                                                    success);
+                                                   QString::fromStdString(job.fileId),
+                                                   success);
 
                     // whether we passed or failed, finsh the job
                     queue.finish(job);
+
+                    // do we need to re-queue?
+                    if (!success && result.message == "requeue")
+                        queue.createJob(job.fileId, job.directive, job.sourcePath);
                 } catch (const std::exception&) {
                     // something probably went awry with jobqueue claim/finish. Don't kill the thread
                     std::this_thread::sleep_for(std::chrono::milliseconds(50));
