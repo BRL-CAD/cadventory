@@ -22,6 +22,9 @@ public:
     // i.e. thumbnail, gist, etc.
     std::vector<std::string> getAllNeededDirectives();
 
+    // creates process relative dir in pattern <bin>/<filehash>/<objName> -> ab/abc123/all.g/
+    static std::string generateProcessDir(const std::string& file, const std::string& objName);
+
     std::tuple<bool, std::string, std::string> generateGistReport(const std::string& inputFilePath, const std::string& outputFilePath, const std::string& primary_obj, const std::string& label);
 
 private:
@@ -38,8 +41,6 @@ private:
     // Thumbnail generation and command utility methods
     bool generateThumbnail(ModelData& modelData, const std::string& selected_object_name);
 
-    // creates process relative dir in pattern <bin>/<filehash>/<objName> -> ab/abc123/all.g/
-    std::string generateProcessDir(const std::string& file, const std::string& objName);
 
 
     Model* model;
