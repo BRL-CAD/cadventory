@@ -44,9 +44,15 @@ std::optional<HandlerContext> IDirectiveHandler::needsHandled(const JobDescripto
     create_directories(dir);
 
     // verify we don't already have this output file, and handler doesn't need it if we do
-    const bool outputExists = exists(outPath);
+    bool outputExists = exists(outPath);
     if (outputExists && whenExists == ExistingBehavior::Skip)
         return std::nullopt;
+
+    // remove existing if we need to
+    if (outputExists && whenExists == ExistingBehavior::Remove) {
+        remove(outPath);
+        outputExists = false;
+    }
 
     // got everything we need - let the handler do the job
     return HandlerContext{ outPath, primaryObj, mdl, outputExists };

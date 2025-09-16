@@ -18,7 +18,7 @@ struct HandlerContext {
 };
 
 // behavior if needsHandled() comes across a job with existing output
-enum class ExistingBehavior { Skip, Load };
+enum class ExistingBehavior { Skip, Load, Remove };
 
 struct HandlerResult {
     bool success;
