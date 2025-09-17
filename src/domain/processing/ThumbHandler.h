@@ -71,7 +71,7 @@ public:
 	    }
 
 	    // timeout?
-	    if (std::chrono::steady_clock::now() >= deadline) {
+	    if (timeLimitMs && std::chrono::steady_clock::now() >= deadline) {
 		process.kill();
 		process.waitForFinished();
 		killed = true;
