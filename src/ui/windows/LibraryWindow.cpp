@@ -589,14 +589,30 @@ void LibraryWindow::onAvailableModelClicked(const QModelIndex& index) {
 }
 
 void LibraryWindow::onGenerateReportButtonClicked() {
-    if (model->getSelectedModels().empty()) {
-        QMessageBox::information(this, "Report",
-                                 "No models selected for the report.");
+    bool have_selected = !model->getSelectedModels().empty();
+    if (!have_selected) {
+        // if we don't have any currently selected, ask to select all
+        const auto choice = QMessageBox::question(
+            this,
+            "Report",
+            "No models are currently selected.\n\n"
+            "Select all included models and continue?",
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::Yes
+        );
+        if (choice != QMessageBox::Yes)
+            return;
+
+        have_selected = model->selectAllIncluded(true);
+    }
+
+    // if we still dont have any selected; bail
+    if (!have_selected) {
+        QMessageBox::information(this, "Report", "No models selected for the report.");
         return;
     }
 
-    ReportGenerationWindow* window =
-        new ReportGenerationWindow(nullptr, model, library);
+    ReportGenerationWindow* window = new ReportGenerationWindow(nullptr, model, library);
     window->show();
 }
 
