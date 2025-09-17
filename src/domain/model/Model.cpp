@@ -521,6 +521,46 @@ bool Model::setModelProcessed(int id, bool is_processed) {
     return true;
 }
 
+bool Model::selectAllIncluded(bool select) {
+    std::lock_guard<std::recursive_mutex> lock(db_mutex);
+
+    // update all included to is_selected = 'select'
+    const char* SQL = "UPDATE models SET is_selected = ?1 WHERE is_included = 1;";
+    sqlite3_stmt* stmt = nullptr;
+
+    beginTransaction();
+
+    if (sqlite3_prepare_v2(db, SQL, -1, &stmt, nullptr) != SQLITE_OK) {
+        LOG_ERR << "selectAllIncluded: prepare failed: " << sqlite3_errmsg(db) << LOG_ENDL;
+        commitTransaction();
+        return false;
+    }
+
+    sqlite3_bind_int(stmt, 1, select ? 1 : 0);
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        LOG_ERR << "selectAllIncluded: step failed: " << sqlite3_errmsg(db) << LOG_ENDL;
+        sqlite3_finalize(stmt);
+        commitTransaction();
+        return false;
+    }
+    sqlite3_finalize(stmt);
+
+    // update in-memory
+    for (auto &m : models) {
+        if (m.is_included) {
+            m.is_selected = select;
+        }
+    }
+
+    // emit data changed
+    if (!models.empty()) {
+        emit dataChanged(index(0), index(static_cast<int>(models.size()) - 1), { IsSelectedRole });
+    }
+
+    commitTransaction();
+    return true;
+}
+
 bool Model::updateThumbnailFromFile(int id, const std::string pngPath) {
     std::vector<char> buff;
     bool haveBlob = false;

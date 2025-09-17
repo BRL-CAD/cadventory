@@ -88,6 +88,8 @@ public:
     // set thumbnail in model from path to png. Will clear current thumbnail on error or empty pngPath
     bool updateThumbnailFromFile(int id, const std::string pngPath);
     bool markAllNotIncluded();
+    // select (or de-select) all included models
+    bool selectAllIncluded(bool select);
 
     // Getters (returns ModelData or std::nullopt on failure)
     std::optional<ModelData> getModelById(int id);
