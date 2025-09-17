@@ -12,6 +12,7 @@
 #include "SQLJobQueue.h"
 #include "ProcessHandler.h"
 #include "ThumbHandler.h"
+#include "GistHandler.h"
 #include "DummyHandler.h"
 
 namespace fs = std::filesystem;
@@ -26,9 +27,11 @@ static auto makeHandlerRegistry(Model& repo,
                                 QtJobServiceBase* service)
 {
     HandlerRegistry r;
-    r.emplace("process", std::make_unique<ProcessHandler>(repo, queue, dataRoot, service));
-    r.emplace("thumb",   std::make_unique<ThumbHandler>(dataRoot, service, repo));
-    //r.emplace("dummy",   std::make_unique<DummyHandler>(dataRoot, service, repo));
+    r.emplace("process",     std::make_unique<ProcessHandler>(repo, queue, dataRoot, service));
+    r.emplace("thumb",       std::make_unique<ThumbHandler>(dataRoot, service, repo));
+    r.emplace("gist_page",   std::make_unique<GistHandler>(dataRoot, service, repo, queue));
+    r.emplace("gist_report", std::make_unique<GistHandler>(dataRoot, service, repo, queue));
+    //r.emplace("dummy",   st d::make_unique<DummyHandler>(dataRoot, service, repo));
 
     // add more directives here ...
     return r;
