@@ -68,6 +68,7 @@ private:
     const QString inputFilePath = QString::fromStdString(job.sourcePath);
     const QString outputFilePath = QString::fromStdString(ctx->outputPath.generic_string());
     const QString primary_obj = QString::fromStdString(ctx->primaryObject);
+    const std::filesystem::path cache_path = ctx->outputPath.remove_filename() / "gist_cache";
     // build up arguments list
     QStringList arguments;
     arguments << inputFilePath
@@ -76,6 +77,8 @@ private:
     arguments << "-Z";
     // supplied primary 'top' object
     arguments << "-t" << primary_obj;
+    // point to consistent cache dir
+    arguments << "-a" << cache_path.generic_string().c_str();
     // TODO: support optional arguments (like label, owner, classification, ...)
     /*if (!label.isEmpty())
         arguments << "-c" << label;*/
