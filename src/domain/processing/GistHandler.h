@@ -54,34 +54,39 @@ public:
 
 private:
   inline HandlerResult handleGist(const JobDescriptor& job, std::atomic<bool>& stopFlag) {
-    // check this job is still needed
-    auto ctx = needsHandled(job, "png", ExistingBehavior::Remove);
-    if (!ctx)
-        return {true, "no work to do"};
-
     // check for gist executable
     QString gistExecutable = QStringLiteral(GIST_EXECUTABLE_PATH);
     if (gistExecutable.isEmpty())
         return {false, "Cannot find gist executable"};
 
     // convenience: extract from context and job
-    const QString inputFilePath = QString::fromStdString(job.sourcePath);
-    const QString outputFilePath = QString::fromStdString(ctx->outputPath.generic_string());
-    const QString primary_obj = QString::fromStdString(ctx->primaryObject);
-    const std::filesystem::path cache_path = ctx->outputPath.remove_filename() / "gist_cache";
+    const auto json = parseJson(job.sourcePath);
+    const QString inputFilePath = json.value("file_path").toString();
+    const QString primary_obj = json.value("primary").toString();
+    const fs::path outDir = _dataDir / job.fileId;
+    const QString outputFilePath = QString::fromStdString(fs::path(outDir / (job.directive + ".png")).generic_string());
+    const QString cache_path = QString::fromStdString(fs::path(outDir / "gist_cache").generic_string());
     // build up arguments list
     QStringList arguments;
     arguments << inputFilePath
               << "-o" << outputFilePath;
+    // force re-generation
+    arguments << "-f";
     // re-use previous renders if found
     arguments << "-Z";
     // supplied primary 'top' object
     arguments << "-t" << primary_obj;
     // point to consistent cache dir
-    arguments << "-a" << cache_path.generic_string().c_str();
-    // TODO: support optional arguments (like label, owner, classification, ...)
-    /*if (!label.isEmpty())
-        arguments << "-c" << label;*/
+    arguments << "-a" << cache_path;
+    // optional arguments (like label, owner, classification, ...)
+    if (json.contains("label"))
+        arguments << "-c" << json.value("label").toString();
+    if (json.contains("user")) {
+        arguments << "-n" << json.value("user").toString();
+        arguments << "-r" << json.value("user").toString();
+    }
+    if (json.contains("logo1"))
+        arguments << "-m" << json.value("logo1").toString();
 
 
     // build our process to be run
@@ -216,7 +221,18 @@ private:
       for (const auto& pg : missing) {
         // for gist jobs, sourcePath must be the file path so needsHandled() can find the model
         std::string fileIdDir = ProcessGFiles::generateProcessDir(pg.file_path, pg.primary); // aa/hash/primary
-        (void)m_queue.createJob(fileIdDir, "gist_page", pg.file_path);
+
+        // build page custom json object for this job
+        QJsonObject gistJson;
+        gistJson["file_path"] = QString::fromStdString(pg.file_path);
+        gistJson["primary"] = QString::fromStdString(pg.primary);
+        gistJson["label"] = json.value("label").toString();
+        gistJson["user"] = json.value("user");
+        gistJson["logo1"] = json.value("logo1");
+
+        const std::string payload = QJsonDocument(gistJson).toJson(QJsonDocument::Compact).toStdString();
+
+        (void)m_queue.createJob(fileIdDir, "gist_page", payload);
       }
       
       // hold the job for a while so we dont constantly hammer claim job while pages are populating
@@ -262,7 +278,6 @@ private:
       if (QFileInfo::exists(QString::fromStdString(png.string()))) {
         QImage img(QString::fromStdString(png.string()));
         painter.drawImage(QRect(0,0,pdf.width(),pdf.height()), img);
-        painter.drawText(QRectF(0,pdf.height()-30,pdf.width(),30), Qt::AlignCenter, label);
       } else {
         painter.drawText(QRectF(0,0,pdf.width(),pdf.height()), Qt::AlignCenter,
                          QStringLiteral("(missing gist.png)\n%1")
