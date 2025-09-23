@@ -76,7 +76,7 @@ void ReportGenerationWindow::onGenerateReportButtonClicked() {
     QJsonObject job;
     job["title"]      = ui->title_textEdit->toPlainText().trimmed();
     job["user"]       = ui->username_textEdit->toPlainText().trimmed();
-    job["label"]      = ui->username_textEdit->toPlainText().trimmed();
+    job["label"]      = ui->label_textEdit->toPlainText().trimmed();
     job["subtitle"]   = ui->subtitle_textEdit->toPlainText().trimmed();
     job["version"]    = ui->version_textEdit->toPlainText().trimmed();
     job["logo1"]      = ui->logo1_textEdit->toPlainText().trimmed();
