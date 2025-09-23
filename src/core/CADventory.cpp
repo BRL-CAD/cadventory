@@ -29,6 +29,9 @@ static void addOptions(QCommandLineParser& parser) {
     QCommandLineOption numCpusOpt(QStringList{"j", "num-cpus"},
                                 "Number of worker threads",
                                 "#");
+    QCommandLineOption timeoutOpt(QStringList{"t", "timeout"},
+                                "Worker job timeout value in seconds",
+                                "#");
     // declare -v so parser accepts it; Logger class manually parses for stacking -v
     QCommandLineOption verboseOpt(QStringList{"v"},
                                 "Increase verbosity (max logging at -vv)");
@@ -38,6 +41,7 @@ static void addOptions(QCommandLineParser& parser) {
     parser.addOption(workerOpt);
     parser.addOption(resetOpt);
     parser.addOption(numCpusOpt);
+    parser.addOption(timeoutOpt);
     parser.addOption(verboseOpt);
     parser.addHelpOption();
 }
@@ -83,6 +87,15 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
         int val = parser.value("num-cpus").toInt(&ok);
         if (ok && val >= 0) {
             QSettings().setValue("jobs/numThreads", val);
+            QSettings().sync();
+        }
+    }
+
+    if (parser.isSet("timeout")) {
+        bool ok = false;
+        int val = parser.value("timeout").toInt(&ok);
+        if (ok && val >= 0) {
+            QSettings().setValue("previewTimer", val);
             QSettings().sync();
         }
     }
