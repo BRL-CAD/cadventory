@@ -11,17 +11,20 @@
 #include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
-#include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcess>
+#include <QSettings>
+#include <QString>
+
+#if CADVENTORY_WITH_GUI
+#include <QImage>
 #include <QPainter>
 #include <QPageLayout>
 #include <QPageSize>
 #include <QPdfWriter>
-#include <QProcess>
-#include <QSettings>
-#include <QString>
+#endif
 
 #include "IDirectiveHandler.h"
 #include "SQLJobQueue.h"
@@ -46,8 +49,13 @@ public:
   inline HandlerResult handle(const JobDescriptor& jd, std::atomic<bool>& stopFlag) override {
     if (jd.directive == "gist_page")
         return handleGist(jd, stopFlag);
-    if (jd.directive == "gist_report")
+    if (jd.directive == "gist_report") {
+#if CADVENTORY_WITH_GUI
         return handleReport(jd, stopFlag);
+#else
+        return {false, "requeue"};
+#endif
+    }
 
     return {false, "unknown directive"};
   }
@@ -158,6 +166,7 @@ private:
     return {true, {}};
   }
 
+#if CADVENTORY_WITH_GUI
   struct Page { std::string file_path, primary, short_name; };
   inline HandlerResult handleReport(const JobDescriptor& job, std::atomic<bool>& stopFlag) {
     /*
@@ -475,15 +484,6 @@ inline int tableOfContentsPage(QPdfWriter& pdf,
   return tocPages;
 }
 
-  // helpers
-  static inline QJsonObject parseJson(const std::string& s) {
-    /* extract QJsonObject from std::string */
-    if (s.empty())
-        return {};
-    const auto doc = QJsonDocument::fromJson(QByteArray::fromStdString(s));
-    return doc.isNull() ? QJsonObject{} : doc.object();
-  }
-
   static void drawPageNumber(QPainter& painter, QPdfWriter& pdf, int pageNo, const QColor& color = Qt::black) {
       /* paint uniform page number location in bottom right */
       QFont font = painter.font();
@@ -494,6 +494,18 @@ inline int tableOfContentsPage(QPdfWriter& pdf,
       const int height = pdf.height();
       painter.drawText(width - 120, height - 60, QString::number(pageNo));
   }
+
+#endif
+
+  // helpers
+  static inline QJsonObject parseJson(const std::string& s) {
+    /* extract QJsonObject from std::string */
+    if (s.empty())
+        return {};
+    const auto doc = QJsonDocument::fromJson(QByteArray::fromStdString(s));
+    return doc.isNull() ? QJsonObject{} : doc.object();
+  }
+
 
 private:
   SQLJobQueue& m_queue;
