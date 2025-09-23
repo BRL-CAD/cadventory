@@ -96,7 +96,8 @@ private:
         return {false, "Failed to start the gist process"};
 
     // poll process for completion / timeout / stopFlag
-    bool killed = false;
+    bool forceStop = false;
+    bool timedOut = false;
     QSettings settings;
     // use our previewTimer since it's wired into the ui (TODO: do we want separte gist / rt setting?)
     int timeoutMs = settings.value("previewTimer", 120).toInt() * 1000;
@@ -110,7 +111,7 @@ private:
       if (stopFlag.load()) {
         process.kill();
         process.waitForFinished();
-        killed = true;
+        forceStop = true;
         break;
       }
 
@@ -118,16 +119,34 @@ private:
       if (timeoutMs && std::chrono::steady_clock::now() >= deadline) {
         process.kill();
         process.waitForFinished();
-        killed = true;
+        timedOut = true;
         break;
       }
     }
 
     // verify we finished successfully
-    if (killed ||
-        process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0 ||
-        !QFile::exists(outputFilePath) || QFileInfo(outputFilePath).size() == 0) {
-      return {false, "gist process did not finish successfully"};
+    bool normalExit = (process.exitStatus() == QProcess::NormalExit);
+    int exitCode = process.exitCode();
+    bool outExists = (QFile::exists(outputFilePath) && QFileInfo(outputFilePath).size());
+    if (forceStop || timedOut || !normalExit || exitCode != 0 || !outExists) {
+        // if we failed, give an informative error message
+        QString reason;
+        if (forceStop)
+            reason = "(stop requested)";
+        else if (timedOut)
+            reason = "(timed out)";
+        else if (!normalExit || exitCode != 0)
+            reason = "(abnormal exit: " + QString::number(exitCode) + ")";
+        else if (!outExists)
+            reason = "(no output found)";
+
+        LOG_ERR << "[GistHandler] gist FAILED " + reason << "\n"
+                << "  cmd:      " << gistExecutable + arguments.join(' ') << "\n"
+                << "  exitCode: " << exitCode << "\n"
+                << "  qError:   " << process.errorString().toStdString() << "\n"
+                << LOG_ENDL;
+
+        return {false, "gist process did not finish " + reason.toStdString()};
     }
 
     // success
