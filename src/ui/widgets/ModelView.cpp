@@ -39,6 +39,9 @@ ModelView::ModelView(int modelId, Model* model, QWidget* parent)
   populateProperties();
   populateTags();
 
+  // disconnect default accept behavior so we control window with onOkClicked()
+  disconnect(ui.buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
+
   // Connect signals
   connect(ui.addTagButton, &QPushButton::clicked, this,
           &ModelView::onAddTagClicked);
@@ -136,50 +139,16 @@ void ModelView::onPropertyChanged(QListWidgetItem* item) {
   int row = ui.valuesList->row(item);  // Get the row of the changed item
   QString key = ui.keysList->item(row)->text();  // Get the corresponding key
 
-  // special check inclusion checkbox
-  if (key == QLatin1String("is_included")) {
-    const bool checked = (item->checkState() == Qt::Checked);
-
-    if (!model->setModelIncluded(modelId, checked)) {
-      // reset ui if we failed
-      const QSignalBlocker block(ui.valuesList);
-      item->setCheckState(currModel.is_included ? Qt::Checked : Qt::Unchecked);
-      QMessageBox::warning(this, tr("Update failed"), tr("Could not change inclusion state."));
-      return;
-    }
-
-    // update local cache
-    currModel.is_included = checked;
-
-    // disable when excluded
-    const bool enable = checked;
-    ui.tagsList->setEnabled(enable);
-    ui.addTagButton->setEnabled(enable);
-    ui.newTagLine->setEnabled(enable);
-    ui.generateTagsButton->setEnabled(enable);
-    ui.cancelTagButton->setEnabled(enable);
-    ui.verticalLayoutWidget->setEnabled(enable); // GeometryBrowser
-
-    if (!enable) {
-      ui.previewLabel->setPixmap(QPixmap());
-      ui.previewLabel->setText(tr("(excluded from library)"));
-    } else {
-      loadPreviewImage();
-    }
-
-    // dont do setModelProcessed(false)
-    return;
+  QString value;
+  if (item->flags().testFlag(Qt::ItemIsUserCheckable)) {
+      // stringify checkable items to 'true' / 'false'
+      value = (item->checkState() == Qt::Checked) ? "true" : "false";
+  } else {
+      value = item->text();
   }
 
-  // regular text value updates
-  QString value = item->text();                  // Get the new value
-
-  // Update the properties map and the model
+  // update in-memory (rely on 'ok' click to save to db)
   properties[key] = value;
-  model->setPropertyForModel(modelId, key.toStdString(), value.toStdString());
-
-  // something changed - invalidate process status
-  model->setModelProcessed(modelId, false);
 }
 
 void ModelView::populateTags() {
@@ -227,9 +196,21 @@ void ModelView::onRemoveTagClicked(QListWidgetItem* item) {
 }
 
 void ModelView::onOkClicked() {
-  LOG_DEBUG << "onOkClicked" << LOG_ENDL;
-  model->updateModel(modelId, currModel);
-  LOG_DEBUG << "updated model" << LOG_ENDL;
+  // freeze the window and show wait cursor to make it obvious we're updating
+  this->setEnabled(false);
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+  auto restoreUi = [this]() {
+      QApplication::restoreOverrideCursor();
+      this->setEnabled(true);
+      QDialog::accept();         // accept and close window
+  };
+
+  // if we're no longer included dont bother with checking the rest of the properties
+  if (properties["is_included"] == "false") {
+      model->setModelIncluded(modelId, false);
+      restoreUi();
+      return;
+  }
 
   // Update currModel properties
   for (int i = 0; i < ui.valuesList->count(); ++i) {
@@ -251,7 +232,12 @@ void ModelView::onOkClicked() {
     model->addTagToModel(modelId, tagText.toStdString());
   }
 
+  // assume something changed and we need to re-process
+  model->setModelProcessed(modelId, false);
+
+  // done
   emit tagsUpdated();
+  restoreUi();
 }
 
 void ModelView::onCancelTagGenerationClicked() {
