@@ -288,8 +288,34 @@ if(WIN32)
     endforeach()
   endfunction()
 
+  # function to copy brlcad DLLs for a target
+  function(copy_brlcad_dlls target)
+    set(brl_bin "${BRLCAD_ROOT}/bin")
+    if (NOT EXISTS "${brl_bin}")
+      message(WARNING "BRL-CAD bin dir not found: ${brl_bin}")
+      return()
+    endif()
+
+    # lazy grab ALL dll's
+    file(GLOB brl_dlls "${brl_bin}/*.dll")
+    list(LENGTH brl_dlls brl_dll_count)
+    if (brl_dll_count EQUAL 0)
+        message(WARNING "No BRL-CAD DLLs found to copy from: ${brl_bin}")
+    endif()
+    message("Copying ${brl_dll_count} BRL-CAD DLLs after compile completes.")
+
+    foreach(brl_dll IN LISTS brl_dlls)
+      add_custom_command(TARGET ${target} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${brl_dll}" $<TARGET_FILE_DIR:${target}>
+        COMMENT "Copying BRL-CAD DLL ${brl_dll} -> $<TARGET_FILE_DIR:${target}>"
+      )
+    endforeach()
+  endfunction()
+
   # Call the function to copy the Qt DLLs for your target
   copy_qt_dlls(cadventory)
+  # Call the function to copy all BRL DLLs for target
+  copy_brlcad_dlls(cadventory)
 endif()
 
 # Also copy Qt plugins
