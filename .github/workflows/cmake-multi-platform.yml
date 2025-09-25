@@ -31,6 +31,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         build_type: [Release, Debug]
         c_compiler: [gcc, clang, cl]
+        gui: [ON, OFF]
         include:
           - os: windows-latest
             c_compiler: cl
@@ -110,6 +111,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -DCADVENTORY_WITH_GUI=${{ matrix.gui }}
         -DQt6_DIR="${{ env.Qt6_DIR }}"
         -DBRLCAD_ROOT=${{ env.BRLCAD_ROOT }}
         -S ${{ github.workspace }}
