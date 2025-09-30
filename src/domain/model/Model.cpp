@@ -33,7 +33,7 @@ Model::Model(const std::string& libraryPath, QObject* parent)
 
   if (sqlite3_open_v2(dbPath.c_str(), &db,
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
-                      nullptr) != SQLITE_OK) {
+                      "unix-dotfiles") != SQLITE_OK) {
     LOG_ERR << "Can't open database at " << dbPath << ": "
               << sqlite3_errmsg(db) << LOG_ENDL;
   } else {

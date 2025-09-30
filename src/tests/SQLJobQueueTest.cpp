@@ -36,7 +36,7 @@ struct TempDir {
     int countRows(const std::string& where = "") const {
         sqlite3* db = nullptr;
         if (sqlite3_open_v2(dbPath.string().c_str(), &db,
-                            SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK)
+                            SQLITE_OPEN_READONLY, "unix-dotfiles") != SQLITE_OK)
             return 0;       // db may not exist yet
         std::string sql = "SELECT COUNT(*) FROM jobs " + where + ";";
         int rows = 0;
@@ -45,7 +45,7 @@ struct TempDir {
                 (void)c;    // quell unused warning
                 return 0; 
             };
-        sqlite3_exec(db, sql.c_str(), cb, &rows, nullptr);
+        sqlite3_exec(db, sql.c_str(), cb, &rows, "unix-dotfiles");
         sqlite3_close(db);
         return rows;
     }
@@ -59,7 +59,7 @@ struct TempDir {
     void dumpRows() const {
         sqlite3* db = nullptr;
         if (sqlite3_open_v2(dbPath.string().c_str(), &db,
-                            SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK)
+                            SQLITE_OPEN_READONLY, "unix-dotfiles") != SQLITE_OK)
             return;
 
         std::cout << "\n--- jobs table dump (" << dbPath << ") ---\n";
@@ -286,7 +286,7 @@ TEST_CASE("rescueStale behavior", "[SQLJobQueue]") {
 
         // mark j1 as 48h old
         sqlite3* db=nullptr;
-        sqlite3_open(tmp.dbPath.string().c_str(),&db);
+        sqlite3_open_v2(tmp.dbPath.string().c_str(), &db, SQLITE_OPEN_READWRITE, "unix-dotfiles");
         sqlite3_exec(db,("UPDATE jobs SET claimed_at=claimed_at-172800 "
                          "WHERE id="+std::to_string(j1->id)).c_str(),
                      nullptr,nullptr,nullptr);
@@ -306,7 +306,7 @@ TEST_CASE("rescueStale behavior", "[SQLJobQueue]") {
 
         // age it
         sqlite3* db=nullptr;
-        sqlite3_open(tmp.dbPath.string().c_str(), &db);
+        sqlite3_open(tmp.dbPath.string().c_str(), &db, SQLITE_OPEN_READWRITE, "unix-dotfiles");
         sqlite3_exec(db,("UPDATE jobs SET claimed_at = strftime('%s','now') - 172800 "
                          "WHERE id=" + std::to_string(j->id)).c_str(),
                      nullptr,nullptr,nullptr);
@@ -317,7 +317,7 @@ TEST_CASE("rescueStale behavior", "[SQLJobQueue]") {
         // row back in queue w/ retry_cnt = 1
         REQUIRE(tmp.countRows("WHERE claimed_by IS NULL") == 1);
 
-        sqlite3_open(tmp.dbPath.string().c_str(), &db);
+        sqlite3_open(tmp.dbPath.string().c_str(), &db, SQLITE_OPEN_READONLY, "unix-dotfiles");
         int retry=0;
         sqlite3_exec(db, "SELECT retry_cnt FROM jobs WHERE file_id='f';",
             [](void* d,int, char**v,char**)->int{ *(int*)d = std::stoi(v[0]); return 0; },

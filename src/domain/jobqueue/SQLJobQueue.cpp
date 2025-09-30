@@ -95,7 +95,7 @@ SQLJobQueue::SQLJobQueue(const std::filesystem::path& rootDir)
 
     ck(sqlite3_open_v2(dbPath.c_str(), &m_db,
                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE |
-                       SQLITE_OPEN_FULLMUTEX, nullptr));
+                       SQLITE_OPEN_FULLMUTEX, "unix-dotfiles"));
     sqlite3_extended_result_codes(m_db, 1);
     sqlite3_busy_timeout(m_db, 5000);   // 5s busy timeout
     ck(sqlite3_exec(m_db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr));
