@@ -31,6 +31,9 @@ Model::Model(const std::string& libraryPath, QObject* parent)
   // Set the database path inside the hidden directory
   dbPath = (hiddenDir / "metadata.db").string();
 
+  std::string lockPath = (hiddenDir / "metadata.db.lock").string();
+  dbFileLock.setPath(lockPath);
+
   if (sqlite3_open_v2(dbPath.c_str(), &db,
                       SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
                       nullptr) != SQLITE_OK) {
@@ -193,6 +196,8 @@ bool Model::insertModel(const ModelData& modelData) {
 
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
 
   // Ensure file_path is unique
   std::string generic_filepath = std::filesystem::path(modelData.file_path).generic_string();
@@ -323,6 +328,8 @@ bool Model::filePathExists(const std::string& file_path) {
 
 bool Model::updateModel(int id, const ModelData& modelData) {
     std::lock_guard<std::recursive_mutex> lock(db_mutex);
+    SimpleFileLock::Guard SFLock(dbFileLock);
+    if (!SFLock) return false;
 
     // make sure we have an existing model to update
     // NOTE: it's the callers responsibility to manage creation vs updates
@@ -435,6 +442,8 @@ bool Model::updateModel(int id, const ModelData& modelData) {
 
 bool Model::markAllNotIncluded() {
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
   const char* SQL = "UPDATE models SET is_included = 0 WHERE is_included <> 0;";
   char* err = nullptr;
   if (sqlite3_exec(db, SQL, nullptr, nullptr, &err) != SQLITE_OK) {
@@ -450,6 +459,8 @@ bool Model::markAllNotIncluded() {
 
 bool Model::setModelIncluded(int id, bool included) {
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
 
   static const char* SQL =
       "UPDATE models SET is_included = ?1 "
@@ -496,6 +507,8 @@ bool Model::setModelIncluded(int id, bool included) {
 
 bool Model::setModelProcessed(int id, bool is_processed) {
     std::lock_guard<std::recursive_mutex> lock(db_mutex);
+    SimpleFileLock::Guard SFLock(dbFileLock);
+    if (!SFLock) return false;
 
     static const char* SQL =
         "UPDATE models SET is_processed = ?1 WHERE id = ?2;";
@@ -523,6 +536,8 @@ bool Model::setModelProcessed(int id, bool is_processed) {
 
 bool Model::selectAllIncluded(bool select) {
     std::lock_guard<std::recursive_mutex> lock(db_mutex);
+    SimpleFileLock::Guard SFLock(dbFileLock);
+    if (!SFLock) return false;
 
     // update all included to is_selected = 'select'
     const char* SQL = "UPDATE models SET is_selected = ?1 WHERE is_included = 1;";
@@ -591,6 +606,8 @@ bool Model::updateThumbnailFromFile(int id, const std::string pngPath) {
 
     // DB update
     std::lock_guard<std::recursive_mutex> lock(db_mutex);
+    SimpleFileLock::Guard SFLock(dbFileLock);
+    if (!SFLock) return false;
 
     static const char* SQL = "UPDATE models SET thumbnail = ?1 WHERE id = ?2;";
 
@@ -645,6 +662,8 @@ bool Model::deleteModel(int id) {
   std::string sql = "DELETE FROM models WHERE id = ?;";
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
     sqlite3_bind_int(stmt, 1, id);
@@ -919,6 +938,8 @@ std::string Model::getHiddenDirectoryPath() const { return hiddenDirPath; }
 bool Model::executeSQL(const std::string& sql) {
   char* errMsg = nullptr;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
   int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
   if (rc != SQLITE_OK) {
     LOG_ERR << "SQL error in executeSQL: " << errMsg << LOG_ENDL;
@@ -943,6 +964,8 @@ bool Model::setData(const QModelIndex& index, const QVariant& value, int role) {
     std::string sql = "UPDATE models SET is_selected = ? WHERE id = ?;";
     sqlite3_stmt* stmt;
     std::lock_guard<std::recursive_mutex> lock(db_mutex);
+    SimpleFileLock::Guard SFLock(dbFileLock);
+    if (!SFLock) return false;
 
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
       sqlite3_bind_int(stmt, 1, modelData.is_selected ? 1 : 0);
@@ -1013,6 +1036,8 @@ int Model::insertObject(const ObjectData& obj) {
 
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return -1;
 
   if (sqlite3_prepare_v2(db, upsert_sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
     LOG_ERR << "SQL error in insertObject: " << sqlite3_errmsg(db) << LOG_ENDL;
@@ -1045,6 +1070,8 @@ bool Model::deleteObjectsForModel(int model_id) {
   std::string sql = "DELETE FROM objects WHERE model_id = ?;";
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
     sqlite3_bind_int(stmt, 1, model_id);
@@ -1112,6 +1139,8 @@ bool Model::updateObjectSelection(int object_id, bool is_selected) {
 
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
     LOG_ERR << "SQL error in updateObjectSelection: " << sqlite3_errmsg(db) << LOG_ENDL;
@@ -1142,6 +1171,8 @@ bool Model::updateObject(const ObjectData& obj) {
 
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
     LOG_ERR << "SQL error in updateObject: " << sqlite3_errmsg(db) << LOG_ENDL;
@@ -1266,6 +1297,8 @@ bool Model::updateObjectParentId(int object_id, int parent_object_id) {
       "UPDATE objects SET parent_object_id = ? WHERE object_id = ?;";
   sqlite3_stmt* stmt;
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
 
   if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
     LOG_ERR << "SQL error in updateObjectParentId: " << sqlite3_errmsg(db) << LOG_ENDL;
@@ -1488,6 +1521,8 @@ sqlite3_stmt* Model::prepareStatement(const std::string& sql) const {
 
 bool Model::executePreparedStatement(sqlite3_stmt* stmt) {
   std::lock_guard<std::recursive_mutex> lock(db_mutex);
+  SimpleFileLock::Guard SFLock(dbFileLock);
+  if (!SFLock) return false;
   if (sqlite3_step(stmt) != SQLITE_DONE) {
     LOG_ERR << "Execution failed: " << sqlite3_errmsg(db) << LOG_ENDL;
     sqlite3_finalize(stmt);

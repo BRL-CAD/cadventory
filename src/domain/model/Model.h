@@ -1,6 +1,8 @@
 #ifndef MODEL_H
 #define MODEL_H
 
+#include "SimpleFileLock.h"
+
 #include <sqlite3.h>
 
 #include <QAbstractListModel>
@@ -157,6 +159,7 @@ private:
     sqlite3* db;
     std::string dbPath;
     std::recursive_mutex db_mutex;
+    SimpleFileLock dbFileLock;
     std::string hiddenDirPath;
     std::vector<ModelData> models;
 };

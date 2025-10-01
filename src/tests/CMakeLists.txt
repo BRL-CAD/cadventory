@@ -141,6 +141,7 @@ add_cadventory_test(
     SOURCES
         ModelTest.cpp
         ../domain/model/Model.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
 )
 
 add_cadventory_test(
@@ -150,6 +151,7 @@ add_cadventory_test(
         ../domain/library/Library.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/model/Model.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
 )
 
 add_cadventory_test(
@@ -172,6 +174,7 @@ add_cadventory_test(
         GeometryBrowserDialogTest.cpp
         ../ui/widgets/GeometryBrowserDialog.cpp
         ../domain/model/Model.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
 )
 
 add_cadventory_test(
@@ -180,6 +183,7 @@ add_cadventory_test(
         FileSystemModelWithCheckboxesTest.cpp
         ../ui/filesystem/FileSystemModelWithCheckboxes.cpp
         ../domain/model/Model.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
 )
 
 add_cadventory_test(
@@ -196,6 +200,7 @@ add_cadventory_test(
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/sha1.cpp
         ../domain/model/Model.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
 )
 
 add_cadventory_test(
@@ -208,6 +213,7 @@ add_cadventory_test(
         ../domain/library/Library.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/model/Model.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
 )
 
 add_cadventory_test(
@@ -216,6 +222,7 @@ add_cadventory_test(
         ModelCardDelegateTest.cpp
         ../ui/widgets/ModelCardDelegate.cpp
         ../domain/model/Model.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
 )
 
 # For tests requiring UI and resources
@@ -234,6 +241,7 @@ add_cadventory_test(
         ../domain/jobqueue/JobManager.cpp
         ../domain/jobqueue/JobWorker.cpp
         ../domain/jobqueue/SQLJobQueue.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
         ../domain/llm/OllamaCLIService.cpp
@@ -277,6 +285,7 @@ add_cadventory_test(
         ../domain/jobqueue/JobManager.cpp
         ../domain/jobqueue/JobWorker.cpp
         ../domain/jobqueue/SQLJobQueue.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
         ../domain/llm/OllamaCLIService.cpp
@@ -313,6 +322,7 @@ add_cadventory_test(
         ../domain/jobqueue/JobWorker.cpp
         ../domain/jobqueue/QtJobServiceBase.cpp
         ../domain/jobqueue/SQLJobQueue.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/IDirectiveHandler.cpp
@@ -327,6 +337,7 @@ add_cadventory_test(
         ../domain/jobqueue/JobWorker.cpp
         ../domain/jobqueue/QtJobServiceBase.cpp
         ../domain/jobqueue/SQLJobQueue.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/IDirectiveHandler.cpp
         ../domain/processing/sha1.cpp
@@ -339,6 +350,7 @@ add_cadventory_test(
         JobManagerTest.cpp
         ../domain/jobqueue/JobManager.cpp
         ../domain/jobqueue/QtJobServiceBase.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/model/Model.cpp
 )
@@ -355,4 +367,5 @@ add_cadventory_test(
     SOURCES
         SQLJobQueueTest.cpp
         ../domain/jobqueue/SQLJobQueue.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
 )

@@ -3,6 +3,8 @@
 // TODO: started roughing in logic to couple this to a table in the model.db
 //#define MODEL_DB_INTEGRATION
 
+#include "SimpleFileLock.h"
+
 #include <filesystem>
 #include <string>
 #include <optional>
@@ -59,8 +61,9 @@ public:
 
 private:
     // db connection
-    sqlite3*     m_db      = nullptr;
-    bool         m_ownConn = false;
+    sqlite3*       m_db      = nullptr;
+    bool           m_ownConn = false;
+    SimpleFileLock m_dbFileLock;
 
     // prepared statements
     sqlite3_stmt* m_ins = nullptr;

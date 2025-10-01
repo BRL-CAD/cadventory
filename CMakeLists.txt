@@ -65,6 +65,7 @@ set(SRCS
   src/domain/jobqueue/JobManager.cpp
   src/domain/jobqueue/JobWorker.cpp
   src/domain/jobqueue/SQLJobQueue.cpp
+  src/domain/jobqueue/SimpleFileLock.cpp
   src/domain/library/FilesystemIndexer.cpp
   src/domain/library/Library.cpp
   src/domain/llm/OllamaCLIService.cpp
@@ -83,6 +84,7 @@ set(HEADERS
 
   src/domain/jobqueue/FileJobQueue.h
   src/domain/jobqueue/SQLJobQueue.h
+  src/domain/jobqueue/SimpleFileLock.h
   src/domain/library/FilesystemIndexer.h
   src/domain/library/Library.h
   src/domain/llm/ILLMService.h

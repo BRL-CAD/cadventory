@@ -93,6 +93,10 @@ SQLJobQueue::SQLJobQueue(const std::filesystem::path& rootDir)
         std::ofstream dbFile(dbPath);
     }
 
+    // setup our custom file lock
+    std::string lockPath = (rootDir / "queue.db.lock").string();
+    m_dbFileLock.setPath(lockPath);
+
     ck(sqlite3_open_v2(dbPath.c_str(), &m_db,
                        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE |
                        SQLITE_OPEN_FULLMUTEX, nullptr));
@@ -147,6 +151,11 @@ bool SQLJobQueue::createJob(long long        modelId,
                             const std::string& sourcePath)
 #endif
 {
+    SimpleFileLock::Guard lock(m_dbFileLock);
+    if (!lock)
+        // couldn't get the lock to write into db
+        return false;
+
     sqlite3_reset(m_ins);
     sqlite3_clear_bindings(m_ins);
 #ifndef MODEL_DB_INTEGRATION
@@ -167,6 +176,11 @@ bool SQLJobQueue::createJob(long long        modelId,
 }
 
 std::optional<JobDescriptor> SQLJobQueue::claimJob(const std::string& workerId) {
+    SimpleFileLock::Guard lock(m_dbFileLock);
+    if (!lock)
+        // couldn't get the lock to write claim into db
+        return std::nullopt;
+
     sqlite3_reset(m_clm);
     sqlite3_clear_bindings(m_clm);
     ck(sqlite3_bind_text(m_clm, 1, workerId.c_str(), -1, SQLITE_TRANSIENT));
@@ -204,6 +218,11 @@ std::optional<JobDescriptor> SQLJobQueue::claimJob(const std::string& workerId) 
 }
 
 void SQLJobQueue::finish(const JobDescriptor& jd) {
+    SimpleFileLock::Guard lock(m_dbFileLock);
+    if (!lock)
+        // couldn't get the lock to update db
+        return;
+
     sqlite3_reset(m_fin);
     sqlite3_clear_bindings(m_fin);
     ck(sqlite3_bind_int64(m_fin, 1, jd.id));
