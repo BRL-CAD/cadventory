@@ -3,16 +3,55 @@
 #include <chrono>
 #include <iostream>
 #include <cassert>
+#include <filesystem>
+#include <fstream>
+
+namespace fs = std::filesystem;
+
+class TempDir {
+public:
+    fs::path dir;
+
+    TempDir() {
+	const std::vector<std::string> exts = {".g", ".cpp", ".h", ".png", ".jpg", ".txt"};
+
+	dir = fs::temp_directory_path() / "cadventory_FIPTest";
+	fs::create_directories(dir);
+
+	// build a simple hierarchy
+	for (int d = 0; d < m_numDirs; ++d) {
+	    auto currDir = dir / ("d" + std::to_string(d));
+	    fs::create_directories(currDir);
+
+	    // add nFiles into each dir
+	    for (int f = 0; f < m_filesPerDir; ++f) {
+		const auto& ext = exts[f % exts.size()];
+		std::ofstream(currDir / ("f" + std::to_string(f) + ext));
+	    }
+	}
+    }
+
+    ~TempDir() {
+	fs::remove_all(dir);
+    }
+
+private:
+    // populate 20 * 100 = 2000 files
+    int m_numDirs = 20;
+    int m_filesPerDir = 100;
+};
 
 TEST_CASE("FilesystemIndexer Performance", "[FilesystemIndexer]") {
-    // TODO: create our own test directory instead of relying on root
-    FilesystemIndexer indexer("/");
+    // create a simple test directory
+    TempDir temp;
+
+    FilesystemIndexer indexer;
     // once to prime
-    size_t files = indexer.indexDirectory("/");
+    size_t files = indexer.indexDirectory(temp.dir.generic_string().c_str());
 
     SECTION("test indexDirectory") {
 	auto start = std::chrono::high_resolution_clock::now();
-	files = indexer.indexDirectory("/");
+	files = indexer.indexDirectory(temp.dir.generic_string().c_str());
 	auto end = std::chrono::high_resolution_clock::now();
 
 	std::chrono::duration<double, std::milli> duration = end - start;
