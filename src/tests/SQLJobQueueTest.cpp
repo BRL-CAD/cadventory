@@ -169,6 +169,7 @@ TEST_CASE("Create-job behaviour", "[SQLJobQueue]") {
             for (int t = 0; t < THREADS; ++t) {
                 pool.emplace_back([&,t]{
                     SQLJobQueue q(tmp.root.string());
+                    q.setDBLockTimeout(60000);  // let spin for up to 60s
 
                     // let threads queue jobs at the same time
                     for (int i = 0; i < JOBS_PER_THREAD; ++i) {

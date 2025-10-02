@@ -56,6 +56,9 @@ public:
     void setStaleTimeout(int staleTimeoutSeconds) { m_staleTimeoutSecs = staleTimeoutSeconds; };
     void rescueStale(std::chrono::seconds maxAge);
 
+    // amount of time queue will spin trying to acquire SimpleFileLock on db file
+    void setDBLockTimeout(int ms);
+
     // total count of jobs in db
     int64_t totalCount();
 

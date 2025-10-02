@@ -268,3 +268,7 @@ void SQLJobQueue::ck(int rc, sqlite3_stmt* st) {
         << " msg=" << (emsg ? emsg : "");
     throw std::runtime_error(oss.str());
 }
+
+void SQLJobQueue::setDBLockTimeout(int ms) {
+    m_dbFileLock.setAcquireTimeout(std::chrono::milliseconds(ms));
+}
