@@ -139,31 +139,3 @@ jobs:
       # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --build-config ${{ matrix.build_type }} --output-on-failure --timeout 600
-
-    - name: Rerun failing tests verbosely (Linux/macOS)
-      if: failure() && (runner.os == 'Linux' || runner.os == 'macOS')
-      working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      shell: bash
-      run: |
-        {
-          echo "### Rerun of failing tests (${{ matrix.os }} ${{ matrix.build_type }})"
-          echo
-          ctest --build-config ${{ matrix.build_type }} --rerun-failed -VV --timeout 600 || true
-          echo
-          echo "### Failing tests list"
-          ctest --build-config ${{ matrix.build_type }} --failed --no-tests=error || true
-        } >> "$GITHUB_STEP_SUMMARY"
-
-    - name: Rerun failing tests verbosely (Windows)
-      if: failure() && runner.os == 'Windows'
-      working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      shell: powershell
-      run: |
-        Add-Content $env:GITHUB_STEP_SUMMARY "### Rerun of failing tests ($env:RUNNER_OS ${{ matrix.build_type }})"
-        Add-Content $env:GITHUB_STEP_SUMMARY ""
-        $out = & ctest --build-config ${{ matrix.build_type }} --rerun-failed -VV --timeout 600 2>&1
-        $out | Out-Host
-        $out | Add-Content $env:GITHUB_STEP_SUMMARY
-        Add-Content $env:GITHUB_STEP_SUMMARY ""
-        Add-Content $env:GITHUB_STEP_SUMMARY "### Failing tests list"
-        (& ctest --build-config ${{ matrix.build_type }} --failed --no-tests=error 2>&1) | Add-Content $env:GITHUB_STEP_SUMMARY
