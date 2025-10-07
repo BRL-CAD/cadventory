@@ -9,6 +9,7 @@
 #include <bu/process.h>         // bu_pid()
 
 #include "Model.h"
+#include "HiddenDir.h"
 #include "SQLJobQueue.h"
 #include "ProcessHandler.h"
 #include "ThumbHandler.h"
@@ -39,9 +40,7 @@ static auto makeHandlerRegistry(Model& repo,
 
 // spawn n-workerCount threads, each looping on claim -> handle -> finish. Threads will force
 // stop when given stopFlag
-static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
-                                                   const fs::path& dataDir,
-                                                   const fs::path& rootDir,
+static std::vector<std::thread> spawnWorkerThreads(const HiddenDir& paths,
                                                    QtJobServiceBase* service,
                                                    size_t workerCount,
                                                    std::atomic<bool>& stopFlag)
@@ -53,11 +52,11 @@ static std::vector<std::thread> spawnWorkerThreads(const fs::path& jobsDir,
     for (size_t workerIdx = 0; workerIdx < workerCount; ++workerIdx) {
         threads.emplace_back([=, &stopFlag]() {
             // each thread gets their own db connections
-            SQLJobQueue queue(jobsDir);
-            Model       repo(rootDir.string());
+            SQLJobQueue queue(paths.jobsDir());
+            Model       repo(paths.libRoot());
 
             // each thread gets its own handler registry
-            auto handlers = makeHandlerRegistry(repo, queue, dataDir, service);
+            auto handlers = makeHandlerRegistry(repo, queue, paths.dataDir(), service);
 
             // worker id using pid+threadIdx
             const std::string workerId = std::to_string(pid) + "-" + std::to_string(workerIdx);
@@ -133,8 +132,8 @@ struct safeThreadExit {
 
 void JobWorker::serviceLoop() {
     // TODO: a lot of these should collapse into a 'Library'?
-    Model            repo(rootDir());       // get unprocessed models
-    SQLJobQueue      queue(jobsDir());      // queue unprocessed models
+    Model            repo(paths().libRoot());       // get unprocessed models
+    SQLJobQueue      queue(paths().jobsDir());      // queue unprocessed models
     auto             service  = static_cast<QtJobServiceBase*>(this);
 
     // spawn worker threads that inf. process jobs until stopFlag is true
@@ -142,7 +141,7 @@ void JobWorker::serviceLoop() {
     QSettings settings;
     size_t threadCount = settings.value("jobs/numThreads", 0).toInt();
     LOG_DEBUG << "[JobWorker::ServiceLoop()] jobs/numThreads: " << threadCount << LOG_ENDL;
-    auto threads = spawnWorkerThreads(jobsDir(), dataDir(), rootDir(), service, threadCount, stopFlag);
+    auto threads = spawnWorkerThreads(paths(), service, threadCount, stopFlag);
     safeThreadExit _guard{threads, stopFlag};
 
     // time-keeping

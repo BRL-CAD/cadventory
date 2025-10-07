@@ -21,7 +21,7 @@ TEST_CASE("JobManager seeds ModelRepo with all .g files", "[JobManager]") {
     QCoreApplication app(argc, nullptr);
     // set up our JobManager
     JobManager manager;
-    manager.setRootPaths(fixture.tempDir.string());
+    manager.setRootPath(fixture.tempDir.string());
 
     // let JobManager do its thing
     REQUIRE(manager.start());

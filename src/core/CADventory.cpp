@@ -107,7 +107,7 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
 
         // use value passed at command line if we have it; else default to home path
         QString root = parser.isSet("index") ? parser.value("index") : QDir::homePath();
-        this->jobService->setRootPaths(root.toStdString());
+        this->jobService->setRootPath(root.toStdString());
 
         // quit automatically after JobManager completes since we're just indexing
         auto Qt_cast_jobService = static_cast<QtJobServiceBase*>(jobService.get());
@@ -138,12 +138,8 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
         this->jobService = std::make_unique<JobWorker>();
 
         // use value passed at command line if we have it; else default to home path
-        namespace fs = std::filesystem;
         QString root = parser.isSet("worker") ? parser.value("worker") : QDir::homePath();
-        fs::path hidden = fs::path(root.toStdString()) / ".cadventory";
-        fs::path jobs = hidden / "jobsdb";
-        fs::path data = hidden / "data";
-        this->jobService->setRootPaths(root.toStdString(), jobs.string(), data.string(), hidden.string());
+        this->jobService->setRootPath(root.toStdString());
 
         // no gui
         this->gui = false;

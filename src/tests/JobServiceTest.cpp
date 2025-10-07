@@ -139,8 +139,8 @@ TEST_CASE("Full Job manager+worker pipeline", "[jobService]") {
 
     // set paths
     const std::string rootStr = fixture.tempDir.string();
-    manager->setRootPaths(rootStr, jobsDir.string(), dataDir.string(), rootStr);
-    worker->setRootPaths(rootStr, jobsDir.string(), dataDir.string(), rootStr);
+    manager->setRootPath(rootStr);
+    worker->setRootPath(rootStr);
 
     // run the manager, give it ~5s to index and load ModelRepo
     REQUIRE(manager->start());

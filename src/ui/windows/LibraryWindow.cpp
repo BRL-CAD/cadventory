@@ -92,12 +92,8 @@ void LibraryWindow::setupLibraryWorker() {
     // setup paths for this library
     // TODO: we probably want some utility class and/or job service itself
     //       to manage all these hidden paths
-    namespace fs = std::filesystem;
-    fs::path root = library->fullPath;
-    fs::path hidden = model->getHiddenDirectoryPath();
-    fs::path jobs = hidden / "jobsdb";
-    fs::path data = hidden / "data";
-    jobSvc->setRootPaths(root.string(), jobs.string(), data.string(), hidden.string());
+    std::filesystem::path root = library->fullPath;
+    jobSvc->setRootPath(root.string());
 
     // setup connections
     const auto ct = static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::UniqueConnection);

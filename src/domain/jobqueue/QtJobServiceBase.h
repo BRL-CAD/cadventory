@@ -7,6 +7,7 @@
 #include <functional>
 
 #include "IJobService.h"
+#include "HiddenDir.h"
 
 /* manages all qt specifics for a job service - derived classes can/should be qt free */
 class QtJobServiceBase : public QObject, public IJobService
@@ -17,10 +18,7 @@ public:
     ~QtJobServiceBase() override;
 
     // IJobService interface overrides
-    void setRootPaths(const std::string& rootDir,
-                      const std::string& jobsDir = "",
-                      const std::string& dataDir = "",
-                      const std::string& modelRoot = "") override;
+    void setRootPath(const std::string& path) override;
 
     bool start() override;   // spawns m_thread and runs serviceLoop()
     void stop()  override;
@@ -47,10 +45,7 @@ protected:
     virtual void serviceLoop() = 0;
 
     // access to configuration paths for derived classes
-    const std::string& rootDir()   const { return m_rootDir;   }
-    const std::string& jobsDir()   const { return m_jobsDir;   }
-    const std::string& dataDir()   const { return m_dataDir;   }
-    const std::string& modelRoot() const { return m_modelRoot; }
+    const HiddenDir& paths() const { return m_paths; }
 
 private slots:
     void trampoline();                // calls serviceLoop()
@@ -60,10 +55,7 @@ private slots:
 
 private:
     // configuration paths
-    std::string m_rootDir;          // path to .cadventory directory
-    std::string m_jobsDir;
-    std::string m_dataDir;
-    std::string m_modelRoot;
+    HiddenDir m_paths;
 
     // runtime
     QThread m_thread;

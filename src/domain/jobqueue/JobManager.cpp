@@ -22,7 +22,7 @@ static ModelData minimalModelData(const std::string& filePath) {
 }
 
 void JobManager::serviceLoop() {
-    const std::string root = rootDir();         // inherit from QtJobServiceBase
+    const std::string root = paths().libRoot(); // inherit from QtJobServiceBase
     const long        maxDepth = 4;             // default depth
     std::size_t UPDATE_EVERY = 1000;            // update stats emit every n-repo inserts
     std::size_t inserted = 0, handled = 0;      // keep track for periodic stat updates

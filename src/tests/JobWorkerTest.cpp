@@ -14,10 +14,8 @@
 TEST_CASE("JobWorker end-to-end pipeline", "[JobWorker]") {
     // set up temp dirs
     ModelTestFixture fixture("cadventory_JWTest");  // creates temp dir and creates empty model db
-    auto jobsDir  = fixture.tempDir / ".cadventory" / "jobsdb";
-    auto dataDir  = fixture.tempDir / ".cadventory" / "data";
-    std::filesystem::create_directories(jobsDir);
-    std::filesystem::create_directories(dataDir);
+    HiddenDir paths;
+    paths.setLibraryRoot(fixture.tempDir.string());
 
     // copy .g into test dir
     fixture.copyTestFileToTemp("annual_gift_man.g");
@@ -52,10 +50,7 @@ TEST_CASE("JobWorker end-to-end pipeline", "[JobWorker]") {
     QSettings().sync();
     // set up our JobWorker
     JobWorker worker;
-    worker.setRootPaths(fixture.tempDir.string(), 
-                        jobsDir.string(), 
-                        dataDir.string(),
-                        fixture.tempDir.string());
+    worker.setRootPath(paths.libRoot());
 
     // let JobWorker do its thing
     REQUIRE(worker.start());
@@ -69,7 +64,7 @@ TEST_CASE("JobWorker end-to-end pipeline", "[JobWorker]") {
     worker.stop();
 
     // verify queue is empty
-    SQLJobQueue qcheck(jobsDir);
+    SQLJobQueue qcheck(paths.jobsDir());
     REQUIRE_FALSE(qcheck.claimJob("verify"));
 
     // verify model row final state
@@ -80,7 +75,7 @@ TEST_CASE("JobWorker end-to-end pipeline", "[JobWorker]") {
 
     // verify we have *something* in data/
     int outputFiles = 0;
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(dataDir)) {
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(paths.dataDir())) {
         if (std::filesystem::is_regular_file(entry.status())) {
             ++outputFiles;
         }
