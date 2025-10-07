@@ -46,7 +46,7 @@ void FileSystemModelWithCheckboxes::initializeCheckStates(const QModelIndex& par
         }
 
         if (fileInfo.suffix().compare("g", Qt::CaseInsensitive) == 0) {
-            std::string filePathStd = QDir::cleanPath(path).toStdString();
+            std::string filePathStd = model->getHiddenPaths().relativeToLibrary(path.toStdString());
             ModelData modelData = model->getModelByFilePath(filePathStd);
 
             if (modelData.id == 0) {

@@ -16,7 +16,7 @@ TEST_CASE("Model Initialization and CRUD Operations", "[Model]") {
 
     // Test if the database and its supporting directories are created successfully
     SECTION("Database Initialization") {
-        REQUIRE(std::filesystem::exists(fixture.model->getHiddenDirectoryPath()));
+        REQUIRE(std::filesystem::exists(fixture.model->getHiddenPaths().modelDb()));
         REQUIRE(std::filesystem::exists(fixture.tempDir / ".cadventory" / "metadata.db"));
     }
 

@@ -22,16 +22,10 @@ namespace fs = std::filesystem;
 Model::Model(const std::string& libraryPath, QObject* parent)
     : QAbstractListModel(parent), db(nullptr) {
   // Create a hidden directory inside the library path
-  fs::path hiddenDir = fs::path(libraryPath) / ".cadventory";
-  hiddenDirPath = hiddenDir.string();
-  if (!fs::exists(hiddenDir)) {
-    fs::create_directory(hiddenDir);
-  }
-
+  hiddenPaths.setLibraryRoot(libraryPath);
   // Set the database path inside the hidden directory
-  dbPath = (hiddenDir / "metadata.db").string();
-
-  std::string lockPath = (hiddenDir / "metadata.db.lock").string();
+  std::string dbPath = hiddenPaths.modelDb();
+  std::string lockPath = dbPath + ".lock";
   dbFileLock.setPath(lockPath);
 
   if (sqlite3_open_v2(dbPath.c_str(), &db,
@@ -932,8 +926,6 @@ void Model::printModel(const ModelData& modelData) {
   LOG_DEBUG << "Thumbnail Size: " << modelData.thumbnail.size() << " bytes"
             << LOG_ENDL;
 }
-
-std::string Model::getHiddenDirectoryPath() const { return hiddenDirPath; }
 
 bool Model::executeSQL(const std::string& sql) {
   char* errMsg = nullptr;

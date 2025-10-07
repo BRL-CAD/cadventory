@@ -40,7 +40,8 @@ void JobManager::serviceLoop() {
     if (firstRun) {
         // first run: insert all models
         for (const auto& file : gFiles) {
-            if (repo.insertModel(minimalModelData(file)))
+            std::string relPath = paths().relativeToLibrary(file);
+            if (repo.insertModel(minimalModelData(relPath)))
                 ++inserted;
 
             // progress update
@@ -56,8 +57,10 @@ void JobManager::serviceLoop() {
         // fill set for fast lookup
         std::unordered_set<std::string> scannedList;
         scannedList.reserve(gFiles.size());
-        for (const auto& file : gFiles)
-            scannedList.emplace(norm(file));
+        for (const auto& file : gFiles) {
+            std::string relPath = paths().relativeToLibrary(file);
+            scannedList.emplace(norm(relPath));
+        }
 
         // get current rows in db -> index in map for faster lookup
         const std::vector<ModelData> current = repo.getAll();
@@ -81,6 +84,7 @@ void JobManager::serviceLoop() {
                     (void)repo.setModelIncluded(current[idx].id, true);
             } else {
                 // new model; insert
+                // NOTE: path here is already relative and normalized
                 if (repo.insertModel(minimalModelData(path)))
                     ++inserted;
             }

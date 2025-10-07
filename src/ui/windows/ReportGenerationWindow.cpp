@@ -19,7 +19,7 @@ ReportGenerationWindow::ReportGenerationWindow(QWidget* parent, Model* model,
     ui->setupUi(this);
 
     // cache our model hidden directory
-    dotCadventory = model->getHiddenDirectoryPath();
+    dotCadventory = model->getHiddenPaths().dotFolder();
 
     // change placeholder text for subtitle
     // x models in report

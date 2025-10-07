@@ -66,9 +66,9 @@ std::optional<ModelData> ProcessGFiles::processGFile(const ModelData& modelData)
     }
 
     // Attempt to open the BRL-CAD database
-    const char* db_filename = modelData.file_path.c_str();
+    const std::string db_filename = model->getHiddenPaths().resolveRelToLib(modelData.file_path);
     std::unique_ptr<struct ged, decltype(&ged_close)> gedp(
-        ged_open("db", db_filename, 0),
+        ged_open("db", db_filename.c_str(), 0),
         ged_close
     );
 
@@ -431,7 +431,7 @@ bool ProcessGFiles::generateThumbnail(ModelData& modelData, const std::string& s
         return false;
     }
 
-    QString previewsFolder = QString::fromStdString(model->getHiddenDirectoryPath() + "/previews");
+    QString previewsFolder = QString::fromStdString(model->getHiddenPaths().dotFolder() + "/previews");
     QString modelShortName = QString::fromStdString(std::filesystem::path(modelData.file_path).stem().string());
     QString pngFilePath = previewsFolder + "/" + modelShortName + ".png";
     QDir().mkpath(QFileInfo(pngFilePath).absolutePath());

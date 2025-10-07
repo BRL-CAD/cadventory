@@ -24,20 +24,21 @@ public:
 
 	// already have the png generated; just update in model repo
 	if (ctx->alreadyExists) {
-	    bool success = _repo.updateThumbnailFromFile(ctx->modeldata->id, ctx->outputPath.string());
+	    bool success = _repo.updateThumbnailFromFile(ctx->modeldata->id, ctx->outputPath.generic_string());
 	    std::string success_str = success ? "updated thumbnail from png" : "failed to update thumbnail";
 	    return {success, success_str};
 	}
 
 	// get our rt executable path
 	const QString rtExe = QStringLiteral(RT_EXECUTABLE_PATH);
+	const QString fullSourcePath = QString::fromStdString(_repo.getHiddenPaths().resolveRelToLib(job.sourcePath));
 
 	// build the arguments list for rt.exe
 	QStringList arguments;
 	arguments << "-s512"	    // TODO: auto-scaling sizes?
 	//arguments << "-s2048"
-	    << "-o" << QString::fromStdString(ctx->outputPath.string())
-	    << QString::fromStdString(job.sourcePath)
+	    << "-o" << QString::fromStdString(ctx->outputPath.generic_string())
+	    << fullSourcePath
 	    << QString::fromStdString(ctx->primaryObject);
 
 	// use QProcess so we can cross-platform manage timeout and stopFlag
@@ -86,7 +87,7 @@ public:
 	    return {false, "process didn't finish successfully"};
 	}
 
-	bool success = _repo.updateThumbnailFromFile(ctx->modeldata->id, ctx->outputPath.string());
+	bool success = _repo.updateThumbnailFromFile(ctx->modeldata->id, ctx->outputPath.generic_string());
 	std::string success_str = success ? "updated thumbnail from png" : "failed to update thumbnail";
 	return {success, success_str};
 	// TODO: thumbnailFinished specific signal?

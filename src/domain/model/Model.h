@@ -2,6 +2,7 @@
 #define MODEL_H
 
 #include "SimpleFileLock.h"
+#include "HiddenDir.h"
 
 #include <sqlite3.h>
 
@@ -101,7 +102,7 @@ public:
     void refreshModelData();
     void printModel(const ModelData& modelData);
 
-    std::string getHiddenDirectoryPath() const;
+    const HiddenDir& getHiddenPaths() { return hiddenPaths; }
 
     // Update the model list from the database
     void loadModelsFromDatabase();
@@ -160,7 +161,7 @@ private:
     std::string dbPath;
     std::recursive_mutex db_mutex;
     SimpleFileLock dbFileLock;
-    std::string hiddenDirPath;
+    HiddenDir hiddenPaths;
     std::vector<ModelData> models;
 };
 
