@@ -156,7 +156,8 @@ TEST_CASE("Full Job manager+worker pipeline", "[jobService]") {
     // even though it's copies of the same .g, each should have an entry and be processed
     Model repo(rootStr);
     for (const auto& path : g_names) {
-        ModelData md = repo.getModelByFilePath(path.string());
+        std::string relPath = repo.getHiddenPaths().relativeToLibrary(path);
+        ModelData md = repo.getModelByFilePath(relPath);
         REQUIRE(md.id > 0);
         REQUIRE(md.is_processed);
     }
