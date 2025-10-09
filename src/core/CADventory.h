@@ -4,6 +4,7 @@
 #include <QObject>
 #include <memory>
 
+#include "config.h"
 #include "ILLMService.h"
 #include "AIModelTagging.h"
 #include "IJobService.h"
@@ -17,6 +18,7 @@ public:
     CADventory(int &argc, char *argv[], QObject* parent = nullptr);
     ~CADventory();
     static CADventory* instance() { return s_instance; }
+    const std::string version() { return CADVENTORY_VERSION; }
 
     void run();
 

@@ -55,8 +55,7 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
     QCoreApplication::setOrganizationName("BRL-CAD");
     QCoreApplication::setOrganizationDomain("brlcad.org");
     QCoreApplication::setApplicationName("CADventory");
-    // TODO: set our version using config.h
-    QCoreApplication::setApplicationVersion("0.2.0");
+    QCoreApplication::setApplicationVersion(QString::fromStdString(version()));
 
     // cli options
     QCommandLineParser parser;

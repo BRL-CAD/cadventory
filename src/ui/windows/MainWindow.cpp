@@ -1,5 +1,6 @@
 // MainWindow.cpp
 
+#include "CADventory.h"
 #include "SettingWindow.h"
 #include "MainWindow.h"
 #include "LibraryWindow.h"
@@ -22,6 +23,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     this->setFixedSize(QSize(876, 600));
     ui.setupUi(this);
     setWindowTitle(QString("CADventory"));
+
+    // Add our current version to label
+    QString ver = QString::fromStdString(CADventory::instance()->version());
+    ui.appNameVersionLabel->setText(QStringLiteral("CADventory v%1").arg(ver));
 
     // Adjust the + button label position
     QLayoutItem* item = ui.gridLayout->itemAt(0);
