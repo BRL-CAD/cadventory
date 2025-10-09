@@ -102,11 +102,7 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
     // choose our JobService
     if (parser.isSet("index")) {
         // use manager job service
-        this->jobService = std::make_unique<JobManager>();
-
-        // use value passed at command line if we have it; else default to home path
-        QString root = parser.isSet("index") ? parser.value("index") : QDir::homePath();
-        this->jobService->setRootPath(root.toStdString());
+        this->jobService = std::make_unique<JobManager>(parser.value("index"));
 
         // quit automatically after JobManager completes since we're just indexing
         auto Qt_cast_jobService = static_cast<QtJobServiceBase*>(jobService.get());
@@ -134,11 +130,7 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
         this->gui = false;
     } else if (parser.isSet("worker")) {
         // JobWorker
-        this->jobService = std::make_unique<JobWorker>();
-
-        // use value passed at command line if we have it; else default to home path
-        QString root = parser.isSet("worker") ? parser.value("worker") : QDir::homePath();
-        this->jobService->setRootPath(root.toStdString());
+        this->jobService = std::make_unique<JobWorker>(parser.value("worker"));
 
         // no gui
         this->gui = false;
