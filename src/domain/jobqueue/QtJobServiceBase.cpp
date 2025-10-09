@@ -12,6 +12,10 @@ QtJobServiceBase::QtJobServiceBase(QObject* parent) : QObject(parent) {
     connect(this, &QtJobServiceBase::directiveFinished, this, &QtJobServiceBase::onDirectiveFinished);
 }
 
+QtJobServiceBase::QtJobServiceBase(const QString& root, QObject* parent) : QtJobServiceBase(parent) {
+    setRootPath(root.toStdString());
+}
+
 QtJobServiceBase::~QtJobServiceBase() {
     stop();
 }

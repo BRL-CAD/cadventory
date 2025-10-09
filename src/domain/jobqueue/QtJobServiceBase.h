@@ -15,6 +15,7 @@ class QtJobServiceBase : public QObject, public IJobService
     Q_OBJECT
 public:
     explicit QtJobServiceBase(QObject* parent=nullptr);
+    explicit QtJobServiceBase(const QString& path, QObject* parent = nullptr);
     ~QtJobServiceBase() override;
 
     // IJobService interface overrides
