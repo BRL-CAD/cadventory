@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <string>
+#include <fstream>
 
 using std::filesystem::path;
 
@@ -59,6 +60,12 @@ private:
         std::filesystem::create_directories(m_dotFolder, ec);
         std::filesystem::create_directories(dataDir(), ec);
         std::filesystem::create_directories(jobsDir(), ec);
+
+        // ensure our files too
+        const path modelDbPath = m_dotFolder / CADV_MODEL_DB;
+        const path jobsDbPath = m_dotFolder / CADV_JOBS_DIR / CADV_JOBS_DB;
+        std::ofstream modelDb(modelDbPath);
+        std::ofstream jobDb(jobsDbPath);
     }
 
     static std::string norm(const path& _path) {
