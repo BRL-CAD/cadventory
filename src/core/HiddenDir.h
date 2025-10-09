@@ -64,8 +64,10 @@ private:
         // ensure our files too
         const path modelDbPath = m_dotFolder / CADV_MODEL_DB;
         const path jobsDbPath = m_dotFolder / CADV_JOBS_DIR / CADV_JOBS_DB;
-        std::ofstream modelDb(modelDbPath);
-        std::ofstream jobDb(jobsDbPath);
+        if (!std::filesystem::exists(modelDbPath, ec))
+            std::ofstream modelDb(modelDbPath);
+        if (!std::filesystem::exists(jobsDbPath, ec))
+            std::ofstream jobDb(jobsDbPath);
     }
 
     static std::string norm(const path& _path) {
