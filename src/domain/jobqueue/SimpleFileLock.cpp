@@ -59,12 +59,13 @@ bool SimpleFileLock::tryAcquire(std::string& outId) {
         0,
         NULL,
         CREATE_NEW, // should atomically cooperate with ::open
-        FILE_ATTRIBUTE_NORMAL, // test FILE_FLAG_WRITE_THROUGH to bypass disk cache
+        FILE_ATTRIBUTE_NORMAL, // TODO: test FILE_FLAG_WRITE_THROUGH to bypass disk cache
         NULL
     );
     if (handle == INVALID_HANDLE_VALUE)
         return false;
 
+    // TODO: test performance without payload
     DWORD written = 0;
     WriteFile(handle, payload.data(), (DWORD)payload.size(), &written, NULL);
     FlushFileBuffers(handle);
@@ -79,6 +80,8 @@ bool SimpleFileLock::tryAcquire(std::string& outId) {
     (void)::close(fd);
 #endif
 
+    // TODO: test performance without pid/payload validation.
+    // Overhead if atomics are working.
     // did we actually win? first line must be our id
     std::ifstream in(m_lockPath);
     std::string first;
