@@ -58,5 +58,5 @@ private:
 
     static constexpr auto CUR_JOB_TIMEOUT   = std::chrono::hours(1);   // 60 min
     static constexpr auto DONE_CLEANUP_TIME = std::chrono::hours(24*14); // 14 days
-    static constexpr int  JANITOR_BUCKETS_PER_PASS = 256;              // 256 × 256 = 65 536 buckets
+    static constexpr int  JANITOR_BUCKETS_PER_PASS = 256;              // 256 x 256 = 65536 buckets
 };

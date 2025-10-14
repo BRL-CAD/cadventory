@@ -4,7 +4,7 @@
 #include <iomanip>
 #include <cstring>    // for strlen
 
-FileJobQueue::FileJobQueue(const fs::path& libraryRoot) 
+FileJobQueue::FileJobQueue(const fs::path& libraryRoot)
     : m_libRoot(fs::canonical(libraryRoot)),
       m_jobsRoot(m_libRoot / JOBS_DIR) {
     fs::create_directories(m_jobsRoot / NEW_DIR);
@@ -13,7 +13,7 @@ FileJobQueue::FileJobQueue(const fs::path& libraryRoot)
 
     // prime done-cache from existing files
     for (auto const& p : fs::recursive_directory_iterator(m_jobsRoot / DONE_DIR,
-                         fs::directory_options::skip_permission_denied)) 
+                         fs::directory_options::skip_permission_denied))
     {
         if (!p.is_regular_file())
             continue;
@@ -68,7 +68,7 @@ bool FileJobQueue::createJob(const std::string& jobId, const std::string& jobTyp
 
 std::optional<ClaimedJob> FileJobQueue::takeJob() {
     std::vector<ClaimedJob> tmp;
-    if (takeBatch(1, tmp) == 1) 
+    if (takeBatch(1, tmp) == 1)
         return tmp.back();
 
     return std::nullopt;
@@ -80,7 +80,7 @@ std::size_t FileJobQueue::takeBatch(std::size_t maxJobs, std::vector<ClaimedJob>
 
     for (auto it = fs::recursive_directory_iterator(newRoot,
                    fs::directory_options::skip_permission_denied);
-         it != fs::recursive_directory_iterator{} && claimed < maxJobs; 
+         it != fs::recursive_directory_iterator{} && claimed < maxJobs;
          ++it)
     {
         if (!it->is_regular_file())
@@ -96,7 +96,7 @@ std::size_t FileJobQueue::takeBatch(std::size_t maxJobs, std::vector<ClaimedJob>
 
         if (orig.empty()) {
             std::ifstream ifs(job, std::ios::in | std::ios::binary);
-            if (!ifs) 
+            if (!ifs)
                 // couldnt read; move on
                 continue;
             std::string line;
@@ -113,7 +113,7 @@ std::size_t FileJobQueue::takeBatch(std::size_t maxJobs, std::vector<ClaimedJob>
         // check sibling in done/
         fs::path doneSibling = job;
         doneSibling = fs::path(doneSibling.string().replace(
-                               doneSibling.string().find(NEW_DIR), 
+                               doneSibling.string().find(NEW_DIR),
                                std::strlen(NEW_DIR), DONE_DIR));
 
         fs::path doneDir = doneSibling.parent_path();
@@ -121,7 +121,7 @@ std::size_t FileJobQueue::takeBatch(std::size_t maxJobs, std::vector<ClaimedJob>
             for (auto const& f : fs::directory_iterator(doneDir))
                 if (f.path().stem() == job.filename()) {
                     // already done
-                    fs::remove(job); 
+                    fs::remove(job);
                     continue;
                 }
         }
@@ -189,7 +189,6 @@ bool FileJobQueue::markDone(const fs::path& curJob) {
             return true;
         }
         if (!curExists && !doneExists) {
-            // odd – recycle
             std::lock_guard lk(m_mutex);
             m_jobMap.erase(curJob);
             return false;
@@ -216,7 +215,7 @@ void FileJobQueue::janitorDirs() {
     for (auto const& f : fs::recursive_directory_iterator(curRoot,
                      fs::directory_options::skip_permission_denied))
     {
-        if (!f.is_regular_file()) 
+        if (!f.is_regular_file())
             continue;
 
         auto age = now - f.last_write_time();
