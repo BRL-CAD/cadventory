@@ -58,8 +58,8 @@ bool SimpleFileLock::tryAcquire(std::string& outId) {
         GENERIC_WRITE,
         0,
         NULL,
-        CREATE_NEW,
-        FILE_ATTRIBUTE_NORMAL,
+        CREATE_NEW, // should atomically cooperate with ::open
+        FILE_ATTRIBUTE_NORMAL, // test FILE_FLAG_WRITE_THROUGH to bypass disk cache
         NULL
     );
     if (handle == INVALID_HANDLE_VALUE)
@@ -70,7 +70,7 @@ bool SimpleFileLock::tryAcquire(std::string& outId) {
     FlushFileBuffers(handle);
     CloseHandle(handle);
 #else
-    int fd = ::open(m_lockPath.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0666);
+    int fd = ::open(m_lockPath.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0666); // test O_CLOEXEC
     if (fd == -1)
         return false;
 
