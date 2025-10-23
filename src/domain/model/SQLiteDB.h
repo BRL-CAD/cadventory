@@ -8,6 +8,9 @@
 #include <sqlite3.h>
 #include "SimpleFileLock.h"
 
+typedef std::function<bool(sqlite3_stmt*)> RowCB;
+typedef std::function<void(sqlite3_stmt*)> Binder;
+
 struct SQLiteOptions {
     int           busy_timeout_ms = 5000;
     int           open_flags      = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
@@ -39,15 +42,10 @@ public:
      * 
      * NOTE: reads do NOT take a writer-lock; use exec() for anything that writes to the db
      */
-    // TODO: cleanup long 'binder' and 'row_cb' types
-    bool query(std::string_view sql,
-               const std::function<bool(sqlite3_stmt*)>& row_cb) const;
-    bool query(std::string_view sql,
-               const std::function<void(sqlite3_stmt*)>& binder,
-               const std::function<bool(sqlite3_stmt*)>& row_cb) const;
+    bool query(std::string_view sql, const RowCB& row_cb) const;
+    bool query(std::string_view sql, const Binder& binder, const RowCB& row_cb) const;
 
-    std::vector<unsigned char> readBlob(std::string_view sql,
-                                        const std::function<void(sqlite3_stmt*)>& binder) const;
+    std::vector<unsigned char> readBlob(std::string_view sql, const Binder& binder) const;
 
     /* --- writes ---
      * sql     : actual sql query
@@ -58,16 +56,10 @@ public:
      * NOTE: writes are protected with a db lock
      */
     bool exec(std::string_view sql) const;
-    bool exec(std::string_view sql,
-          const std::function<void(sqlite3_stmt*)>& binder,
-          ExecInfo* info = nullptr) const;
-    bool exec(std::string_view sql,
-              const std::function<void(sqlite3_stmt*)>& binder,
-              const std::function<bool(sqlite3_stmt*)>& row_cb,
-              ExecInfo* info = nullptr) const;
+    bool exec(std::string_view sql, const Binder& binder, ExecInfo* info = nullptr) const;
+    bool exec(std::string_view sql, const Binder& binder, const RowCB& row_cb, ExecInfo* info = nullptr) const;
 
-    bool writeBlob(std::string_view sql,
-                   const std::function<void(sqlite3_stmt*)>& binder);
+    bool writeBlob(std::string_view sql, const Binder& binder);
 
 private:
     bool ck(int rc, sqlite3_stmt* st = nullptr) const;

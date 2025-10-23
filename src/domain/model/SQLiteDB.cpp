@@ -66,14 +66,11 @@ void SQLiteDB::close() {
     }
 }
 
-bool SQLiteDB::query(std::string_view sql,
-                     const std::function<bool(sqlite3_stmt*)>& row_cb) const {
-    return query(sql, [](sqlite3_stmt*) {}, row_cb);
+bool SQLiteDB::query(std::string_view sql, const RowCB& row_cb) const {
+    return query(sql, Binder{}, row_cb);
 }
 
-bool SQLiteDB::query(std::string_view sql,
-                     const std::function<void(sqlite3_stmt*)>& binder,
-                     const std::function<bool(sqlite3_stmt*)>& row_cb) const {
+bool SQLiteDB::query(std::string_view sql, const Binder& binder, const RowCB& row_cb) const {
     if (!m_db)
         return false;
 
@@ -107,8 +104,7 @@ bool SQLiteDB::query(std::string_view sql,
 }
 
 std::vector<unsigned char>
-SQLiteDB::readBlob(std::string_view select_sql,
-                   const std::function<void(sqlite3_stmt*)>& binder) const {
+SQLiteDB::readBlob(std::string_view select_sql, const Binder& binder) const {
     std::vector<unsigned char> out;
     if (!m_db) return out;
 
@@ -146,16 +142,11 @@ bool SQLiteDB::exec(std::string_view sql) const {
     return ck(sqlite3_exec(m_db, std::string(sql).c_str(), nullptr, nullptr, nullptr));
 }
 
-bool SQLiteDB::exec(std::string_view sql,
-              const std::function<void(sqlite3_stmt*)>& binder,
-              ExecInfo* info = nullptr) const {
-    return exec(sql, binder, std::function<bool>(sqlite3_stmt*)>{}, info);
+bool SQLiteDB::exec(std::string_view sql, const Binder& binder, ExecInfo* info = nullptr) const {
+    return exec(sql, binder, RowCB{}, info);
 }
 
-bool SQLiteDB::exec(std::string_view sql,
-              const std::function<void(sqlite3_stmt*)>& binder,
-              const std::function<bool(sqlite3_stmt*)>& row_cb,
-              ExecInfo* info = nullptr) const {
+bool SQLiteDB::exec(std::string_view sql, const Binder& binder, const RowCB& row_cb, ExecInfo* info = nullptr) const {
     if (!m_db) return false;
 
     // we're going to write something - take the lock
@@ -209,8 +200,7 @@ bool SQLiteDB::exec(std::string_view sql,
     return false;   // how'd we get here?
 }
 
-bool SQLiteDB::writeBlob(std::string_view upsert_sql,
-                         const std::function<void(sqlite3_stmt*)>& binder) {
+bool SQLiteDB::writeBlob(std::string_view upsert_sql, const Binder& binder) {
     if (!m_db) return false;
 
     // take the lock
