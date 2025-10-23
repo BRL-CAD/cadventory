@@ -32,7 +32,7 @@ public:
     // can't copy; we own things
     SQLiteDB(const SQLiteDB&)		     = delete;
     SQLiteDB& operator=(const SQLiteDB&)     = delete;
-    SQLiteDB(SQLiteDb&&) noexcept	     = default;
+    SQLiteDB(SQLiteDB&&) noexcept	     = default;
     SQLiteDB& operator=(SQLiteDB&&) noexcept = default;
 
     bool isOpen() const noexcept { return m_db != nullptr; }
