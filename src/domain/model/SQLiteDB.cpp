@@ -136,11 +136,11 @@ bool SQLiteDB::exec(std::string_view sql) const {
     return ck(sqlite3_exec(m_db, std::string(sql).c_str(), nullptr, nullptr, nullptr));
 }
 
-bool SQLiteDB::exec(std::string_view sql, const Binder& binder, ExecInfo* info = nullptr) const {
+bool SQLiteDB::exec(std::string_view sql, const Binder& binder, ExecInfo* info) const {
     return exec(sql, binder, RowCB{}, info);
 }
 
-bool SQLiteDB::exec(std::string_view sql, const Binder& binder, const RowCB& row_cb, ExecInfo* info = nullptr) const {
+bool SQLiteDB::exec(std::string_view sql, const Binder& binder, const RowCB& row_cb, ExecInfo* info) const {
     if (!m_db) return false;
 
     // we're going to write something - take the lock
