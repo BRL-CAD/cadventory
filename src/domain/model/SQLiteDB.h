@@ -4,6 +4,7 @@
 #include <functional>
 #include <cstdint>
 #include <vector>
+#include <memory>
 
 #include <sqlite3.h>
 #include "SimpleFileLock.h"
