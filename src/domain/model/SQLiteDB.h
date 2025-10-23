@@ -31,8 +31,8 @@ public:
     // can't copy; we own things
     SQLiteDB(const SQLiteDB&)		     = delete;
     SQLiteDB& operator=(const SQLiteDB&)     = delete;
-    SQLiteDb(SQLiteDb&&) noexcept	     = default;
-    SQLiteDb& operator=(SQLiteDb&&) noexcept = default;
+    SQLiteDB(SQLiteDb&&) noexcept	     = default;
+    SQLiteDB& operator=(SQLiteDB&&) noexcept = default;
 
     bool isOpen() const noexcept { return m_db != nullptr; }
     void close();   // explicit close (will automatically get called by destructor)
