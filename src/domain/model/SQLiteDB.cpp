@@ -30,25 +30,19 @@ SQLiteDB::SQLiteDB(std::string db_path, SQLiteOptions opts)
 
     // ensure we have our desired PRAGMA
     bool good_pragmas = true;
-    try {
-        // foreign_keys on
-        good_pragmas = ck(sqlite3_exec(m_db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr));
+    // foreign_keys on
+    good_pragmas = ck(sqlite3_exec(m_db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr));
 
-        // journal_mode
-        std::string jMode = "PRAGMA journal_mode=" + opts.journal_mode + ";";
-        good_pragmas &&= ck(sqlite3_exec(m_db, jMode.c_str(), nullptr, nullptr, nullptr));
+    // journal_mode
+    std::string jMode = "PRAGMA journal_mode=" + opts.journal_mode + ";";
+    good_pragmas &&= ck(sqlite3_exec(m_db, jMode.c_str(), nullptr, nullptr, nullptr));
 
-        // synchronous
-        std::string synchronous = "PRAGMA synchronous=" + opts.synchronous + ";";
-        good_pragmas &&= ck(sqlite3_exec(m_db, synchronous.c_str(), nullptr, nullptr, nullptr));
+    // synchronous
+    std::string synchronous = "PRAGMA synchronous=" + opts.synchronous + ";";
+    good_pragmas &&= ck(sqlite3_exec(m_db, synchronous.c_str(), nullptr, nullptr, nullptr));
 
-        // mmap_size
-        good_pragmas &&= ck(sqlite3_exec(m_db, "PRAGMA mmap_size=0;", nullptr, nullptr, nullptr));
-    } catch (...) {
-        // if our ck() throw's; make sure we don't orphan our db connection and re-throw
-        close();
-        throw;
-    }
+    // mmap_size
+    good_pragmas &&= ck(sqlite3_exec(m_db, "PRAGMA mmap_size=0;", nullptr, nullptr, nullptr));
 
     // something went wrong in our creation, make sure we close the connection
     if (!good_pragmas)
@@ -241,8 +235,7 @@ bool SQLiteDB::ck(int rc, sqlite3_stmt* st) const {
     if (sql)
         oss << " sql=" << sql;
     oss << " msg=" << (emsg ? emsg : "");
-    throw std::runtime_error(oss.str());
+    LOG_ERR << oss.str() << LOG_ENDL;
 
-    // TODO: LOG instead of throw?
-    return false;   // unreachable if we throw
+    return false;
 }
