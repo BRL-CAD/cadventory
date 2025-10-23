@@ -91,7 +91,7 @@ bool SQLiteDB::query(std::string_view sql, const Binder& binder, const RowCB& ro
         } else {
             // error?
             bool ok = ck(rc, st);
-            sqlite3_finalize(st);   // no-op if ck() already finalized st
+            sqlite3_finalize(st);
             return ok;
         }
     }
@@ -120,7 +120,7 @@ SQLiteDB::readBlob(std::string_view select_sql, const Binder& binder) const {
         }
     }
     (void)ck(rc, st);
-    sqlite3_finalize(st);   // no-op if ck() finalizes st
+    sqlite3_finalize(st);
 
     return out;
 }
@@ -209,7 +209,7 @@ bool SQLiteDB::writeBlob(std::string_view upsert_sql, const Binder& binder) {
         binder(st);
 
     bool ok = ck(sqlite3_step(st), st);
-    sqlite3_finalize(st);   // no-op if ck() finalizes st
+    sqlite3_finalize(st);
 
     return ok;
 }
@@ -223,10 +223,6 @@ bool SQLiteDB::ck(int rc, sqlite3_stmt* st) const {
     const char* estr = sqlite3_errstr(rc);
     const char* dbf  = m_db ? sqlite3_db_filename(m_db, "main") : "";
     const char* sql  = st ? sqlite3_sql(st) : nullptr;
-
-    // good cleanup - finalize statement if we're going to throw
-    if (st)
-        sqlite3_finalize(st);
 
     std::ostringstream oss;
     oss << "sqlite error rc=" << rc << " (" << estr << ")"
