@@ -8,9 +8,9 @@
 #include <sstream>
 
 
-SQLiteDB::SQLiteDB(std::string db_path, SQLiteOptions opts)
-    : m_db_path(std::move(db_path)), m_lock(std::make_unique<SimpleFileLock>()) {
-    // TODO: normalize db_path first?
+SQLiteDB::SQLiteDB(std::string db_path, SQLiteOptions opts) : m_lock(std::make_unique<SimpleFileLock>()) {
+    // normalize db path
+    m_db_path = std::filesystem::path(db_path).generic_string();
 
     // give lock a unique path
     m_lock->setPath(m_db_path + ".lock");
