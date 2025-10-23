@@ -22,14 +22,14 @@ SQLiteDB::SQLiteDB(std::string db_path, SQLiteOptions opts) : m_lock(std::make_u
         return;
     }
 
+    bool ok = true;
     // extended result codes for better debugging
-    sqlite3_extended_result_codes(m_db, true);
+    ok = ok && (sqlite3_extended_result_codes(m_db, true) == SQLITE_OK);
 
     // busy timeout
-    sqlite3_busy_timeout(m_db, opts.busy_timeout_ms);
+    ok = ok && (sqlite3_busy_timeout(m_db, opts.busy_timeout_ms) == SQLITE_OK);
 
     // ensure we have our desired PRAGMA
-    bool ok = true;
     // foreign_keys on
     ok = ck(sqlite3_exec(m_db, "PRAGMA foreign_keys=ON;", nullptr, nullptr, nullptr));
 
@@ -45,7 +45,7 @@ SQLiteDB::SQLiteDB(std::string db_path, SQLiteOptions opts) : m_lock(std::make_u
     ok = ok && ck(sqlite3_exec(m_db, "PRAGMA mmap_size=0;", nullptr, nullptr, nullptr));
 
     // something went wrong in our creation, make sure we close the connection
-    if (!good_pragmas)
+    if (!ok)
         close();
 }
 
