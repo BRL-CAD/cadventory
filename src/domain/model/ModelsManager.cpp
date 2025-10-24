@@ -106,8 +106,13 @@ bool ModelsManager::updateModel(const ModelData& md) {
     {	// update cache
 	std::lock_guard<std::mutex> lk(m_mutex);
 	const int idx = indexOfId(md.id);
-	if (idx >= 0)
-	    m_cache[idx] = md;
+	if (idx >= 0) {
+	    // reload from repo incase name collided or something got normalized
+	    if (auto fresh = m_repo->getModelById(md.id))
+		m_cache[idx] = *fresh;
+	    else
+		m_cache[idx] = md;  // fallback
+	}
     }
 
     notify();
