@@ -21,10 +21,11 @@ void ModelsManager::refresh() {
 
 bool ModelsManager::resetDatabase() {
     bool reset = m_repo->reset();
-    if (reset)
+    if (reset) {
 	m_cache.clear();
+	notify();
+    }
 
-    notify();
     return reset;
 }
 
