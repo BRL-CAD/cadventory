@@ -13,7 +13,7 @@
 
 class ModelsManager {
 public:
-    explicit ModelsManager(const std::string& dbPath);
+    explicit ModelsManager(const std::string& libraryPath);
     virtual ~ModelsManager();
 
     // non-copyable, movable (owns unique_ptr)
