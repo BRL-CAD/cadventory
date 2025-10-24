@@ -20,7 +20,7 @@ void ModelsManager::refresh() {
 }
 
 bool ModelsManager::resetDatabase() {
-    bool reset = m_repo->reset();   // TODO
+    bool reset = m_repo->reset();
     if (reset)
 	m_cache.clear();
 
@@ -80,11 +80,11 @@ ModelData ModelsManager::getModelByFilePath(std::string_view filePath) const {
 }
 
 std::vector<unsigned char> ModelsManager::getThumbnail(int modelId) const {
-    return m_repo->getThumbnail(modelId);	// TODO
+    return m_repo->getThumbnail(modelId);
 }
 
 std::vector<std::string> ModelsManager::getTagsForModel(int modelId) const {
-    return m_repo->getTagsForModel(modelId);	// TODO
+    return m_repo->getTagsForModel(modelId);
 }
 
 std::optional<ModelData> ModelsManager::insertModel(const ModelData& md) {
@@ -100,7 +100,7 @@ std::optional<ModelData> ModelsManager::insertModel(const ModelData& md) {
 }
 
 bool ModelsManager::updateModel(const ModelData& md) {
-    if (!m_repo->updateModel(md))   // TODO
+    if (!m_repo->updateModel(md.id, md))
 	return false;
 
     {	// update cache
@@ -130,7 +130,7 @@ bool ModelsManager::deleteModel(int modelId) {
 }
 
 bool ModelsManager::setModelIncluded(int modelId, bool included) {
-    if (!m_repo->setModelIncluded(modelId, included))	// TODO
+    if (!m_repo->setModelIncluded(modelId, included))
 	return false;
 
     {
@@ -145,7 +145,7 @@ bool ModelsManager::setModelIncluded(int modelId, bool included) {
 }
 
 bool ModelsManager::setModelProcessed(int modelId, bool processed) {
-    if (!m_repo->setModelProcessed(modelId, processed))	// TODO
+    if (!m_repo->setModelProcessed(modelId, processed))
 	return false;
 
     {
@@ -161,7 +161,7 @@ bool ModelsManager::setModelProcessed(int modelId, bool processed) {
 
 bool ModelsManager::setModelSelected(int modelId, bool selected) {
     // TODO: do we want to persist selection in repo?
-    if (!m_repo->setModelSelected(modelId, selected))	// TODO
+    if (!m_repo->setModelSelected(modelId, selected))
 	return false;
 
     {
@@ -176,13 +176,13 @@ bool ModelsManager::setModelSelected(int modelId, bool selected) {
 }
 
 bool ModelsManager::setThumbnail(int modelId, const std::vector<unsigned char>& png) {
-    return m_repo->setThumbnail(modelId, png);	// TODO
+    return m_repo->setThumbnail(modelId, png);
 
     // TODO: do we need to notify here?
 }
 
 int ModelsManager::markAllNotIncluded() {
-    int affected = m_repo->markAllNotIncluded();    // TODO
+    int affected = m_repo->markAllNotIncluded();
 
     if (!affected)
 	return 0;
@@ -199,7 +199,7 @@ int ModelsManager::markAllNotIncluded() {
 
 bool ModelsManager::selectAllIncluded(bool select) {
     // TODO: should we persist selection status?
-    bool ok = m_repo->selectAllIncluded(select);    // TODO
+    bool ok = m_repo->selectAllIncluded(select);
     if (!ok)
 	return false;
 
@@ -220,7 +220,7 @@ bool ModelsManager::selectAllIncluded(bool select) {
 }
 
 bool ModelsManager::addTagToModel(int modelId, std::string_view tag) {
-    if (!m_repo->addTagToModel(modelId, tag))	// TODO
+    if (!m_repo->addTagToModel(modelId, tag))
 	return false;
 
     {
