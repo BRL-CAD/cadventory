@@ -96,7 +96,7 @@ std::optional<ModelData> ModelsManager::insertModel(const ModelData& md) {
 
     {	// update cache
 	std::lock_guard<std::mutex> lk(m_mutex);
-	m_cache.push_back(inserted);
+	m_cache.push_back(*inserted);
     }
 
     notify();
@@ -185,7 +185,7 @@ bool ModelsManager::setModelSelected(int modelId, bool selected) {
 }
 
 bool ModelsManager::setThumbnail(int modelId, const std::vector<unsigned char>& png) {
-    return m_repo->setThumbnail(modelId, png);
+    return m_repo->setModelThumbnail(modelId, png);
 
     // TODO: do we need to notify here?
 }
