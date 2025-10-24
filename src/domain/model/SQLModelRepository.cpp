@@ -62,7 +62,9 @@ bool SQLModelRepository::createTables() {
     return m_db.exec(sqlModels) &&
            m_db.exec(sqlObjects) &&
            m_db.exec(sqlTags)   &&
-           m_db.exec(sqlModelTags);
+           m_db.exec(sqlModelTags) &&
+           m_db.exec("CREATE INDEX IF NOT EXISTS idx_models_included ON models(is_included);") &&
+           m_db.exec("CREATE INDEX IF NOT EXISTS idx_models_inc_proc ON models(is_included, is_processed);");
 }
 
 bool SQLModelRepository::reset() {
