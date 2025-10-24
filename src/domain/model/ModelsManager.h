@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <optional>
 
 #include "ModelTypes.h"          // ModelData, etc.
 #include "HiddenDir.h"
@@ -41,7 +42,7 @@ public:
     std::vector<std::string>          getTagsForModel(int modelId) const;
 
     /* --- Mutations (syncs with repo, then notifies subscriber) --- */
-    ModelData                         insertModel(const ModelData& md);
+    std::optional<ModelData>	      insertModel(const ModelData& md);
     bool                              updateModel(const ModelData& md);
     bool                              deleteModel(int modelId);
 
