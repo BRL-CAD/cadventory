@@ -476,7 +476,7 @@ bool SQLModelRepository::setModelThumbnail(int modelId, const std::vector<unsign
 int SQLModelRepository::markAllNotIncluded() {
     static const char* SQL =
         "UPDATE models SET is_included = 0 WHERE is_included <> 0;";
-    SQLiteDB::ExecInfo info;
+    ExecInfo info;
     if (!m_db.exec(SQL, [&](sqlite3_stmt*){}, /*row_cb*/{}, &info)) return 0;
     return info.changes;
 }
