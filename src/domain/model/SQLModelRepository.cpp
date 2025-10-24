@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <sstream>
 #include <optional>
+#include <unordered_set>
 
 using namespace std::string_literals;
 
@@ -284,18 +285,32 @@ bool SQLModelRepository::filePathExists(std::string_view file_path) const {
 }
 
 std::string SQLModelRepository::makeUniqueShortName(std::string base) const {
-//std::string SQLModelRepository::ensureUniqueShortName(std::string base) const {
-    // TODO: optimize - get ALL names upfront instead of polling shortNameExists()
-    if (!shortNameExists(base))
-        return base;
+    static const char* SQL = R"(
+        SELECT short_name
+        FROM models
+        WHERE short_name = ?1
+           OR short_name LIKE (?1 || '_%');
+    )";
 
-    int suffix = 1, maxSuffix = 1000;
-    std::string candidate;
-    do {
-        candidate = base + "_" + std::to_string(suffix++);
-        if (suffix > maxSuffix) return {}; // give up; caller logs/handles
-    } while (shortNameExists(candidate));
-    return candidate;
+    // get all potential conflicts upfront
+    std::unordered_set<std::string> existing;
+    m_db.query(SQL,
+        [&](sqlite3_stmt* st) { sqlite3_bind_text(st, 1, base.c_str(), -1, SQLITE_TRANSIENT); },
+        [&](sqlite3_stmt* st) {
+            const unsigned char* txt = sqlite3_column_text(st, 0);
+            if (txt)
+                existing.emplace(reinterpret_cast<const char*>(txt));
+            return true;
+        });
+
+    // find a candidate
+    constexpr int maxSuffix = 1000;
+    for (int s = 0; s <= maxSuffix; ++s) {
+        std::string cand = (s == 0) ? base : (base + "_" + std::to_string(s));
+        if (existing.find(cand) == existing.end())
+            return cand;    // good name
+    }
+    return {};  // exceeded max suffix - give up
 }
 
 std::optional<ModelData> SQLModelRepository::insertModel(const ModelData& md) {
@@ -306,7 +321,6 @@ std::optional<ModelData> SQLModelRepository::insertModel(const ModelData& md) {
         return std::nullopt;
     }
 
-    //std::string short_name = ensureUniqueShortName(md.short_name);
     std::string short_name = makeUniqueShortName(md.short_name);
     if (short_name.empty()) {
         LOG_ERR << "Could not generate unique short_name for " << md.short_name << LOG_ENDL;
