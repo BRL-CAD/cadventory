@@ -37,7 +37,7 @@ bool SQLModelRepository::createTables() {
             name TEXT NOT NULL,
             parent_object_id INTEGER,
             is_selected INTEGER DEFAULT 0,
-            FOREIGN KEY(model_id) REFERENCES models(id),
+            FOREIGN KEY(model_id) REFERENCES models(id) ON DELETE CASCADE,
             FOREIGN KEY(parent_object_id) REFERENCES objects(object_id),
             UNIQUE (model_id, name)
         );
@@ -412,16 +412,9 @@ bool SQLModelRepository::updateModel(int id, const ModelData& md) {
 }
 
 bool SQLModelRepository::deleteModel(int modelId) {
-    // delete associated objects and then the model itself
-    // TODO: add delete cascade
-    bool ok = m_db.exec("DELETE FROM objects WHERE model_id = ?1;",
-                        [&](sqlite3_stmt* st) { sqlite3_bind_int(st, 1, modelId); });
-
-    if (ok)
-        ok = ok && m_db.exec("DELETE FROM models WHERE id = ?1;",
-                         [&](sqlite3_stmt* st) { sqlite3_bind_int(st, 1, modelId); });
-
-    return ok;
+    // delete should cascade delete objects + tags
+    static const char* SQL = "DELETE FROM models WHERE id = ?1;";
+    return m_db.exec(SQL, [&](sqlite3_stmt* st) { sqlite3_bind_int(st, 1, modelId); });
 }
 
 bool SQLModelRepository::setModelIncluded(int modelId, bool is_included) {
