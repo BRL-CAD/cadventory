@@ -118,7 +118,8 @@ std::vector<ModelData> SQLModelRepository::getAllModels() const {
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, file_path, library_name,
                is_selected, is_processed, is_included
-        FROM models;
+        FROM models
+        ORDER BY id;
     )";
 
     m_db.query(SQL, [&](sqlite3_stmt* st) {
@@ -183,7 +184,8 @@ std::vector<std::string> SQLModelRepository::getTagsForModel(int modelId) const 
     static const char* SQL = R"(
         SELECT name
         FROM tags t 
-        JOIN model_tags mt ON t.id = mt.tag_id WHERE mt.model_id = ?1;
+        JOIN model_tags mt ON t.id = mt.tag_id WHERE mt.model_id = ?1
+        ORDER BY name;
     )";
 
     m_db.query(SQL,
@@ -220,7 +222,8 @@ std::vector<ModelData> SQLModelRepository::getIncludedModels() const {
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, file_path, library_name,
                is_selected, is_processed, is_included
-        FROM models WHERE is_included = 1;
+        FROM models WHERE is_included = 1
+        ORDER BY id;
     )";
 
     m_db.query(SQL,
