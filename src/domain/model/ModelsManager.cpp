@@ -10,7 +10,7 @@ ModelsManager::ModelsManager(const std::string& libraryPath) : m_hiddenPaths(lib
 ModelsManager::~ModelsManager() = default;
 
 void ModelsManager::refresh() {
-    std::vector<ModelData> rows = m_repo->listAllModels();	// TODO
+    std::vector<ModelData> rows = m_repo->getAllModels();
 
     {
 	std::lock_guard<std::mutex> lk(m_mutex);
