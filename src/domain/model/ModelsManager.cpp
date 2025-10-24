@@ -2,7 +2,6 @@
 
 ModelsManager::ModelsManager(const std::string& libraryPath) : m_hiddenPaths(libraryPath) {
     m_repo = std::make_unique<SQLModelRepository>(m_hiddenPaths.modelDb());
-    m_repo->ensureSchema(); // TODO
 
     // NOTE: we intentionally don't prime the cache; let the caller call refresh() when they want to
     //	     so we keep startup light
