@@ -89,12 +89,16 @@ std::vector<std::string> ModelsManager::getTagsForModel(int modelId) const {
 }
 
 ModelData ModelsManager::insertModel(const ModelData& md) {
-    ModelData inserted = m_repo->insertModel(md);   // TODO
-    // TODO: does this fail on insert?
+    auto inserted = m_repo->insertModel(md);
 
-    {	// update cache
+    if (inserted.has_value()) {	// update cache
 	std::lock_guard<std::mutex> lk(m_mutex);
 	m_cache.push_back(inserted);
+    } else {
+	// insert failed
+	ModelData notFound;
+	notFound.id = -1;
+	return notFound;
     }
 
     notify();
