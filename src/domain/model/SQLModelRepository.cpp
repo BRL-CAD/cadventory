@@ -360,12 +360,14 @@ bool SQLModelRepository::updateModel(int id, const ModelData& md) {
         return false;
 
     // ensure unique filepath
+    std::string filePath = existing->file_path;
     if (!md.file_path.empty()) {
         std::string generic = std::filesystem::path(md.file_path).generic_string();
         if (generic != existing->file_path && filePathExists(generic)) {
             LOG_ERR << "Another model already uses file_path " << generic << LOG_ENDL;
             return false;
         }
+        filePath = std::move(generic);
     }
 
     // ensure unique shortname
@@ -392,7 +394,6 @@ bool SQLModelRepository::updateModel(int id, const ModelData& md) {
     )";
 
     return m_db.exec(SQL, [&](sqlite3_stmt* st) {
-        const std::string generic = std::filesystem::path(md.file_path).generic_string();
         sqlite3_bind_text(st, 1,  short_name.c_str(),       -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(st, 2,  md.primary_file.c_str(),  -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(st, 3,  md.override_info.c_str(), -1, SQLITE_TRANSIENT);
@@ -402,7 +403,7 @@ bool SQLModelRepository::updateModel(int id, const ModelData& md) {
         else
             sqlite3_bind_null(st, 5);
         sqlite3_bind_text(st, 6,  md.author.c_str(),        -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(st, 7,  generic.c_str(),          -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 7,  filePath.c_str(),         -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(st, 8,  md.library_name.c_str(),  -1, SQLITE_TRANSIENT);
         sqlite3_bind_int (st, 9,  md.is_selected  ? 1 : 0);
         sqlite3_bind_int (st, 10, md.is_processed ? 1 : 0);
