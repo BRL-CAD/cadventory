@@ -1,41 +1,61 @@
 #include "QtModelsService.h"
 
 #include <QMetaObject>
+#include <QPointer>
 #include <QStringList>
 #include <QString>
 
-QtModelsService::QtModelsService(const std::string& libraryPath, QObject* parent)
-    : QAbstractListModel(parent), ModelsManager(libraryPath) {
+#if CADVENTORY_WITH_GUI
+#include <QPixmap>
+#endif
 
-    // Subscribe the *same object* to its own manager changes
-    subscribe([this] {
-        if (thread() == QThread::currentThread()) {
-            beginResetModel();
-            endResetModel(); 
-        } else {
-            QMetaObject::invokeMethod(this, 
-                                      [this] { beginResetModel(); endResetModel(); }, 
-                                      Qt::QueuedConnection
-                                     );
-        }
+QtModelsService::QtModelsService(const std::string& libraryPath, QObject* parent)
+    : QAbstractListModel(parent), m_mgr(std::make_unique<ModelsManager>(libraryPath)) {
+
+    // connect manager to this service
+    QPointer<QtModelsService> self(this);
+    m_mgr->subscribe([self] {
+        if (!self)
+            return;
+
+        QMetaObject::invokeMethod(
+            self, [self] {
+                if (!self)
+                    return;
+                self->beginResetModel();
+                self->endResetModel();
+            },
+            Qt::QueuedConnection
+        );
     });
+
+    // prime
+    refresh();
 }
 
-QtModelsService::~QtModelsService() = default;
+QtModelsService::~QtModelsService() {
+    // zero out so we dont get callbacks after destruction
+    if (m_mgr)
+        m_mgr->subscribe(ModelsManager::Subscriber{});
+}
 
 int QtModelsService::rowCount(const QModelIndex& parent) const {
-    if (parent.isValid())
+    if (parent.isValid() || !m_mgr)
         return 0;
   
-    return static_cast<int>(ModelsManager::getAll_snapshot().size());
+    const auto& snap = m_mgr->getAll_snapshot();
+    return static_cast<int>(snap.size());
 }
 
 QVariant QtModelsService::data(const QModelIndex& index, int role) const {
-    if (!index.isValid() || index.row() < 0 || index.row() >= static_cast<int>(getAll_snapshot().size()))
+    if (!m_mgr)
+        return 0;
+
+    const auto& snap = m_mgr->getAll_snapshot();
+    if (!validIndex(index, static_cast<int>(snap.size())))
         return QVariant();
 
-    const ModelData& modelData = getAll_snapshot().at(static_cast<size_t>(index.row()));
-
+    const ModelData& modelData = snap[static_cast<size_t>(index.row())];
     switch (role) {
         case Qt::DisplayRole:
         case ShortNameRole:
@@ -48,12 +68,15 @@ QVariant QtModelsService::data(const QModelIndex& index, int role) const {
             return QString::fromStdString(modelData.override_info);
         case TitleRole:
             return QString::fromStdString(modelData.title);
-	case TagsRole:
+        case TagsRole:
             QStringList tagList;
-            for (auto& tag : modelData.tags)
-                tagList.append(QString::fromStdString(tag));
+            tagList.reserve(static_cast<int>(modelData.tags.size()));
+            for (const auto& tag : modelData.tags)
+                tagList.push_back(QString::fromStdString(tag));
             return tagList;
         case ThumbnailRole:
+            // TODO/FIXME: optimize - we probably dont need to load on EVERY data() call
+            return {};
     #if CADVENTORY_WITH_GUI
           if (!modelData.thumbnail.empty()) {
             QPixmap thumbnail;
@@ -82,15 +105,24 @@ QVariant QtModelsService::data(const QModelIndex& index, int role) const {
 }
 
 bool QtModelsService::setData(const QModelIndex& index, const QVariant& value, int role) {
-    if (!index.isValid() || index.row() < 0 || index.row() >= static_cast<int>(getAll_snapshot().size()))
+    if (!m_mgr)
+        return false;
+    const auto& snap = m_mgr->getAll_snapshot();
+
+    if (!validIndex(index, static_cast<int>(snap.size())))
         return false;
 
-    const auto modelData = getAll_snapshot()[index.row()];
-
-    if (role == IsSelectedRole)
-        return setModelSelected(modelData.id, value.toBool());
-    else if (role == IsIncludedRole)
-        return setModelIncluded(modelData.id, value.toBool());
+    const int id = snap[static_cast<size_t>(index.row())].id;
+    switch (role) {
+        case IsSelectedRole:
+            return m_mgr->setModelSelected(id, value.toBool());
+        case IsIncludedRole:
+            return m_mgr->setModelIncluded(id, value.toBool());
+        case IsProcessedRole:
+            return m_mgr->setModelProcessed(id, value.toBool());
+        default:
+            break;
+    }
 
     return false;
 }
@@ -119,4 +151,18 @@ QHash<int, QByteArray> QtModelsService::roleNames() const {
     roles[TagsRole] = "tags";
 
     return roles;
+}
+
+void QtModelsService::refresh() {
+    if (m_mgr)
+        m_mgr->refresh();
+}
+
+void QtModelsService::selectAllIncluded(bool v) {
+    if (m_mgr)
+        m_mgr->selectAllIncluded(v);
+}
+
+bool QtModelsService::validIndex(const QModelIndex& idx, int nRows) noexcept {
+    return idx.isValid() && !idx.parent().isValid() && idx.row() >= 0 && idx.row() < nRows;
 }
