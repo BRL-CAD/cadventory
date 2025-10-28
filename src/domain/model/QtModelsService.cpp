@@ -68,12 +68,13 @@ QVariant QtModelsService::data(const QModelIndex& index, int role) const {
             return QString::fromStdString(modelData.override_info);
         case TitleRole:
             return QString::fromStdString(modelData.title);
-        case TagsRole:
+        case TagsRole: {
             QStringList tagList;
             tagList.reserve(static_cast<int>(modelData.tags.size()));
             for (const auto& tag : modelData.tags)
                 tagList.push_back(QString::fromStdString(tag));
             return tagList;
+        }
         case ThumbnailRole:
             // TODO/FIXME: optimize - we probably dont need to load on EVERY data() call
             return {};
