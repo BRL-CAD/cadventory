@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include <mutex>
+#include <condition_variable>
 #include <random>
 
 #include "SQLiteDB.h"
