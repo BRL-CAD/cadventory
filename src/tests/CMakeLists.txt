@@ -369,3 +369,41 @@ add_cadventory_test(
         ../domain/jobqueue/SQLJobQueue.cpp
         ../domain/jobqueue/SimpleFileLock.cpp
 )
+
+add_cadventory_test(
+    NAME SQLiteDBTest
+    SOURCES
+        SQLiteDBTest.cpp
+        ../domain/model/SQLiteDB.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
+)
+
+add_cadventory_test(
+    NAME SQLModelRepositoryTest
+    SOURCES
+        SQLModelRepositoryTest.cpp
+        ../domain/model/SQLModelRepository.cpp
+        ../domain/model/SQLiteDB.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
+)
+
+add_cadventory_test(
+    NAME ModelsManagerTest
+    SOURCES
+        ModelsManagerTest.cpp
+        ../domain/model/ModelsManager.cpp
+        ../domain/model/SQLModelRepository.cpp
+        ../domain/model/SQLiteDB.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
+)
+
+add_cadventory_test(
+    NAME QtModelsServiceTest
+    SOURCES
+        QtModelsServiceTest.cpp
+        ../domain/model/QtModelsService.cpp
+        ../domain/model/ModelsManager.cpp
+        ../domain/model/SQLModelRepository.cpp
+        ../domain/model/SQLiteDB.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
+)
