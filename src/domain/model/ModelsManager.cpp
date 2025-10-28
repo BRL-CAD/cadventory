@@ -1,5 +1,7 @@
 #include "ModelsManager.h"
 
+#include <algorithm>
+
 ModelsManager::ModelsManager(const std::string& libraryPath) : m_hiddenPaths(libraryPath) {
     m_repo = std::make_unique<SQLModelRepository>(m_hiddenPaths.modelDb());
 
