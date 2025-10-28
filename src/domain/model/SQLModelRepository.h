@@ -20,7 +20,11 @@ public:
     bool reset(); // drop & recreate
 
     /* --- Reads --- */
+					// lightweight 'get all': get JUST the models in the db
     std::vector<ModelData>              getAllModels() const;
+					// heavy 'get all': get all models and foreign tables
+    std::vector<ModelData>		getAllModelsHeavy(bool with_tags = true,
+							  bool with_objects = true) const;
     std::vector<ModelData>              getIncludedModels() const;
     std::vector<ModelData>              getIncludedNotProcessedModels() const;
     std::optional<ModelData>            getModelById(int modelId) const;

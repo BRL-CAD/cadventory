@@ -115,9 +115,14 @@ ModelData SQLModelRepository::readModelRow(sqlite3_stmt* stmt) {
 }
 
 std::vector<ModelData> SQLModelRepository::getAllModels() const {
+    return getAllModelsHeavy(false, false);
+}
+
+std::vector<ModelData> SQLModelRepository::getAllModelsHeavy(bool with_tags, bool with_objects) const {
     std::vector<ModelData> out;
 
-    static const char* SQL = R"(
+    // load all models
+    static const char* SQL_MODELS = R"(
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, file_path, library_name,
                is_selected, is_processed, is_included
@@ -125,10 +130,80 @@ std::vector<ModelData> SQLModelRepository::getAllModels() const {
         ORDER BY id;
     )";
 
-    m_db.query(SQL, [&](sqlite3_stmt* st) {
-        out.push_back(readModelRow(st));
-        return true;
-    });
+    m_db.query(SQL_MODELS,
+        [&](sqlite3_stmt* st) {
+            out.push_back(readModelRow(st));
+            return true;
+        }
+    );
+
+    if (out.empty() || (!with_tags && !with_objects)) {
+        return out;
+    }
+
+    // build id -> index map for faster lookup
+    std::unordered_map<int, std::size_t> idx_by_id;
+    idx_by_id.reserve(out.size());
+    for (std::size_t i = 0; i < out.size(); ++i) {
+        idx_by_id[out[i].id] = i;
+    }
+
+    // fill in tag data
+    if (with_tags) {
+        static const char* SQL_TAGS = R"(
+            SELECT mt.model_id, t.name
+            FROM model_tags mt
+            JOIN tags t ON t.id = mt.tag_id
+            ORDER BY mt.model_id, t.name;
+        )";
+        m_db.query(SQL_TAGS,
+            [&](sqlite3_stmt* st) {
+                const int model_id = sqlite3_column_int(st, 0);
+                const unsigned char* tags_text = sqlite3_column_text(st, 1);
+                if (tags_text) {
+                    auto it = idx_by_id.find(model_id);
+                    if (it != idx_by_id.end()) {
+                        out[it->second].tags.emplace_back(reinterpret_cast<const char*>(tags_text));
+                    }
+                }
+                return true;
+            }
+        );
+    }
+
+    // fill in objects data
+    if (with_objects) {
+        static const char* SQL_OBJS = R"(
+            SELECT object_id, model_id, name, parent_object_id, is_selected
+            FROM objects
+            ORDER BY model_id, object_id;
+        )";
+        m_db.query(SQL_OBJS,
+            [&](sqlite3_stmt* st) {
+                ObjectData row;
+                row.object_id = sqlite3_column_int(st, 0);
+                row.model_id  = sqlite3_column_int(st, 1);
+
+                if (const unsigned char* name = sqlite3_column_text(st, 2)) {
+                    row.name = reinterpret_cast<const char*>(name);
+                }
+
+                if (sqlite3_column_type(st, 3) == SQLITE_NULL) {
+                    row.parent_object_id = -1;
+                } else {
+                    row.parent_object_id = sqlite3_column_int(st, 3);
+                }
+
+                row.is_selected = sqlite3_column_int(st, 4) != 0;
+
+                auto it = idx_by_id.find(row.model_id);
+                if (it != idx_by_id.end()) {
+                    out[it->second].objects.emplace_back(std::move(row));
+                }
+                return true;
+            }
+        );
+    }
 
     return out;
 }
