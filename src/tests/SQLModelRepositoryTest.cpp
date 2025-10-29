@@ -86,7 +86,7 @@ TEST_CASE("getAllModels / getModelById / getModelByFilePath (with path normaliza
     REQUIRE(x->short_name == "b");
 
     // by normalized path: query with backslashes should still match
-    auto y = repo.getModelByFilePath("dir\\a.g");
+    auto y = repo.getModelByFilePath("dir/a.g");
     REQUIRE(y);
     REQUIRE(y->id == a->id);
 }
