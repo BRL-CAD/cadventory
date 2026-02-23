@@ -169,6 +169,20 @@ add_cadventory_test(
 )
 
 add_cadventory_test(
+    NAME SimpleFileLockTest
+    SOURCES
+        SimpleFileLockTest.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
+)
+
+add_cadventory_test(
+    NAME SimpleFileLockPerfTest
+    SOURCES
+        SimpleFileLockPerfTest.cpp
+        ../domain/jobqueue/SimpleFileLock.cpp
+)
+
+add_cadventory_test(
     NAME GeometryBrowserDialogTest
     SOURCES
         GeometryBrowserDialogTest.cpp
