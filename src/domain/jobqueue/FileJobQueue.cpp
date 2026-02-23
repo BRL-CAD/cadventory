@@ -85,7 +85,7 @@ std::size_t FileJobQueue::takeBatch(std::size_t maxJobs, std::vector<ClaimedJob>
     {
         if (!it->is_regular_file())
             continue;
-        fs::path job = it->path();
+        const fs::path job = it->path();
 
         fs::path orig;
         {
