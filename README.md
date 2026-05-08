@@ -4,13 +4,18 @@
 CADventory is a 3D CAD file, categorical tagging, and associated
 metadata inventory management system.
 
-It is tested on Mac, Linux, and Windows, includes code coverage
-testing, and code security testing.
+CADventory is a Qt desktop application for indexing and organizing
+large CAD model libraries and their associated files without requiring
+a heavyweight PDM deployment.  It is aimed at workflows where
+individuals and teams want to index existing 3D model collections, and
+build useful metadata, reporting, and discovery layers on top of those
+model libraries.  It's tested on Mac, Linux, and Windows, includes
+code coverage testing, and code security testing.
 
 
 ## Installation
 
-1) Install: CMake 3.25+, SQLite3, BRLCAD, and Qt6
+1) Install: CMake 3.25+, C++17 compiler, SQLite3, BRL-CAD, and Qt6
 2) Clone/Install BRLCAD from https://github.com/BRL-CAD/brlcad.git
 3) Clone/Download CADventory from source
 4) **Install Ollama and LLaMA 3** (required for AI tagging):
@@ -20,25 +25,66 @@ testing, and code security testing.
      ollama pull llama3
      ```
 5) Compile (see .gitlab-ci.yml for variations):
-     mkdir .build
-     cd .build
-     cmake .. -DCMAKE_INSTALL_PREFIX=/path -DCMAKE_BUILD_TYPE=Release -DQt6_DIR=/path/to/qt6 -DBRLCAD_ROOT=/path/to/BRLCAD
-     cmake --build . --config Release
+
+  cmake -S . -B build-release \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DQt6_DIR=/path/to/qt6 \
+    -DBRLCAD_ROOT=/path/to/brlcad
+  cmake --build build-release
+  cmake --install build-release --prefix ./install
+
+### Configuration Notes
+
+- `CADVENTORY_WITH_GUI=ON` is the default.
+- If you want a headless-only build, configure with `-DCADVENTORY_WITH_GUI=OFF`.
 
 ## Usage
 
 Run (Mac and Linux):
-  ./bin/cadventory
+  ./install/bin/cadventory
 Run (Windows):
   .\Release\bin\cadventory.exe
 
 Click + in GUI and navigate to a folder to index.
 
-> ⚠️ AI-based tagging requires Ollama to be running and the `llama3` model to be available.
+> ⚠️ AI-based tagging requires Ollama to be running and the `llama3` model to be available.  CADventory includes an experimental AI-assisted tagging path built around Ollama and a local model such as `llama3`.
 
 To clear all settings, run with --no-gui command-line option.
 
+The currently supported command-line options are:
+
+- `--index /path/to/library`
+  Run library indexing in CLI mode.
+- `--worker /path/to/library`
+  Run the background worker in CLI mode.
+- `--reset`
+  Clear CADventory settings and reset the model database state.
+- `-j`, `--num-cpus`
+  Set the worker thread count.
+- `-t`, `--timeout`
+  Set the worker timeout value in seconds.
+- `-v`
+  Increase logging verbosity. The logger also supports stacked flags such as `-vv`.
+
+Example:
+
+```bash
+./install/bin/cadventory --index /path/to/library -v
+```
+
 ## Testing 
+
+Use a fresh build directory for test work:
+
+```bash
+cmake -S . -B build-debug \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DQt6_DIR=/path/to/qt6 \
+  -DBRLCAD_ROOT=/path/to/brlcad
+
+cmake --build build-debug
+ctest --test-dir build-debug --output-on-failure
+```
 
 1. Create build directory from root of the project (mkdir build)
 2. Navigate to build directory (cd build)
@@ -114,28 +160,22 @@ Here's an architecture diagram:
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-## 📦 Version 0.2.0 Documentation - What's new?
-
-### Features Added
-- AI Powered Model Tagging (ModelTagging.cpp/.h)
-- Tag based filtering/searching
-- Logging System for AI
-- Window compatible command execution
-- Major UI/UX Improvements
-- Major bug fixes (e.g report generation and image/thumbnail issues)
 
 ### File Structure
 ```
-/src
- ├── main.cpp                     # Entry point for GUI
- ├── ModelTagging.*              # AI tagging system using Ollama + LLaMA 3
- ├── ModelParser.*               # BRL-CAD model parser for title + object names
- ├── executeCommand.*            # Platform-specific command execution
- ├── UI files (.ui, etc)         # Qt user interface logic
+.
+├── src/                  Application source
+│   ├── core/             App bootstrap and shared utilities
+│   ├── domain/           Model, indexing, job, processing, and LLM logic
+│   ├── ui/               Qt UI code
+│   └── tests/            Automated tests
+├── doc/                  Design docs, planning notes, and wireframes
+├── scripts/              Small helper scripts
+├── cmake/                CMake modules and dependency helpers
+└── third_party/          Vendored third-party assets
 
-/tests                           # Unit tests
-/scripts                         # Automated testing tools
 ```
+
 ### Core Components
 #### ModelTagging.h/cpp
 - Checks for Ollama + model
