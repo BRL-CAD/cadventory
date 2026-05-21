@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 struct ObjectData {
     int object_id;
     int model_id;
