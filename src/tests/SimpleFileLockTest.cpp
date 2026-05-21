@@ -104,7 +104,7 @@ TEST_CASE("SimpleFileLock works after default construction + setPath", "[SimpleF
 
     SimpleFileLock lock; // default
     lock.setPath(lockPath);
-    lock.setTimeout(SimpleFileLock::millis{250});
+    lock.setAcquireTimeout(SimpleFileLock::millis{250});
 
     SimpleFileLock::Guard g(lock);
     REQUIRE(g.acquired());
