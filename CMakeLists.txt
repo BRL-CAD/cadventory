@@ -71,6 +71,9 @@ set(SRCS
   src/domain/library/Library.cpp
   src/domain/llm/OllamaCLIService.cpp
   src/domain/model/Model.cpp
+  src/domain/model/ModelsManager.cpp
+  src/domain/model/SQLModelRepository.cpp
+  src/domain/model/SQLiteDB.cpp
   src/domain/model/AIModelTagging.cpp
   src/domain/model/ModelParser.cpp
   src/domain/processing/IndexingWorker.cpp
@@ -92,6 +95,10 @@ set(HEADERS
   src/domain/llm/OllamaCLIService.h
   src/domain/model/Model.h
   src/domain/model/ModelMetadata.h
+  src/domain/model/ModelTypes.h
+  src/domain/model/ModelsManager.h
+  src/domain/model/SQLModelRepository.h
+  src/domain/model/SQLiteDB.h
   src/domain/model/ModelParser.h
   src/domain/model/AIModelTagging.h
   src/domain/processing/IndexingWorker.h
