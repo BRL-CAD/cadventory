@@ -9,8 +9,6 @@
 
 #include "ModelsManager.h"
 
-Q_DECLARE_METATYPE(ModelData)
-
 class QtModelsService final : public QAbstractListModel {
     Q_OBJECT
 public:
