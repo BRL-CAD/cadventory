@@ -87,6 +87,12 @@ set(COMMON_INCLUDE_DIRECTORIES
 
 set(BRLCAD_BUILD "${BRLCAD_ROOT}")
 
+set(REPO_MODEL_SOURCES
+    ../domain/model/ModelsManager.cpp
+    ../domain/model/SQLModelRepository.cpp
+    ../domain/model/SQLiteDB.cpp
+)
+
 
 
 # Function to add a test executable using qt_add_executable
@@ -260,6 +266,7 @@ add_cadventory_test(
         ../domain/library/Library.cpp
         ../domain/llm/OllamaCLIService.cpp
         ../domain/model/Model.cpp
+        ${REPO_MODEL_SOURCES}
         ../domain/model/AIModelTagging.cpp
         ../domain/model/ModelParser.cpp
         ../ui/windows/MainWindow.cpp
@@ -304,6 +311,7 @@ add_cadventory_test(
         ../domain/library/Library.cpp
         ../domain/llm/OllamaCLIService.cpp
         ../domain/model/Model.cpp
+        ${REPO_MODEL_SOURCES}
         ../domain/model/AIModelTagging.cpp
         ../domain/model/ModelParser.cpp
         ../ui/windows/MainWindow.cpp
@@ -342,6 +350,7 @@ add_cadventory_test(
         ../domain/processing/IDirectiveHandler.cpp
         ../domain/processing/sha1.cpp
         ../domain/model/Model.cpp
+        ${REPO_MODEL_SOURCES}
 )
 
 add_cadventory_test(
@@ -367,6 +376,7 @@ add_cadventory_test(
         ../domain/jobqueue/SimpleFileLock.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/model/Model.cpp
+        ${REPO_MODEL_SOURCES}
 )
 
 #add_cadventory_test(
