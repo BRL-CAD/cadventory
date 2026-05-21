@@ -3,48 +3,16 @@
 
 #include "SimpleFileLock.h"
 #include "HiddenDir.h"
+#include "ModelTypes.h"
 
 #include <sqlite3.h>
 
 #include <QAbstractListModel>
+#include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
-#include <string>
-#include <mutex>
-#include <sqlite3.h>
-#include <QMetaType>
-
-// ModelData structure
-struct ModelData {
-  int id;
-  std::string short_name;
-  std::string primary_file;
-  std::string override_info;
-  std::string title;
-  std::vector<char> thumbnail;
-  std::string author;
-  std::string file_path;
-  std::string library_name;
-  bool is_selected;
-  bool is_processed;
-  bool is_included;
-  std::vector<std::string> tags;
-
-  std::string is_processed_dir = "";
-};
-
-// Declare ModelData as a Qt metatype
-Q_DECLARE_METATYPE(ModelData)
-
-// ObjectData structure
-struct ObjectData {
-  int object_id;
-  int model_id;
-  std::string name;
-  int parent_object_id;
-  bool is_selected;
-};
 
 class Model : public QAbstractListModel {
   Q_OBJECT
