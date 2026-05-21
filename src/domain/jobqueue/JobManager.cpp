@@ -2,9 +2,11 @@
 #include "Logger.h"
 
 #include <filesystem>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "FilesystemIndexer.h"
-#include "Model.h"
+#include "ModelsManager.h"
 
 static std::string norm(const std::string& p) {
     // always forward slashes
@@ -27,9 +29,9 @@ void JobManager::serviceLoop() {
     std::size_t UPDATE_EVERY = 1000;            // update stats emit every n-repo inserts
     std::size_t inserted = 0, handled = 0;      // keep track for periodic stat updates
 
-    Model repo(root);
-    repo.loadModelsFromDatabase();
-    const bool firstRun = (repo.rowCount() == 0);
+    ModelsManager repo(root);
+    repo.refresh();
+    const bool firstRun = repo.getAll_snapshot().empty();
 
     // scan filesystem
     FilesystemIndexer indexer(root.c_str(), maxDepth);
@@ -66,12 +68,12 @@ void JobManager::serviceLoop() {
         const std::vector<ModelData> current = repo.getAll();
         std::unordered_map<std::string, int> pathToIdx;
         pathToIdx.reserve(current.size());
-        for (int i = 0; i < current.size(); ++i) {
+        for (int i = 0; i < static_cast<int>(current.size()); ++i) {
             pathToIdx.emplace(norm(current[i].file_path), i);
         }
 
         // un-include all current files
-        repo.markAllNotIncluded();
+        (void)repo.markAllNotIncluded();
 
         // iterate on scanned files - existing files should get is_included=true back
         //                            new files just get inserted

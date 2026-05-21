@@ -46,7 +46,7 @@ private:
 
     std::mutex                              m_mutex;
     std::unordered_set<std::string>         m_doneCache; // hashed paths
-    std::unordered_map<const fs::path,const fs::path>   m_jobMap;    // jobFile -> orig
+    std::unordered_map<std::string, fs::path>   m_jobMap;    // jobFile path string -> orig
     std::mt19937_64                         m_rng{std::random_device{}()};
     std::uint32_t                           m_lastJanitorBucketIdx{0};
 

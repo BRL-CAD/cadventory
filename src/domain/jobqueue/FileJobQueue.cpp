@@ -56,7 +56,7 @@ bool FileJobQueue::enqueueJob(const fs::path& absFilename) {
 
     {
         std::lock_guard lk(m_mutex);
-        m_jobMap[jp] = absFilename;
+        m_jobMap[jp.string()] = absFilename;
     }
     return true;
 }
@@ -90,7 +90,7 @@ std::size_t FileJobQueue::takeBatch(std::size_t maxJobs, std::vector<ClaimedJob>
         fs::path orig;
         {
             std::lock_guard lk(m_mutex);
-            auto jt = m_jobMap.find(job);
+            auto jt = m_jobMap.find(job.string());
             if (jt != m_jobMap.end()) orig = jt->second;
         }
 
@@ -140,14 +140,14 @@ std::size_t FileJobQueue::takeBatch(std::size_t maxJobs, std::vector<ClaimedJob>
             if (ec) {   
                 // lost race
                 std::lock_guard lk(m_mutex);
-                m_jobMap.erase(job);
+                m_jobMap.erase(job.string());
                 continue;
             }
 
             {
                 std::lock_guard lk(m_mutex);
-                m_jobMap.erase(job);
-                m_jobMap[dst] = orig;
+                m_jobMap.erase(job.string());
+                m_jobMap[dst.string()] = orig;
             }
 
             out.push_back({dst, orig});
@@ -161,7 +161,7 @@ bool FileJobQueue::markDone(const fs::path& curJob) {
     fs::path orig;
     {
         std::lock_guard lk(m_mutex);
-        auto jt = m_jobMap.find(curJob);
+        auto jt = m_jobMap.find(curJob.string());
         if (jt == m_jobMap.end())
             // we didn't claim this?
             return false;
@@ -185,12 +185,12 @@ bool FileJobQueue::markDone(const fs::path& curJob) {
             // someone else marked done
             std::lock_guard lk(m_mutex);
             m_doneCache.insert(hashPath(orig.string()));
-            m_jobMap.erase(curJob);
+            m_jobMap.erase(curJob.string());
             return true;
         }
         if (!curExists && !doneExists) {
             std::lock_guard lk(m_mutex);
-            m_jobMap.erase(curJob);
+            m_jobMap.erase(curJob.string());
             return false;
         }
 
@@ -200,7 +200,7 @@ bool FileJobQueue::markDone(const fs::path& curJob) {
 
     {
         std::lock_guard lk(m_mutex);
-        m_jobMap.erase(curJob);
+        m_jobMap.erase(curJob.string());
         m_doneCache.insert(hashPath(orig.string()));
     }
     return true;
