@@ -198,7 +198,7 @@ struct safeRtInternal {
     rt_db_internal intern{};
     bool ok{false};
     safeRtInternal(struct directory* dp, struct db_i* dbip) {
-        ok = (rt_db_get_internal(&intern, dp, dbip, nullptr, &rt_uniresource) >= 0);
+        ok = (rt_db_get_internal(&intern, dp, dbip, NULL) >= 0);
     }
     ~safeRtInternal() {
         if (ok) rt_db_free_internal(&intern);
