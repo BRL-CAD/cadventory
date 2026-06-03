@@ -28,7 +28,9 @@ public:
     TagsRole,
     LongNameRole,
     ModelersRole,
-    ModelTypeRole
+    ModelTypeRole,
+    OwnerOrgRole,
+    SourceOrgRole
     };
 
     explicit QtModelsListModel(const std::string& libraryPath, QObject* parent = nullptr);

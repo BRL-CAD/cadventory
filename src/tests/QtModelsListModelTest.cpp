@@ -76,6 +76,8 @@ private slots:
         QVERIFY(roles.contains(QtModelsListModel::LongNameRole));
         QVERIFY(roles.contains(QtModelsListModel::ModelersRole));
         QVERIFY(roles.contains(QtModelsListModel::ModelTypeRole));
+        QVERIFY(roles.contains(QtModelsListModel::OwnerOrgRole));
+        QVERIFY(roles.contains(QtModelsListModel::SourceOrgRole));
 
         // check a row
         QModelIndex i0 = svc.index(0, 0);
@@ -223,6 +225,8 @@ private slots:
         m.long_name = "Thumbnail Model";
         m.modelers = "Alice; Bob";
         m.model_type = "assembly";
+        m.owner_org = "OpenAI";
+        m.source_org = "BRL-CAD";
         auto r = mm.insertModel(m);
         QVERIFY(r.has_value());
 
@@ -244,6 +248,8 @@ private slots:
         QCOMPARE(svc.data(i0, QtModelsListModel::LongNameRole).toString(), QString("Thumbnail Model"));
         QCOMPARE(svc.data(i0, QtModelsListModel::ModelersRole).toString(), QString("Alice; Bob"));
         QCOMPARE(svc.data(i0, QtModelsListModel::ModelTypeRole).toString(), QString("assembly"));
+        QCOMPARE(svc.data(i0, QtModelsListModel::OwnerOrgRole).toString(), QString("OpenAI"));
+        QCOMPARE(svc.data(i0, QtModelsListModel::SourceOrgRole).toString(), QString("BRL-CAD"));
     }
 };
 

@@ -80,6 +80,8 @@ TEST_CASE("ModelsManager: update persists, refreshes cache from repo, and notifi
     patch.long_name = "Canonical New Title";
     patch.modelers = "Jane Doe";
     patch.model_type = "component";
+    patch.owner_org = "OpenAI";
+    patch.source_org = "Legacy Import";
     patch.is_included = true;
     patch.is_processed = true;
     REQUIRE(mm.updateModel(patch));
@@ -90,6 +92,8 @@ TEST_CASE("ModelsManager: update persists, refreshes cache from repo, and notifi
     REQUIRE(all[0].long_name == "Canonical New Title");
     REQUIRE(all[0].modelers == "Jane Doe");
     REQUIRE(all[0].model_type == "component");
+    REQUIRE(all[0].owner_org == "OpenAI");
+    REQUIRE(all[0].source_org == "Legacy Import");
     REQUIRE(all[0].is_included == true);
     REQUIRE(all[0].is_processed == true);
 }

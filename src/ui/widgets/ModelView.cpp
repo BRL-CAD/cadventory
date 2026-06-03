@@ -110,7 +110,8 @@ void ModelView::populateProperties() {
   ui.valuesList->clear();
   int i = 0;
   const std::vector<std::string> editableProperties = {
-      "short_name", "long_name", "modelers", "model_type"};
+      "short_name", "long_name", "modelers", "model_type",
+      "owner_org", "source_org"};
 
   // add is_included checkbox
   QListWidgetItem* isIncluded_key = new QListWidgetItem(tr("is_included"), ui.keysList);
@@ -222,7 +223,8 @@ void ModelView::onOkClicked() {
 
   // Update currModel properties
   const std::vector<std::string> editableProperties = {
-      "short_name", "long_name", "modelers", "model_type"};
+      "short_name", "long_name", "modelers", "model_type",
+      "owner_org", "source_org"};
   for (int i = 0; i < ui.valuesList->count(); ++i) {
     QListWidgetItem* keyItem = ui.keysList->item(i);
     QListWidgetItem* valueItem = ui.valuesList->item(i);

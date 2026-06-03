@@ -66,11 +66,13 @@ void populateModelFromRow(sqlite3_stmt* stmt, ModelData& model) {
   model.long_name = getTextColumn(stmt, 7);
   model.modelers = getTextColumn(stmt, 8);
   model.model_type = getTextColumn(stmt, 9);
-  model.file_path = getTextColumn(stmt, 10);
-  model.library_name = getTextColumn(stmt, 11);
-  model.is_selected = sqlite3_column_int(stmt, 12) != 0;
-  model.is_processed = sqlite3_column_int(stmt, 13) != 0;
-  model.is_included = sqlite3_column_int(stmt, 14) != 0;
+  model.owner_org = getTextColumn(stmt, 10);
+  model.source_org = getTextColumn(stmt, 11);
+  model.file_path = getTextColumn(stmt, 12);
+  model.library_name = getTextColumn(stmt, 13);
+  model.is_selected = sqlite3_column_int(stmt, 14) != 0;
+  model.is_processed = sqlite3_column_int(stmt, 15) != 0;
+  model.is_included = sqlite3_column_int(stmt, 16) != 0;
   model.syncMetadataAliases();
 }
 
@@ -139,6 +141,8 @@ bool Model::createTables() {
             long_name TEXT,
             modelers TEXT,
             model_type TEXT,
+            owner_org TEXT,
+            source_org TEXT,
             file_path TEXT UNIQUE,
             library_name TEXT,
             is_selected INTEGER DEFAULT 0,
@@ -191,6 +195,14 @@ bool Model::createTables() {
   }
   if (!tableHasColumn(db, "models", "model_type") &&
       !executeSQL("ALTER TABLE models ADD COLUMN model_type TEXT;")) {
+    return false;
+  }
+  if (!tableHasColumn(db, "models", "owner_org") &&
+      !executeSQL("ALTER TABLE models ADD COLUMN owner_org TEXT;")) {
+    return false;
+  }
+  if (!tableHasColumn(db, "models", "source_org") &&
+      !executeSQL("ALTER TABLE models ADD COLUMN source_org TEXT;")) {
     return false;
   }
 
@@ -277,8 +289,10 @@ QHash<int, QByteArray> Model::roleNames() const {
 bool Model::insertModel(const ModelData& modelData) {
   std::string sql = R"(
         INSERT INTO models
-        (short_name, primary_file, override_info, title, thumbnail, author, long_name, modelers, model_type, file_path, library_name, is_selected, is_processed, is_included)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        (short_name, primary_file, override_info, title, thumbnail, author,
+         long_name, modelers, model_type, owner_org, source_org, file_path,
+         library_name, is_selected, is_processed, is_included)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     )";
 
   sqlite3_stmt* stmt;
@@ -335,13 +349,15 @@ bool Model::insertModel(const ModelData& modelData) {
     sqlite3_bind_text(stmt, 7, long_name.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 8, modelers.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 9, modelData.model_type.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 10, generic_filepath.c_str(), -1,
+    sqlite3_bind_text(stmt, 10, modelData.owner_org.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 11, modelData.source_org.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 12, generic_filepath.c_str(), -1,
                       SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 11, modelData.library_name.c_str(), -1,
+    sqlite3_bind_text(stmt, 13, modelData.library_name.c_str(), -1,
                       SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 12, modelData.is_selected ? 1 : 0);
-    sqlite3_bind_int(stmt, 13, modelData.is_processed ? 1 : 0);
-    sqlite3_bind_int(stmt, 14, modelData.is_included ? 1 : 0);
+    sqlite3_bind_int(stmt, 14, modelData.is_selected ? 1 : 0);
+    sqlite3_bind_int(stmt, 15, modelData.is_processed ? 1 : 0);
+    sqlite3_bind_int(stmt, 16, modelData.is_included ? 1 : 0);
 
     int rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
@@ -359,6 +375,8 @@ bool Model::insertModel(const ModelData& modelData) {
     modelDataWithId.long_name = long_name;
     modelDataWithId.modelers = modelers;
     modelDataWithId.model_type = modelData.model_type;
+    modelDataWithId.owner_org = modelData.owner_org;
+    modelDataWithId.source_org = modelData.source_org;
     modelDataWithId.title = title;
     modelDataWithId.author = author;
     modelDataWithId.syncMetadataAliases();
@@ -465,6 +483,8 @@ bool Model::updateModel(int id, const ModelData& modelData) {
             long_name = ?,
             modelers = ?,
             model_type = ?,
+            owner_org = ?,
+            source_org = ?,
             file_path = ?,
             library_name = ?,
             is_selected = ?,
@@ -503,12 +523,14 @@ bool Model::updateModel(int id, const ModelData& modelData) {
     sqlite3_bind_text(stmt, 7, long_name.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 8, modelers.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 9, modelData.model_type.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 10, modelData.file_path.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 11, modelData.library_name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 12, modelData.is_selected ? 1 : 0);
-    sqlite3_bind_int(stmt, 13, modelData.is_processed ? 1 : 0);
-    sqlite3_bind_int(stmt, 14, modelData.is_included ? 1 : 0);
-    sqlite3_bind_int(stmt, 15, id);
+    sqlite3_bind_text(stmt, 10, modelData.owner_org.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 11, modelData.source_org.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 12, modelData.file_path.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 13, modelData.library_name.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 14, modelData.is_selected ? 1 : 0);
+    sqlite3_bind_int(stmt, 15, modelData.is_processed ? 1 : 0);
+    sqlite3_bind_int(stmt, 16, modelData.is_included ? 1 : 0);
+    sqlite3_bind_int(stmt, 17, id);
 
     // do the sql update
     int rc = sqlite3_step(stmt);
@@ -546,6 +568,8 @@ bool Model::updateModel(int id, const ModelData& modelData) {
             models[row].long_name = long_name;
             models[row].modelers = modelers;
             models[row].model_type = modelData.model_type;
+            models[row].owner_org = modelData.owner_org;
+            models[row].source_org = modelData.source_org;
             models[row].title = title;
             models[row].author = author;
             models[row].syncMetadataAliases();
@@ -834,8 +858,8 @@ bool Model::modelExists(int id) {
 std::optional<ModelData> Model::getModelById(int id) {
     std::string sql = R"(
         SELECT id, short_name, primary_file, override_info, title, thumbnail,
-               author, long_name, modelers, model_type, file_path, library_name,
-               is_selected, is_processed, is_included
+               author, long_name, modelers, model_type, owner_org, source_org,
+               file_path, library_name, is_selected, is_processed, is_included
         FROM models WHERE id = ?;
     )";
 
@@ -867,8 +891,8 @@ ModelData Model::getModelByFilePath(const std::string& filePath) {
   model.id = 0;
   std::string sql = R"(
         SELECT id, short_name, primary_file, override_info, title, thumbnail,
-               author, long_name, modelers, model_type, file_path, library_name,
-               is_selected, is_processed, is_included
+               author, long_name, modelers, model_type, owner_org, source_org,
+               file_path, library_name, is_selected, is_processed, is_included
         FROM models WHERE file_path = ?;
     )";
   sqlite3_stmt* stmt;
@@ -909,8 +933,8 @@ void Model::loadModelsFromDatabase() {
   std::vector<ModelData> loadedModels;
   std::string sql = R"(
         SELECT id, short_name, primary_file, override_info, title, thumbnail,
-               author, long_name, modelers, model_type, file_path, library_name,
-               is_selected, is_processed, is_included
+               author, long_name, modelers, model_type, owner_org, source_org,
+               file_path, library_name, is_selected, is_processed, is_included
         FROM models;
     )";
   sqlite3_stmt* stmt;
@@ -968,6 +992,8 @@ void Model::printModel(const ModelData& modelData) {
   LOG_DEBUG << "Long Name: " << modelData.long_name << LOG_ENDL;
   LOG_DEBUG << "Modelers: " << modelData.modelers << LOG_ENDL;
   LOG_DEBUG << "Model Type: " << modelData.model_type << LOG_ENDL;
+  LOG_DEBUG << "Owner Org: " << modelData.owner_org << LOG_ENDL;
+  LOG_DEBUG << "Source Org: " << modelData.source_org << LOG_ENDL;
   LOG_DEBUG << "File Path: " << modelData.file_path << LOG_ENDL;
   LOG_DEBUG << "Library Name: " << modelData.library_name << LOG_ENDL;
   LOG_DEBUG << "Is Selected: " << (modelData.is_selected ? "Yes" : "No")
@@ -1493,6 +1519,8 @@ std::map<std::string, std::string> Model::getPropertiesForModel(int modelId) {
   properties["long_name"] = modelData->effectiveLongName();
   properties["modelers"] = modelData->effectiveModelers();
   properties["model_type"] = modelData->model_type;
+  properties["owner_org"] = modelData->owner_org;
+  properties["source_org"] = modelData->source_org;
   properties["file_path"] = modelData->file_path;
   properties["library_name"] = modelData->library_name;
   return properties;
@@ -1504,7 +1532,7 @@ bool Model::setPropertyForModel(int modelId, const std::string& property,
   static const std::set<std::string> allowedProperties = {
       "short_name",  "primary_file", "override_info", "title",
       "author",      "file_path",    "library_name",  "long_name",
-      "modelers",    "model_type"};
+      "modelers",    "model_type",   "owner_org",     "source_org"};
 
   if (allowedProperties.find(property) == allowedProperties.end()) {
     LOG_ERR << "Invalid property name: " << property << LOG_ENDL;
@@ -1567,6 +1595,10 @@ bool Model::setPropertyForModel(int modelId, const std::string& property,
       models[row].author = value;
     } else if (property == "model_type") {
       models[row].model_type = value;
+    } else if (property == "owner_org") {
+      models[row].owner_org = value;
+    } else if (property == "source_org") {
+      models[row].source_org = value;
     }
 
     models[row].syncMetadataAliases();
@@ -1603,10 +1635,10 @@ bool Model::executePreparedStatement(sqlite3_stmt* stmt) {
 
 std::vector<ModelData> Model::getIncludedModels() {
   std::vector<ModelData> includedModels;
-  std::string sql = R"(
+    std::string sql = R"(
         SELECT id, short_name, primary_file, override_info, title, thumbnail,
-               author, long_name, modelers, model_type, file_path, library_name,
-               is_selected, is_processed, is_included
+               author, long_name, modelers, model_type, owner_org, source_org,
+               file_path, library_name, is_selected, is_processed, is_included
         FROM models
         WHERE is_included = 1;
     )";
@@ -1632,8 +1664,9 @@ std::vector<ModelData> Model::getAll() {
 
     static const char* SQL = R"(
         SELECT id, short_name, primary_file, override_info, title,
-               thumbnail, author, long_name, modelers, model_type, file_path,
-               library_name, is_selected, is_processed, is_included
+               thumbnail, author, long_name, modelers, model_type, owner_org,
+               source_org, file_path, library_name, is_selected, is_processed,
+               is_included
         FROM models;
     )";
 
@@ -1681,8 +1714,9 @@ std::vector<ModelData> Model::getIncludedNotProcessedModels() {
 
     const char* sql = R"(
         SELECT id, short_name, primary_file, override_info, title,
-               thumbnail, author, long_name, modelers, model_type, file_path,
-               library_name, is_selected, is_processed, is_included
+               thumbnail, author, long_name, modelers, model_type, owner_org,
+               source_org, file_path, library_name, is_selected, is_processed,
+               is_included
         FROM models
         WHERE is_included = 1 AND is_processed = 0;
     )";

@@ -180,6 +180,8 @@ TEST_CASE("Canonical metadata fields persist while keeping title and author comp
     seed.long_name = "Canonical Long Name";
     seed.modelers = "Ada Lovelace; Grace Hopper";
     seed.model_type = "assembly";
+    seed.owner_org = "OpenAI";
+    seed.source_org = "BRL-CAD";
 
     auto inserted = repo.insertModel(seed);
     REQUIRE(inserted);
@@ -191,6 +193,8 @@ TEST_CASE("Canonical metadata fields persist while keeping title and author comp
     REQUIRE(roundTrip->long_name == "Canonical Long Name");
     REQUIRE(roundTrip->modelers == "Ada Lovelace; Grace Hopper");
     REQUIRE(roundTrip->model_type == "assembly");
+    REQUIRE(roundTrip->owner_org == "OpenAI");
+    REQUIRE(roundTrip->source_org == "BRL-CAD");
     REQUIRE(roundTrip->title == "Canonical Long Name");
     REQUIRE(roundTrip->author == "Ada Lovelace; Grace Hopper");
 }

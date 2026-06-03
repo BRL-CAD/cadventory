@@ -34,6 +34,8 @@ struct ModelData {
     std::string long_name = "";
     std::string modelers = "";
     std::string model_type = "";
+    std::string owner_org = "";
+    std::string source_org = "";
 
     // optional data; doesn't persist
     std::string is_processed_dir = "";
