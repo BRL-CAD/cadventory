@@ -109,6 +109,8 @@ void ModelView::populateProperties() {
   ui.keysList->clear();
   ui.valuesList->clear();
   int i = 0;
+  const std::vector<std::string> editableProperties = {
+      "short_name", "long_name", "modelers", "model_type"};
 
   // add is_included checkbox
   QListWidgetItem* isIncluded_key = new QListWidgetItem(tr("is_included"), ui.keysList);
@@ -121,14 +123,20 @@ void ModelView::populateProperties() {
 
   // add the rest of the properties
   for (const auto& [key, value] : model->getPropertiesForModel(modelId)) {
-    std::vector<std::string> editableProperties = {"short_name", "author"};
-
     LOG_DEBUG << "Key: " << key << ":: Value: " << value << "  i" << i++ << LOG_ENDL;
     QListWidgetItem* keyItem = new QListWidgetItem(QString::fromStdString(key), ui.keysList);
-    QString displayValue = value.empty() ? "(unknown)" : QString::fromStdString(value);
+    const bool isEditable =
+        std::find(editableProperties.begin(), editableProperties.end(), key) !=
+        editableProperties.end();
+    QString displayValue;
+    if (value.empty() && !isEditable) {
+      displayValue = "(unknown)";
+    } else {
+      displayValue = QString::fromStdString(value);
+    }
     QListWidgetItem* valueItem = new QListWidgetItem(displayValue, ui.valuesList);
     keyItem->setFlags(keyItem->flags() & ~Qt::ItemIsEditable);
-    if (std::find(editableProperties.begin(), editableProperties.end(), key) != editableProperties.end()) {
+    if (isEditable) {
       valueItem->setFlags(valueItem->flags() | Qt::ItemIsEditable);
       valueItem->setForeground(Qt::blue);
     }
@@ -213,11 +221,18 @@ void ModelView::onOkClicked() {
   }
 
   // Update currModel properties
+  const std::vector<std::string> editableProperties = {
+      "short_name", "long_name", "modelers", "model_type"};
   for (int i = 0; i < ui.valuesList->count(); ++i) {
     QListWidgetItem* keyItem = ui.keysList->item(i);
     QListWidgetItem* valueItem = ui.valuesList->item(i);
     QString key = keyItem->text();
     QString value = valueItem->text();
+
+    if (std::find(editableProperties.begin(), editableProperties.end(),
+                  key.toStdString()) == editableProperties.end()) {
+      continue;
+    }
 
     model->setPropertyForModel(modelId, key.toStdString(), value.toStdString());
   }

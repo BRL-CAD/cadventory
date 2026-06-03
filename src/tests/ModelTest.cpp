@@ -364,6 +364,9 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
 
     // Insert a sample model into the database
     ModelData modelData = {0, "PropertyModel", "./file", "{}", "Title", {}, "Author", "/path", "Library", false, false, false, {}};
+    modelData.long_name = "Long Title";
+    modelData.modelers = "Modeler Team";
+    modelData.model_type = "Vehicle";
     REQUIRE(fixture.model->insertModel(modelData)); // Ensure model is inserted successfully
 
     auto modelId = fixture.model->getModelByFilePath(modelData.file_path).id;
@@ -372,16 +375,26 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
     SECTION("Get Properties for Model") {
         auto properties = fixture.model->getPropertiesForModel(modelId);
         REQUIRE(properties["short_name"] == "PropertyModel");
-        REQUIRE(properties["title"] == "Title");
-        REQUIRE(properties["author"] == "Author");
+        REQUIRE(properties["long_name"] == "Long Title");
+        REQUIRE(properties["modelers"] == "Modeler Team");
+        REQUIRE(properties["model_type"] == "Vehicle");
     }
 
     // Verify that a property can be updated successfully
     SECTION("Set a Property for Model") {
-        REQUIRE(fixture.model->setPropertyForModel(modelId, "title", "New Title") == true); // Update the "title" property
+        REQUIRE(fixture.model->setPropertyForModel(modelId, "long_name", "New Title") == true);
+        REQUIRE(fixture.model->setPropertyForModel(modelId, "modelers", "New Modelers") == true);
+        REQUIRE(fixture.model->setPropertyForModel(modelId, "model_type", "Assembly") == true);
 
         auto updatedProperties = fixture.model->getPropertiesForModel(modelId);
-        REQUIRE(updatedProperties["title"] == "New Title"); // Confirm updated property
+        REQUIRE(updatedProperties["long_name"] == "New Title");
+        REQUIRE(updatedProperties["modelers"] == "New Modelers");
+        REQUIRE(updatedProperties["model_type"] == "Assembly");
+
+        auto updatedModel = fixture.model->getModelById(modelId);
+        REQUIRE(updatedModel.has_value());
+        REQUIRE(updatedModel->title == "New Title");
+        REQUIRE(updatedModel->author == "New Modelers");
     }
 
     // Verify that attempting to set an invalid property fails
