@@ -64,7 +64,9 @@ void ReportGenerationWindow::onGenerateReportButtonClicked() {
         pg["file_path"]  = QString::fromStdString(md.file_path);
         pg["primary"]    = QString::fromStdString(objs.front().name);
         pg["short_name"] = QString::fromStdString(md.short_name);
-        // TODO: do we care about anything else for the report/job - it's easier & faster to stuff it here
+        pg["long_name"]  = QString::fromStdString(md.effectiveLongName());
+        pg["modelers"]   = QString::fromStdString(md.effectiveModelers());
+        pg["model_type"] = QString::fromStdString(md.model_type);
         pages.append(pg);
     }
     if (pages.isEmpty()) {

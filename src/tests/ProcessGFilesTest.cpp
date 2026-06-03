@@ -96,6 +96,8 @@ TEST_CASE("ProcessGFiles - File Processing", "[ProcessGFiles]") {
         // Verify that the title is extracted
         REQUIRE(!repoData.title.empty());
         REQUIRE(!retData.title.empty());
+        REQUIRE(repoData.long_name == repoData.title);
+        REQUIRE(retData.long_name == retData.title);
     }
 }
 

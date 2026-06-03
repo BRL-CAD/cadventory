@@ -167,7 +167,14 @@ private:
   }
 
 #if CADVENTORY_WITH_GUI
-  struct Page { std::string file_path, primary, short_name; };
+  struct Page {
+    std::string file_path;
+    std::string primary;
+    std::string short_name;
+    std::string long_name;
+    std::string modelers;
+    std::string model_type;
+  };
   inline HandlerResult handleReport(const JobDescriptor& job, std::atomic<bool>& stopFlag) {
     /*
      * expecting sourcePath json:
@@ -181,7 +188,14 @@ private:
      *   "logo2": "...",
      *   "output_dir": "...",
      *   "pages": [
-     *     { "file_path": "/abs/to/file.g", "primary": "obj", "short_name": "file.g" },
+     *     {
+     *       "file_path": "/abs/to/file.g",
+     *       "primary": "obj",
+     *       "short_name": "file.g",
+     *       "long_name": "Canonical Long Name",
+     *       "modelers": "Ada Lovelace; Grace Hopper",
+     *       "model_type": "assembly"
+     *     },
      *     ...
      *   ]
      * }
@@ -199,8 +213,13 @@ private:
       Page pg{
         o.value("file_path").toString().toStdString(),
         o.value("primary").toString().toStdString(),
-        o.value("short_name").toString().toStdString()
+        o.value("short_name").toString().toStdString(),
+        o.value("long_name").toString().toStdString(),
+        o.value("modelers").toString().toStdString(),
+        o.value("model_type").toString().toStdString()
       };
+      if (pg.long_name.empty())
+        pg.long_name = pg.short_name;
       if (!pg.file_path.empty() && !pg.primary.empty())
         pages.push_back(std::move(pg));
     }
@@ -453,7 +472,7 @@ inline int tableOfContentsPage(QPdfWriter& pdf,
 
     painter.drawRect(headPage); painter.drawText(headPage, Qt::AlignCenter,  "Page");
     painter.drawRect(headName); painter.drawText(headName, Qt::AlignCenter,  "Short Name");
-    painter.drawRect(headLong); painter.drawText(headLong, Qt::AlignCenter,  "Title/Long Name");
+    painter.drawRect(headLong); painter.drawText(headLong, Qt::AlignCenter,  "Long Name");
 
     // Footer page number for TOC page itself
     drawPageNumber(painter, pdf, coverPageNumber + 1 + printed);
@@ -475,7 +494,7 @@ inline int tableOfContentsPage(QPdfWriter& pdf,
       const int contentPage = contentStartPage + rowIndex;
       painter.drawText(cellPage, Qt::AlignCenter, QString::number(contentPage));
       painter.drawText(cellName, Qt::AlignCenter, QString::fromStdString(page.short_name));
-      painter.drawText(cellLong, Qt::AlignCenter, QString::fromStdString(page.file_path));
+      painter.drawText(cellLong, Qt::AlignCenter, QString::fromStdString(page.long_name));
 
       y += rowH;
     }
