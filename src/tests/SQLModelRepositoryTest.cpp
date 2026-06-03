@@ -185,6 +185,8 @@ TEST_CASE("Canonical metadata fields persist while keeping title and author comp
     seed.classification = "unclassified";
     seed.owner_org = "OpenAI";
     seed.source_org = "BRL-CAD";
+    seed.created_at_fs = "2026-06-03T12:00:00Z";
+    seed.modified_at_fs = "2026-06-03T13:30:00Z";
 
     auto inserted = repo.insertModel(seed);
     REQUIRE(inserted);
@@ -201,6 +203,8 @@ TEST_CASE("Canonical metadata fields persist while keeping title and author comp
     REQUIRE(roundTrip->classification == "unclassified");
     REQUIRE(roundTrip->owner_org == "OpenAI");
     REQUIRE(roundTrip->source_org == "BRL-CAD");
+    REQUIRE(roundTrip->created_at_fs == "2026-06-03T12:00:00Z");
+    REQUIRE(roundTrip->modified_at_fs == "2026-06-03T13:30:00Z");
     REQUIRE(roundTrip->title == "Canonical Long Name");
     REQUIRE(roundTrip->author == "Ada Lovelace; Grace Hopper");
 }

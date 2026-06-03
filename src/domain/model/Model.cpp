@@ -3,11 +3,15 @@
 #include <QBuffer>
 #include <QDebug>
 #include <QVariant>
+#include <chrono>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <set>
 #include <sstream>
+#include <sys/stat.h>
 
 #include "Logger.h"
 
@@ -73,9 +77,11 @@ void populateModelFromRow(sqlite3_stmt* stmt, ModelData& model) {
   model.source_org = getTextColumn(stmt, 14);
   model.file_path = getTextColumn(stmt, 15);
   model.library_name = getTextColumn(stmt, 16);
-  model.is_selected = sqlite3_column_int(stmt, 17) != 0;
-  model.is_processed = sqlite3_column_int(stmt, 18) != 0;
-  model.is_included = sqlite3_column_int(stmt, 19) != 0;
+  model.created_at_fs = getTextColumn(stmt, 17);
+  model.modified_at_fs = getTextColumn(stmt, 18);
+  model.is_selected = sqlite3_column_int(stmt, 19) != 0;
+  model.is_processed = sqlite3_column_int(stmt, 20) != 0;
+  model.is_included = sqlite3_column_int(stmt, 21) != 0;
   model.syncMetadataAliases();
 }
 
@@ -93,6 +99,67 @@ std::string compatibilityTitle(const ModelData& modelData) {
 
 std::string compatibilityAuthor(const ModelData& modelData) {
   return modelData.author.empty() ? canonicalModelers(modelData) : modelData.author;
+}
+
+std::string formatTimestampUtc(std::time_t value) {
+  if (value <= 0) {
+    return {};
+  }
+
+  std::tm tm{};
+#if defined(_WIN32)
+  gmtime_s(&tm, &value);
+#else
+  gmtime_r(&value, &tm);
+#endif
+
+  std::ostringstream oss;
+  oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+  return oss.str();
+}
+
+std::optional<std::time_t> modifiedTimeForPath(const fs::path& filePath) {
+  std::error_code ec;
+  const auto ft = fs::last_write_time(filePath, ec);
+  if (ec) {
+    return std::nullopt;
+  }
+
+  const auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+      ft - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+  return std::chrono::system_clock::to_time_t(sctp);
+}
+
+std::optional<std::time_t> createdTimeForPath(const fs::path& filePath) {
+#if defined(__APPLE__)
+  struct stat st{};
+  if (::stat(filePath.c_str(), &st) == 0 && st.st_birthtimespec.tv_sec > 0) {
+    return static_cast<std::time_t>(st.st_birthtimespec.tv_sec);
+  }
+#endif
+  return std::nullopt;
+}
+
+struct DerivedFsTimestamps {
+  std::string created_at_fs;
+  std::string modified_at_fs;
+};
+
+DerivedFsTimestamps deriveFsTimestamps(const ModelData& modelData,
+                                       const fs::path& filePath) {
+  DerivedFsTimestamps out{modelData.created_at_fs, modelData.modified_at_fs};
+
+  if (const auto modified = modifiedTimeForPath(filePath)) {
+    out.modified_at_fs = formatTimestampUtc(*modified);
+  }
+
+  if (const auto created = createdTimeForPath(filePath)) {
+    out.created_at_fs = formatTimestampUtc(*created);
+  } else if (out.created_at_fs.empty()) {
+    out.created_at_fs = out.modified_at_fs;
+  }
+
+  return out;
 }
 
 }  // namespace
@@ -151,6 +218,8 @@ bool Model::createTables() {
             source_org TEXT,
             file_path TEXT UNIQUE,
             library_name TEXT,
+            created_at_fs TEXT,
+            modified_at_fs TEXT,
             is_selected INTEGER DEFAULT 0,
             is_processed INTEGER DEFAULT 0,
             is_included INTEGER DEFAULT 0
@@ -221,6 +290,14 @@ bool Model::createTables() {
   }
   if (!tableHasColumn(db, "models", "source_org") &&
       !executeSQL("ALTER TABLE models ADD COLUMN source_org TEXT;")) {
+    return false;
+  }
+  if (!tableHasColumn(db, "models", "created_at_fs") &&
+      !executeSQL("ALTER TABLE models ADD COLUMN created_at_fs TEXT;")) {
+    return false;
+  }
+  if (!tableHasColumn(db, "models", "modified_at_fs") &&
+      !executeSQL("ALTER TABLE models ADD COLUMN modified_at_fs TEXT;")) {
     return false;
   }
 
@@ -309,9 +386,9 @@ bool Model::insertModel(const ModelData& modelData) {
         INSERT INTO models
         (short_name, primary_file, override_info, title, thumbnail, author,
          long_name, modelers, model_type, aliases, suitability, classification,
-         owner_org, source_org, file_path, library_name, is_selected,
-         is_processed, is_included)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+         owner_org, source_org, file_path, library_name, created_at_fs,
+         modified_at_fs, is_selected, is_processed, is_included)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     )";
 
   sqlite3_stmt* stmt;
@@ -347,6 +424,7 @@ bool Model::insertModel(const ModelData& modelData) {
     const std::string modelers = canonicalModelers(modelData);
     const std::string title = compatibilityTitle(modelData);
     const std::string author = compatibilityAuthor(modelData);
+    const auto fsTimes = deriveFsTimestamps(modelData, fs::path(modelData.file_path));
 
     // Bind parameters
     sqlite3_bind_text(stmt, 1, short_name.c_str(), -1, SQLITE_TRANSIENT);
@@ -377,9 +455,11 @@ bool Model::insertModel(const ModelData& modelData) {
                       SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 16, modelData.library_name.c_str(), -1,
                       SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmt, 17, modelData.is_selected ? 1 : 0);
-    sqlite3_bind_int(stmt, 18, modelData.is_processed ? 1 : 0);
-    sqlite3_bind_int(stmt, 19, modelData.is_included ? 1 : 0);
+    sqlite3_bind_text(stmt, 17, fsTimes.created_at_fs.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 18, fsTimes.modified_at_fs.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 19, modelData.is_selected ? 1 : 0);
+    sqlite3_bind_int(stmt, 20, modelData.is_processed ? 1 : 0);
+    sqlite3_bind_int(stmt, 21, modelData.is_included ? 1 : 0);
 
     int rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
@@ -402,6 +482,8 @@ bool Model::insertModel(const ModelData& modelData) {
     modelDataWithId.classification = modelData.classification;
     modelDataWithId.owner_org = modelData.owner_org;
     modelDataWithId.source_org = modelData.source_org;
+    modelDataWithId.created_at_fs = fsTimes.created_at_fs;
+    modelDataWithId.modified_at_fs = fsTimes.modified_at_fs;
     modelDataWithId.title = title;
     modelDataWithId.author = author;
     modelDataWithId.syncMetadataAliases();
@@ -515,6 +597,8 @@ bool Model::updateModel(int id, const ModelData& modelData) {
             source_org = ?,
             file_path = ?,
             library_name = ?,
+            created_at_fs = ?,
+            modified_at_fs = ?,
             is_selected = ?,
             is_processed = ?,
             is_included = ?
@@ -532,6 +616,7 @@ bool Model::updateModel(int id, const ModelData& modelData) {
     const std::string modelers = canonicalModelers(modelData);
     const std::string title = compatibilityTitle(modelData);
     const std::string author = compatibilityAuthor(modelData);
+    const auto fsTimes = deriveFsTimestamps(modelData, fs::path(modelData.file_path));
 
     // bind values
     sqlite3_bind_text(stmt, 1, short_name.c_str(), -1, SQLITE_STATIC);
@@ -558,10 +643,12 @@ bool Model::updateModel(int id, const ModelData& modelData) {
     sqlite3_bind_text(stmt, 14, modelData.source_org.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 15, modelData.file_path.c_str(), -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 16, modelData.library_name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 17, modelData.is_selected ? 1 : 0);
-    sqlite3_bind_int(stmt, 18, modelData.is_processed ? 1 : 0);
-    sqlite3_bind_int(stmt, 19, modelData.is_included ? 1 : 0);
-    sqlite3_bind_int(stmt, 20, id);
+    sqlite3_bind_text(stmt, 17, fsTimes.created_at_fs.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 18, fsTimes.modified_at_fs.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 19, modelData.is_selected ? 1 : 0);
+    sqlite3_bind_int(stmt, 20, modelData.is_processed ? 1 : 0);
+    sqlite3_bind_int(stmt, 21, modelData.is_included ? 1 : 0);
+    sqlite3_bind_int(stmt, 22, id);
 
     // do the sql update
     int rc = sqlite3_step(stmt);
@@ -604,6 +691,8 @@ bool Model::updateModel(int id, const ModelData& modelData) {
             models[row].classification = modelData.classification;
             models[row].owner_org = modelData.owner_org;
             models[row].source_org = modelData.source_org;
+            models[row].created_at_fs = fsTimes.created_at_fs;
+            models[row].modified_at_fs = fsTimes.modified_at_fs;
             models[row].title = title;
             models[row].author = author;
             models[row].syncMetadataAliases();
@@ -894,6 +983,7 @@ std::optional<ModelData> Model::getModelById(int id) {
         SELECT id, short_name, primary_file, override_info, title, thumbnail,
                author, long_name, modelers, model_type, aliases, suitability,
                classification, owner_org, source_org, file_path, library_name,
+               created_at_fs, modified_at_fs,
                is_selected, is_processed, is_included
         FROM models WHERE id = ?;
     )";
@@ -928,6 +1018,7 @@ ModelData Model::getModelByFilePath(const std::string& filePath) {
         SELECT id, short_name, primary_file, override_info, title, thumbnail,
                author, long_name, modelers, model_type, aliases, suitability,
                classification, owner_org, source_org, file_path, library_name,
+               created_at_fs, modified_at_fs,
                is_selected, is_processed, is_included
         FROM models WHERE file_path = ?;
     )";
@@ -971,6 +1062,7 @@ void Model::loadModelsFromDatabase() {
         SELECT id, short_name, primary_file, override_info, title, thumbnail,
                author, long_name, modelers, model_type, aliases, suitability,
                classification, owner_org, source_org, file_path, library_name,
+               created_at_fs, modified_at_fs,
                is_selected, is_processed, is_included
         FROM models;
     )";
@@ -1033,6 +1125,8 @@ void Model::printModel(const ModelData& modelData) {
   LOG_DEBUG << "Classification: " << modelData.classification << LOG_ENDL;
   LOG_DEBUG << "Owner Org: " << modelData.owner_org << LOG_ENDL;
   LOG_DEBUG << "Source Org: " << modelData.source_org << LOG_ENDL;
+  LOG_DEBUG << "Created At FS: " << modelData.created_at_fs << LOG_ENDL;
+  LOG_DEBUG << "Modified At FS: " << modelData.modified_at_fs << LOG_ENDL;
   LOG_DEBUG << "File Path: " << modelData.file_path << LOG_ENDL;
   LOG_DEBUG << "Library Name: " << modelData.library_name << LOG_ENDL;
   LOG_DEBUG << "Is Selected: " << (modelData.is_selected ? "Yes" : "No")
@@ -1565,6 +1659,8 @@ std::map<std::string, std::string> Model::getPropertiesForModel(int modelId) {
   properties["source_org"] = modelData->source_org;
   properties["file_path"] = modelData->file_path;
   properties["library_name"] = modelData->library_name;
+  properties["created_at_fs"] = modelData->created_at_fs;
+  properties["modified_at_fs"] = modelData->modified_at_fs;
   return properties;
 }
 
@@ -1688,6 +1784,7 @@ std::vector<ModelData> Model::getIncludedModels() {
         SELECT id, short_name, primary_file, override_info, title, thumbnail,
                author, long_name, modelers, model_type, aliases, suitability,
                classification, owner_org, source_org, file_path, library_name,
+               created_at_fs, modified_at_fs,
                is_selected, is_processed, is_included
         FROM models
         WHERE is_included = 1;
@@ -1716,7 +1813,7 @@ std::vector<ModelData> Model::getAll() {
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, long_name, modelers, model_type, aliases,
                suitability, classification, owner_org, source_org, file_path,
-               library_name, is_selected,
+               library_name, created_at_fs, modified_at_fs, is_selected,
                is_processed, is_included
         FROM models;
     )";
@@ -1767,7 +1864,7 @@ std::vector<ModelData> Model::getIncludedNotProcessedModels() {
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, long_name, modelers, model_type, aliases,
                suitability, classification, owner_org, source_org, file_path,
-               library_name, is_selected,
+               library_name, created_at_fs, modified_at_fs, is_selected,
                is_processed, is_included
         FROM models
         WHERE is_included = 1 AND is_processed = 0;

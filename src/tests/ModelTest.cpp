@@ -372,6 +372,8 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
     modelData.classification = "Unclassified";
     modelData.owner_org = "OpenAI";
     modelData.source_org = "BRL-CAD";
+    modelData.created_at_fs = "2026-06-03T07:00:00Z";
+    modelData.modified_at_fs = "2026-06-03T08:30:00Z";
     REQUIRE(fixture.model->insertModel(modelData)); // Ensure model is inserted successfully
 
     auto modelId = fixture.model->getModelByFilePath(modelData.file_path).id;
@@ -388,6 +390,8 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
         REQUIRE(properties["classification"] == "Unclassified");
         REQUIRE(properties["owner_org"] == "OpenAI");
         REQUIRE(properties["source_org"] == "BRL-CAD");
+        REQUIRE(properties["created_at_fs"] == "2026-06-03T07:00:00Z");
+        REQUIRE(properties["modified_at_fs"] == "2026-06-03T08:30:00Z");
     }
 
     // Verify that a property can be updated successfully
@@ -420,6 +424,8 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
         REQUIRE(updatedModel->classification == "Public Release");
         REQUIRE(updatedModel->owner_org == "NIST");
         REQUIRE(updatedModel->source_org == "Imported Archive");
+        REQUIRE(updatedModel->created_at_fs == "2026-06-03T07:00:00Z");
+        REQUIRE(updatedModel->modified_at_fs == "2026-06-03T08:30:00Z");
     }
 
     // Verify that attempting to set an invalid property fails

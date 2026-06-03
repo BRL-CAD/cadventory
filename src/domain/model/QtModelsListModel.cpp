@@ -107,6 +107,10 @@ QVariant QtModelsListModel::data(const QModelIndex& index, int role) const {
             return QString::fromStdString(modelData.owner_org);
         case SourceOrgRole:
             return QString::fromStdString(modelData.source_org);
+        case CreatedAtFsRole:
+            return QString::fromStdString(modelData.created_at_fs);
+        case ModifiedAtFsRole:
+            return QString::fromStdString(modelData.modified_at_fs);
         case IsSelectedRole:
             return modelData.is_selected;
         case IsIncludedRole:
@@ -171,6 +175,8 @@ QHash<int, QByteArray> QtModelsListModel::roleNames() const {
     roles[ClassificationRole] = "classification";
     roles[OwnerOrgRole] = "owner_org";
     roles[SourceOrgRole] = "source_org";
+    roles[CreatedAtFsRole] = "created_at_fs";
+    roles[ModifiedAtFsRole] = "modified_at_fs";
 
     return roles;
 }

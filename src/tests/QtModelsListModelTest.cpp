@@ -81,6 +81,8 @@ private slots:
         QVERIFY(roles.contains(QtModelsListModel::ClassificationRole));
         QVERIFY(roles.contains(QtModelsListModel::OwnerOrgRole));
         QVERIFY(roles.contains(QtModelsListModel::SourceOrgRole));
+        QVERIFY(roles.contains(QtModelsListModel::CreatedAtFsRole));
+        QVERIFY(roles.contains(QtModelsListModel::ModifiedAtFsRole));
 
         // check a row
         QModelIndex i0 = svc.index(0, 0);
@@ -233,6 +235,8 @@ private slots:
         m.classification = "public";
         m.owner_org = "OpenAI";
         m.source_org = "BRL-CAD";
+        m.created_at_fs = "2026-06-03T08:00:00Z";
+        m.modified_at_fs = "2026-06-03T11:30:00Z";
         auto r = mm.insertModel(m);
         QVERIFY(r.has_value());
 
@@ -259,6 +263,8 @@ private slots:
         QCOMPARE(svc.data(i0, QtModelsListModel::ClassificationRole).toString(), QString("public"));
         QCOMPARE(svc.data(i0, QtModelsListModel::OwnerOrgRole).toString(), QString("OpenAI"));
         QCOMPARE(svc.data(i0, QtModelsListModel::SourceOrgRole).toString(), QString("BRL-CAD"));
+        QCOMPARE(svc.data(i0, QtModelsListModel::CreatedAtFsRole).toString(), QString("2026-06-03T08:00:00Z"));
+        QCOMPARE(svc.data(i0, QtModelsListModel::ModifiedAtFsRole).toString(), QString("2026-06-03T11:30:00Z"));
     }
 };
 

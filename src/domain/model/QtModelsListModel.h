@@ -33,7 +33,9 @@ public:
     SuitabilityRole,
     ClassificationRole,
     OwnerOrgRole,
-    SourceOrgRole
+    SourceOrgRole,
+    CreatedAtFsRole,
+    ModifiedAtFsRole
     };
 
     explicit QtModelsListModel(const std::string& libraryPath, QObject* parent = nullptr);

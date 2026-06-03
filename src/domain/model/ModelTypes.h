@@ -39,6 +39,8 @@ struct ModelData {
     std::string classification = "";
     std::string owner_org = "";
     std::string source_org = "";
+    std::string created_at_fs = "";
+    std::string modified_at_fs = "";
 
     // optional data; doesn't persist
     std::string is_processed_dir = "";

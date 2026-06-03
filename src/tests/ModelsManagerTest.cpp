@@ -85,6 +85,8 @@ TEST_CASE("ModelsManager: update persists, refreshes cache from repo, and notifi
     patch.classification = "public";
     patch.owner_org = "OpenAI";
     patch.source_org = "Legacy Import";
+    patch.created_at_fs = "2026-06-03T09:15:00Z";
+    patch.modified_at_fs = "2026-06-03T10:45:00Z";
     patch.is_included = true;
     patch.is_processed = true;
     REQUIRE(mm.updateModel(patch));
@@ -100,6 +102,8 @@ TEST_CASE("ModelsManager: update persists, refreshes cache from repo, and notifi
     REQUIRE(all[0].classification == "public");
     REQUIRE(all[0].owner_org == "OpenAI");
     REQUIRE(all[0].source_org == "Legacy Import");
+    REQUIRE(all[0].created_at_fs == "2026-06-03T09:15:00Z");
+    REQUIRE(all[0].modified_at_fs == "2026-06-03T10:45:00Z");
     REQUIRE(all[0].is_included == true);
     REQUIRE(all[0].is_processed == true);
 }
