@@ -35,6 +35,8 @@ struct ModelData {
     std::string modelers = "";
     std::string model_type = "";
     std::string aliases = "";
+    std::string suitability = "";
+    std::string classification = "";
     std::string owner_org = "";
     std::string source_org = "";
 

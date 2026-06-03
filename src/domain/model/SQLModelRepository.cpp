@@ -64,6 +64,8 @@ bool SQLModelRepository::createTables() {
             modelers TEXT,
             model_type TEXT,
             aliases TEXT,
+            suitability TEXT,
+            classification TEXT,
             owner_org TEXT,
             source_org TEXT,
             file_path TEXT UNIQUE,
@@ -128,6 +130,14 @@ bool SQLModelRepository::createTables() {
         !m_db.exec("ALTER TABLE models ADD COLUMN aliases TEXT;")) {
         return false;
     }
+    if (!tableHasColumn(m_db, "models", "suitability") &&
+        !m_db.exec("ALTER TABLE models ADD COLUMN suitability TEXT;")) {
+        return false;
+    }
+    if (!tableHasColumn(m_db, "models", "classification") &&
+        !m_db.exec("ALTER TABLE models ADD COLUMN classification TEXT;")) {
+        return false;
+    }
     if (!tableHasColumn(m_db, "models", "owner_org") &&
         !m_db.exec("ALTER TABLE models ADD COLUMN owner_org TEXT;")) {
         return false;
@@ -181,13 +191,15 @@ ModelData SQLModelRepository::readModelRow(sqlite3_stmt* stmt) {
     md.modelers      = getText(8);
     md.model_type    = getText(9);
     md.aliases       = getText(10);
-    md.owner_org     = getText(11);
-    md.source_org    = getText(12);
-    md.file_path     = getText(13);
-    md.library_name  = getText(14);
-    md.is_selected   = sqlite3_column_int(stmt, 15) != 0;
-    md.is_processed  = sqlite3_column_int(stmt, 16) != 0;
-    md.is_included   = sqlite3_column_int(stmt, 17) != 0;
+    md.suitability   = getText(11);
+    md.classification= getText(12);
+    md.owner_org     = getText(13);
+    md.source_org    = getText(14);
+    md.file_path     = getText(15);
+    md.library_name  = getText(16);
+    md.is_selected   = sqlite3_column_int(stmt, 17) != 0;
+    md.is_processed  = sqlite3_column_int(stmt, 18) != 0;
+    md.is_included   = sqlite3_column_int(stmt, 19) != 0;
     md.syncMetadataAliases();
 
     return md;
@@ -204,7 +216,7 @@ std::vector<ModelData> SQLModelRepository::getAllModelsHeavy(bool with_tags, boo
     static const char* SQL_MODELS = R"(
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, long_name, modelers, model_type, aliases,
-               owner_org, source_org, file_path, library_name,
+               suitability, classification, owner_org, source_org, file_path, library_name,
                is_selected, is_processed, is_included
         FROM models
         ORDER BY id;
@@ -294,7 +306,7 @@ std::optional<ModelData> SQLModelRepository::getModelById(int id) const {
     static const char* SQL = R"(
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, long_name, modelers, model_type, aliases,
-               owner_org, source_org, file_path, library_name,
+               suitability, classification, owner_org, source_org, file_path, library_name,
                is_selected, is_processed, is_included
         FROM models WHERE id = ?1;
     )";
@@ -317,7 +329,7 @@ std::optional<ModelData> SQLModelRepository::getModelByFilePath(std::string file
     static const char* SQL = R"(
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, long_name, modelers, model_type, aliases,
-               owner_org, source_org, file_path, library_name,
+               suitability, classification, owner_org, source_org, file_path, library_name,
                is_selected, is_processed, is_included
         FROM models WHERE file_path = ?1;
     )";
@@ -381,7 +393,7 @@ std::vector<ModelData> SQLModelRepository::getIncludedModels() const {
     static const char* SQL = R"(
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, long_name, modelers, model_type, aliases,
-               owner_org, source_org, file_path, library_name,
+               suitability, classification, owner_org, source_org, file_path, library_name,
                is_selected, is_processed, is_included
         FROM models WHERE is_included = 1
         ORDER BY id;
@@ -401,7 +413,7 @@ std::vector<ModelData> SQLModelRepository::getIncludedNotProcessedModels() const
     static const char* SQL = R"(
         SELECT id, short_name, primary_file, override_info, title,
                thumbnail, author, long_name, modelers, model_type, aliases,
-               owner_org, source_org, file_path, library_name,
+               suitability, classification, owner_org, source_org, file_path, library_name,
                is_selected, is_processed, is_included
         FROM models
         WHERE is_included = 1 AND is_processed = 0;
@@ -494,9 +506,9 @@ std::optional<ModelData> SQLModelRepository::insertModel(const ModelData& md) {
     static const char* SQL = R"(
         INSERT INTO models
           (short_name, primary_file, override_info, title, thumbnail, author,
-           long_name, modelers, model_type, aliases, owner_org, source_org,
-           file_path, library_name, is_selected, is_processed, is_included)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+           long_name, modelers, model_type, aliases, suitability, classification,
+           owner_org, source_org, file_path, library_name, is_selected, is_processed, is_included)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
         RETURNING id;
     )";
 
@@ -517,13 +529,15 @@ std::optional<ModelData> SQLModelRepository::insertModel(const ModelData& md) {
             sqlite3_bind_text(st, 8,  modelers.c_str(),         -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(st, 9,  md.model_type.c_str(),    -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(st, 10, md.aliases.c_str(),       -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(st, 11, md.owner_org.c_str(),     -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(st, 12, md.source_org.c_str(),    -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(st, 13, generic_filepath.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(st, 14, md.library_name.c_str(),  -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int (st, 15, md.is_selected  ? 1 : 0);
-            sqlite3_bind_int (st, 16, md.is_processed ? 1 : 0);
-            sqlite3_bind_int (st, 17, md.is_included  ? 1 : 0);
+            sqlite3_bind_text(st, 11, md.suitability.c_str(),   -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 12, md.classification.c_str(),-1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 13, md.owner_org.c_str(),     -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 14, md.source_org.c_str(),    -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 15, generic_filepath.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 16, md.library_name.c_str(),  -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int (st, 17, md.is_selected  ? 1 : 0);
+            sqlite3_bind_int (st, 18, md.is_processed ? 1 : 0);
+            sqlite3_bind_int (st, 19, md.is_included  ? 1 : 0);
         },
         [&](sqlite3_stmt* st) {
             new_id = sqlite3_column_int(st, 0);
@@ -544,6 +558,8 @@ std::optional<ModelData> SQLModelRepository::insertModel(const ModelData& md) {
     out.long_name  = long_name;
     out.modelers   = modelers;
     out.aliases    = md.aliases;
+    out.suitability = md.suitability;
+    out.classification = md.classification;
     out.owner_org  = md.owner_org;
     out.source_org = md.source_org;
 
@@ -591,14 +607,16 @@ bool SQLModelRepository::updateModel(int id, const ModelData& md) {
             modelers     = ?8,
             model_type   = ?9,
             aliases      = ?10,
-            owner_org    = ?11,
-            source_org   = ?12,
-            file_path    = ?13,
-            library_name = ?14,
-            is_selected  = ?15,
-            is_processed = ?16,
-            is_included  = ?17
-        WHERE id = ?18;
+            suitability  = ?11,
+            classification = ?12,
+            owner_org    = ?13,
+            source_org   = ?14,
+            file_path    = ?15,
+            library_name = ?16,
+            is_selected  = ?17,
+            is_processed = ?18,
+            is_included  = ?19
+        WHERE id = ?20;
     )";
 
     return m_db.exec(SQL, [&](sqlite3_stmt* st) {
@@ -615,14 +633,16 @@ bool SQLModelRepository::updateModel(int id, const ModelData& md) {
         sqlite3_bind_text(st, 8,  modelers.c_str(),         -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(st, 9,  md.model_type.c_str(),    -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(st, 10, md.aliases.c_str(),       -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(st, 11, md.owner_org.c_str(),     -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(st, 12, md.source_org.c_str(),    -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(st, 13, filePath.c_str(),         -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(st, 14, md.library_name.c_str(),  -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int (st, 15, md.is_selected  ? 1 : 0);
-        sqlite3_bind_int (st, 16, md.is_processed ? 1 : 0);
-        sqlite3_bind_int (st, 17, md.is_included  ? 1 : 0);
-        sqlite3_bind_int (st, 18, id);
+        sqlite3_bind_text(st, 11, md.suitability.c_str(),   -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 12, md.classification.c_str(),-1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 13, md.owner_org.c_str(),     -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 14, md.source_org.c_str(),    -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 15, filePath.c_str(),         -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 16, md.library_name.c_str(),  -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int (st, 17, md.is_selected  ? 1 : 0);
+        sqlite3_bind_int (st, 18, md.is_processed ? 1 : 0);
+        sqlite3_bind_int (st, 19, md.is_included  ? 1 : 0);
+        sqlite3_bind_int (st, 20, id);
     });
 }
 

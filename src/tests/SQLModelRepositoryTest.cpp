@@ -181,6 +181,8 @@ TEST_CASE("Canonical metadata fields persist while keeping title and author comp
     seed.modelers = "Ada Lovelace; Grace Hopper";
     seed.model_type = "assembly";
     seed.aliases = "Legacy Name\nArchive Reference";
+    seed.suitability = "reference";
+    seed.classification = "unclassified";
     seed.owner_org = "OpenAI";
     seed.source_org = "BRL-CAD";
 
@@ -195,6 +197,8 @@ TEST_CASE("Canonical metadata fields persist while keeping title and author comp
     REQUIRE(roundTrip->modelers == "Ada Lovelace; Grace Hopper");
     REQUIRE(roundTrip->model_type == "assembly");
     REQUIRE(roundTrip->aliases == "Legacy Name\nArchive Reference");
+    REQUIRE(roundTrip->suitability == "reference");
+    REQUIRE(roundTrip->classification == "unclassified");
     REQUIRE(roundTrip->owner_org == "OpenAI");
     REQUIRE(roundTrip->source_org == "BRL-CAD");
     REQUIRE(roundTrip->title == "Canonical Long Name");

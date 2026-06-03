@@ -30,6 +30,8 @@ public:
     ModelersRole,
     ModelTypeRole,
     AliasesRole,
+    SuitabilityRole,
+    ClassificationRole,
     OwnerOrgRole,
     SourceOrgRole
     };

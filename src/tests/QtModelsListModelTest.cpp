@@ -77,6 +77,8 @@ private slots:
         QVERIFY(roles.contains(QtModelsListModel::ModelersRole));
         QVERIFY(roles.contains(QtModelsListModel::ModelTypeRole));
         QVERIFY(roles.contains(QtModelsListModel::AliasesRole));
+        QVERIFY(roles.contains(QtModelsListModel::SuitabilityRole));
+        QVERIFY(roles.contains(QtModelsListModel::ClassificationRole));
         QVERIFY(roles.contains(QtModelsListModel::OwnerOrgRole));
         QVERIFY(roles.contains(QtModelsListModel::SourceOrgRole));
 
@@ -227,6 +229,8 @@ private slots:
         m.modelers = "Alice; Bob";
         m.model_type = "assembly";
         m.aliases = "Model T\nLegacy T";
+        m.suitability = "reference";
+        m.classification = "public";
         m.owner_org = "OpenAI";
         m.source_org = "BRL-CAD";
         auto r = mm.insertModel(m);
@@ -251,6 +255,8 @@ private slots:
         QCOMPARE(svc.data(i0, QtModelsListModel::ModelersRole).toString(), QString("Alice; Bob"));
         QCOMPARE(svc.data(i0, QtModelsListModel::ModelTypeRole).toString(), QString("assembly"));
         QCOMPARE(svc.data(i0, QtModelsListModel::AliasesRole).toString(), QString("Model T\nLegacy T"));
+        QCOMPARE(svc.data(i0, QtModelsListModel::SuitabilityRole).toString(), QString("reference"));
+        QCOMPARE(svc.data(i0, QtModelsListModel::ClassificationRole).toString(), QString("public"));
         QCOMPARE(svc.data(i0, QtModelsListModel::OwnerOrgRole).toString(), QString("OpenAI"));
         QCOMPARE(svc.data(i0, QtModelsListModel::SourceOrgRole).toString(), QString("BRL-CAD"));
     }

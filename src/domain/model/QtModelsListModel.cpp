@@ -99,6 +99,10 @@ QVariant QtModelsListModel::data(const QModelIndex& index, int role) const {
             return QString::fromStdString(modelData.model_type);
         case AliasesRole:
             return QString::fromStdString(modelData.aliases);
+        case SuitabilityRole:
+            return QString::fromStdString(modelData.suitability);
+        case ClassificationRole:
+            return QString::fromStdString(modelData.classification);
         case OwnerOrgRole:
             return QString::fromStdString(modelData.owner_org);
         case SourceOrgRole:
@@ -163,6 +167,8 @@ QHash<int, QByteArray> QtModelsListModel::roleNames() const {
     roles[ModelersRole] = "modelers";
     roles[ModelTypeRole] = "model_type";
     roles[AliasesRole] = "aliases";
+    roles[SuitabilityRole] = "suitability";
+    roles[ClassificationRole] = "classification";
     roles[OwnerOrgRole] = "owner_org";
     roles[SourceOrgRole] = "source_org";
 
