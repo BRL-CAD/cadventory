@@ -172,6 +172,29 @@ TEST_CASE("updateModel: preserves file_path and short_name when omitted, enforce
     REQUIRE(a3->short_name.rfind("nameB_", 0) == 0);
 }
 
+TEST_CASE("Canonical metadata fields persist while keeping title and author compatibility") {
+    TempDirFixture fix("repo_metadata_fields");
+    SQLModelRepository repo(dbpath(fix));
+
+    ModelData seed = baseModel("metadata.g", "metadata");
+    seed.long_name = "Canonical Long Name";
+    seed.modelers = "Ada Lovelace; Grace Hopper";
+    seed.model_type = "assembly";
+
+    auto inserted = repo.insertModel(seed);
+    REQUIRE(inserted);
+    REQUIRE(inserted->title == "Canonical Long Name");
+    REQUIRE(inserted->author == "Ada Lovelace; Grace Hopper");
+
+    auto roundTrip = repo.getModelById(inserted->id);
+    REQUIRE(roundTrip);
+    REQUIRE(roundTrip->long_name == "Canonical Long Name");
+    REQUIRE(roundTrip->modelers == "Ada Lovelace; Grace Hopper");
+    REQUIRE(roundTrip->model_type == "assembly");
+    REQUIRE(roundTrip->title == "Canonical Long Name");
+    REQUIRE(roundTrip->author == "Ada Lovelace; Grace Hopper");
+}
+
 TEST_CASE("Thumbnail set/get roundtrip and clearing") {
     TempDirFixture fix("repo_thumb");
     SQLModelRepository repo(dbpath(fix));

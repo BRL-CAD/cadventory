@@ -67,7 +67,8 @@ QVariant QtModelsListModel::data(const QModelIndex& index, int role) const {
         case OverrideInfoRole:
             return QString::fromStdString(modelData.override_info);
         case TitleRole:
-            return QString::fromStdString(modelData.title);
+        case LongNameRole:
+            return QString::fromStdString(modelData.effectiveLongName());
         case TagsRole: {
             QStringList tagList;
             tagList.reserve(static_cast<int>(modelData.tags.size()));
@@ -88,11 +89,14 @@ QVariant QtModelsListModel::data(const QModelIndex& index, int role) const {
 #endif
             return QVariant();
         case AuthorRole:
-            return QString::fromStdString(modelData.author);
+        case ModelersRole:
+            return QString::fromStdString(modelData.effectiveModelers());
         case FilePathRole:
             return QString::fromStdString(modelData.file_path);
         case LibraryNameRole:
             return QString::fromStdString(modelData.library_name);
+        case ModelTypeRole:
+            return QString::fromStdString(modelData.model_type);
         case IsSelectedRole:
             return modelData.is_selected;
         case IsIncludedRole:
@@ -149,6 +153,9 @@ QHash<int, QByteArray> QtModelsListModel::roleNames() const {
     roles[IsProcessedRole] = "is_processed";
     roles[IsIncludedRole] = "is_included";
     roles[TagsRole] = "tags";
+    roles[LongNameRole] = "long_name";
+    roles[ModelersRole] = "modelers";
+    roles[ModelTypeRole] = "model_type";
 
     return roles;
 }

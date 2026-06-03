@@ -184,11 +184,13 @@ void ProcessGFiles::extractTitle(ModelData& modelData, struct ged* gedp)
     if (gedp && gedp->dbip && gedp->dbip->dbi_title) {
         std::string title(gedp->dbip->dbi_title);
         modelData.title = title;
+        modelData.long_name = title;
         LOG_DEBUG << "[ProcessGFiles::extractTitle] Database title found:" 
                   << QString::fromStdString(title) << LOG_ENDL;
     }
     else {
         modelData.title = "(Untitled)";
+        modelData.long_name = modelData.title;
         LOG_DEBUG << "[ProcessGFiles::extractTitle] No title found in database. Using '(Untitled)'" << LOG_ENDL;
     }
 }

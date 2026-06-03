@@ -73,6 +73,9 @@ private slots:
         QVERIFY(roles.contains(QtModelsListModel::IdRole));
         QVERIFY(roles.contains(QtModelsListModel::ShortNameRole));
         QVERIFY(roles.contains(QtModelsListModel::TagsRole));
+        QVERIFY(roles.contains(QtModelsListModel::LongNameRole));
+        QVERIFY(roles.contains(QtModelsListModel::ModelersRole));
+        QVERIFY(roles.contains(QtModelsListModel::ModelTypeRole));
 
         // check a row
         QModelIndex i0 = svc.index(0, 0);
@@ -217,6 +220,9 @@ private slots:
         QVERIFY(mm.resetDatabase());
         ModelData m = makeModel("t.g", "t");
         m.thumbnail.assign(kPng1x1, kPng1x1 + sizeof(kPng1x1));
+        m.long_name = "Thumbnail Model";
+        m.modelers = "Alice; Bob";
+        m.model_type = "assembly";
         auto r = mm.insertModel(m);
         QVERIFY(r.has_value());
 
@@ -234,6 +240,10 @@ private slots:
         // Headless builds return invalid/empty QVariant for ThumbnailRole
         QVERIFY(!v.isValid() || v.isNull());
 #endif
+
+        QCOMPARE(svc.data(i0, QtModelsListModel::LongNameRole).toString(), QString("Thumbnail Model"));
+        QCOMPARE(svc.data(i0, QtModelsListModel::ModelersRole).toString(), QString("Alice; Bob"));
+        QCOMPARE(svc.data(i0, QtModelsListModel::ModelTypeRole).toString(), QString("assembly"));
     }
 };
 

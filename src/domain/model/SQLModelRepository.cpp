@@ -8,6 +8,43 @@
 
 using namespace std::string_literals;
 
+namespace {
+
+bool tableHasColumn(SQLiteDB& db, const char* tableName, const char* columnName) {
+    const std::string sql = "PRAGMA table_info(" + std::string(tableName) + ");";
+    bool found = false;
+    db.query(sql,
+        [&](sqlite3_stmt* st) {
+            const unsigned char* txt = sqlite3_column_text(st, 1);
+            if (!txt)
+                return true;
+
+            found = std::string(reinterpret_cast<const char*>(txt)) == columnName;
+            return !found;
+        });
+    return found;
+}
+
+std::string canonicalLongName(const ModelData& md) {
+    return md.long_name.empty() ? md.title : md.long_name;
+}
+
+std::string canonicalModelers(const ModelData& md) {
+    return md.modelers.empty() ? md.author : md.modelers;
+}
+
+std::string compatibilityTitle(const ModelData& md) {
+    const std::string longName = canonicalLongName(md);
+    return md.title.empty() ? longName : md.title;
+}
+
+std::string compatibilityAuthor(const ModelData& md) {
+    const std::string modelers = canonicalModelers(md);
+    return md.author.empty() ? modelers : md.author;
+}
+
+}
+
 SQLModelRepository::SQLModelRepository(std::string dbPath) : m_db(dbPath) {
     (void)createTables();
 }
@@ -23,6 +60,9 @@ bool SQLModelRepository::createTables() {
             title TEXT,
             thumbnail BLOB,
             author TEXT,
+            long_name TEXT,
+            modelers TEXT,
+            model_type TEXT,
             file_path TEXT UNIQUE,
             library_name TEXT,
             is_selected INTEGER DEFAULT 0,
@@ -60,12 +100,29 @@ bool SQLModelRepository::createTables() {
         );
     )";
 
-    return m_db.exec(sqlModels) &&
-           m_db.exec(sqlObjects) &&
-           m_db.exec(sqlTags)   &&
-           m_db.exec(sqlModelTags) &&
-           m_db.exec("CREATE INDEX IF NOT EXISTS idx_models_included ON models(is_included);") &&
-           m_db.exec("CREATE INDEX IF NOT EXISTS idx_models_inc_proc ON models(is_included, is_processed);");
+    const bool ok = m_db.exec(sqlModels) &&
+                    m_db.exec(sqlObjects) &&
+                    m_db.exec(sqlTags)   &&
+                    m_db.exec(sqlModelTags) &&
+                    m_db.exec("CREATE INDEX IF NOT EXISTS idx_models_included ON models(is_included);") &&
+                    m_db.exec("CREATE INDEX IF NOT EXISTS idx_models_inc_proc ON models(is_included, is_processed);");
+    if (!ok)
+        return false;
+
+    if (!tableHasColumn(m_db, "models", "long_name") &&
+        !m_db.exec("ALTER TABLE models ADD COLUMN long_name TEXT;")) {
+        return false;
+    }
+    if (!tableHasColumn(m_db, "models", "modelers") &&
+        !m_db.exec("ALTER TABLE models ADD COLUMN modelers TEXT;")) {
+        return false;
+    }
+    if (!tableHasColumn(m_db, "models", "model_type") &&
+        !m_db.exec("ALTER TABLE models ADD COLUMN model_type TEXT;")) {
+        return false;
+    }
+
+    return true;
 }
 
 bool SQLModelRepository::reset() {
@@ -105,11 +162,15 @@ ModelData SQLModelRepository::readModelRow(sqlite3_stmt* stmt) {
     }
 
     md.author        = getText(6);
-    md.file_path     = getText(7);
-    md.library_name  = getText(8);
-    md.is_selected   = sqlite3_column_int(stmt, 9)  != 0;
-    md.is_processed  = sqlite3_column_int(stmt, 10) != 0;
-    md.is_included   = sqlite3_column_int(stmt, 11) != 0;
+    md.long_name     = getText(7);
+    md.modelers      = getText(8);
+    md.model_type    = getText(9);
+    md.file_path     = getText(10);
+    md.library_name  = getText(11);
+    md.is_selected   = sqlite3_column_int(stmt, 12) != 0;
+    md.is_processed  = sqlite3_column_int(stmt, 13) != 0;
+    md.is_included   = sqlite3_column_int(stmt, 14) != 0;
+    md.syncMetadataAliases();
 
     return md;
 }
@@ -124,8 +185,8 @@ std::vector<ModelData> SQLModelRepository::getAllModelsHeavy(bool with_tags, boo
     // load all models
     static const char* SQL_MODELS = R"(
         SELECT id, short_name, primary_file, override_info, title,
-               thumbnail, author, file_path, library_name,
-               is_selected, is_processed, is_included
+               thumbnail, author, long_name, modelers, model_type,
+               file_path, library_name, is_selected, is_processed, is_included
         FROM models
         ORDER BY id;
     )";
@@ -213,8 +274,8 @@ std::optional<ModelData> SQLModelRepository::getModelById(int id) const {
 
     static const char* SQL = R"(
         SELECT id, short_name, primary_file, override_info, title,
-               thumbnail, author, file_path, library_name,
-               is_selected, is_processed, is_included
+               thumbnail, author, long_name, modelers, model_type,
+               file_path, library_name, is_selected, is_processed, is_included
         FROM models WHERE id = ?1;
     )";
 
@@ -235,8 +296,8 @@ std::optional<ModelData> SQLModelRepository::getModelByFilePath(std::string file
 
     static const char* SQL = R"(
         SELECT id, short_name, primary_file, override_info, title,
-               thumbnail, author, file_path, library_name,
-               is_selected, is_processed, is_included
+               thumbnail, author, long_name, modelers, model_type,
+               file_path, library_name, is_selected, is_processed, is_included
         FROM models WHERE file_path = ?1;
     )";
 
@@ -298,8 +359,8 @@ std::vector<ModelData> SQLModelRepository::getIncludedModels() const {
     std::vector<ModelData> out;
     static const char* SQL = R"(
         SELECT id, short_name, primary_file, override_info, title,
-               thumbnail, author, file_path, library_name,
-               is_selected, is_processed, is_included
+               thumbnail, author, long_name, modelers, model_type,
+               file_path, library_name, is_selected, is_processed, is_included
         FROM models WHERE is_included = 1
         ORDER BY id;
     )";
@@ -317,8 +378,8 @@ std::vector<ModelData> SQLModelRepository::getIncludedNotProcessedModels() const
     std::vector<ModelData> out;
     static const char* SQL = R"(
         SELECT id, short_name, primary_file, override_info, title,
-               thumbnail, author, file_path, library_name,
-               is_selected, is_processed, is_included
+               thumbnail, author, long_name, modelers, model_type,
+               file_path, library_name, is_selected, is_processed, is_included
         FROM models
         WHERE is_included = 1 AND is_processed = 0;
     )";
@@ -402,11 +463,17 @@ std::optional<ModelData> SQLModelRepository::insertModel(const ModelData& md) {
         return std::nullopt;
     }
 
+    const std::string title = compatibilityTitle(md);
+    const std::string author = compatibilityAuthor(md);
+    const std::string long_name = canonicalLongName(md);
+    const std::string modelers = canonicalModelers(md);
+
     static const char* SQL = R"(
         INSERT INTO models
           (short_name, primary_file, override_info, title, thumbnail, author,
-           file_path, library_name, is_selected, is_processed, is_included)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+           long_name, modelers, model_type, file_path, library_name,
+           is_selected, is_processed, is_included)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
         RETURNING id;
     )";
 
@@ -417,17 +484,20 @@ std::optional<ModelData> SQLModelRepository::insertModel(const ModelData& md) {
             sqlite3_bind_text(st, 1,  short_name.c_str(),       -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(st, 2,  md.primary_file.c_str(),  -1, SQLITE_TRANSIENT);
             sqlite3_bind_text(st, 3,  md.override_info.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(st, 4,  md.title.c_str(),         -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 4,  title.c_str(),            -1, SQLITE_TRANSIENT);
             if (!md.thumbnail.empty())
                 sqlite3_bind_blob(st, 5, md.thumbnail.data(), (int)md.thumbnail.size(), SQLITE_TRANSIENT);
             else
                 sqlite3_bind_null(st, 5);
-            sqlite3_bind_text(st, 6,  md.author.c_str(),        -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(st, 7,  generic_filepath.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(st, 8,  md.library_name.c_str(),  -1, SQLITE_TRANSIENT);
-            sqlite3_bind_int (st, 9,  md.is_selected  ? 1 : 0);
-            sqlite3_bind_int (st, 10, md.is_processed ? 1 : 0);
-            sqlite3_bind_int (st, 11, md.is_included  ? 1 : 0);
+            sqlite3_bind_text(st, 6,  author.c_str(),           -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 7,  long_name.c_str(),        -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 8,  modelers.c_str(),         -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 9,  md.model_type.c_str(),    -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 10, generic_filepath.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(st, 11, md.library_name.c_str(),  -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int (st, 12, md.is_selected  ? 1 : 0);
+            sqlite3_bind_int (st, 13, md.is_processed ? 1 : 0);
+            sqlite3_bind_int (st, 14, md.is_included  ? 1 : 0);
         },
         [&](sqlite3_stmt* st) {
             new_id = sqlite3_column_int(st, 0);
@@ -443,6 +513,10 @@ std::optional<ModelData> SQLModelRepository::insertModel(const ModelData& md) {
     out.id         = new_id;
     out.file_path  = generic_filepath;
     out.short_name = short_name;
+    out.title      = title;
+    out.author     = author;
+    out.long_name  = long_name;
+    out.modelers   = modelers;
 
     return out;
 }
@@ -471,6 +545,11 @@ bool SQLModelRepository::updateModel(int id, const ModelData& md) {
         if (short_name.empty()) return false;
     }
 
+    const std::string title = compatibilityTitle(md);
+    const std::string author = compatibilityAuthor(md);
+    const std::string long_name = canonicalLongName(md);
+    const std::string modelers = canonicalModelers(md);
+
     static const char* SQL = R"(
         UPDATE models SET
             short_name   = ?1,
@@ -479,30 +558,36 @@ bool SQLModelRepository::updateModel(int id, const ModelData& md) {
             title        = ?4,
             thumbnail    = ?5,
             author       = ?6,
-            file_path    = ?7,
-            library_name = ?8,
-            is_selected  = ?9,
-            is_processed = ?10,
-            is_included  = ?11
-        WHERE id = ?12;
+            long_name    = ?7,
+            modelers     = ?8,
+            model_type   = ?9,
+            file_path    = ?10,
+            library_name = ?11,
+            is_selected  = ?12,
+            is_processed = ?13,
+            is_included  = ?14
+        WHERE id = ?15;
     )";
 
     return m_db.exec(SQL, [&](sqlite3_stmt* st) {
         sqlite3_bind_text(st, 1,  short_name.c_str(),       -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(st, 2,  md.primary_file.c_str(),  -1, SQLITE_TRANSIENT);
         sqlite3_bind_text(st, 3,  md.override_info.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(st, 4,  md.title.c_str(),         -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 4,  title.c_str(),            -1, SQLITE_TRANSIENT);
         if (!md.thumbnail.empty())
             sqlite3_bind_blob(st, 5, md.thumbnail.data(), (int)md.thumbnail.size(), SQLITE_TRANSIENT);
         else
             sqlite3_bind_null(st, 5);
-        sqlite3_bind_text(st, 6,  md.author.c_str(),        -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(st, 7,  filePath.c_str(),         -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(st, 8,  md.library_name.c_str(),  -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int (st, 9,  md.is_selected  ? 1 : 0);
-        sqlite3_bind_int (st, 10, md.is_processed ? 1 : 0);
-        sqlite3_bind_int (st, 11, md.is_included  ? 1 : 0);
-        sqlite3_bind_int (st, 12, id);
+        sqlite3_bind_text(st, 6,  author.c_str(),           -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 7,  long_name.c_str(),        -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 8,  modelers.c_str(),         -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 9,  md.model_type.c_str(),    -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 10, filePath.c_str(),         -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(st, 11, md.library_name.c_str(),  -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int (st, 12, md.is_selected  ? 1 : 0);
+        sqlite3_bind_int (st, 13, md.is_processed ? 1 : 0);
+        sqlite3_bind_int (st, 14, md.is_included  ? 1 : 0);
+        sqlite3_bind_int (st, 15, id);
     });
 }
 

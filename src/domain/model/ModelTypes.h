@@ -30,6 +30,31 @@ struct ModelData {
     std::vector<std::string> tags;
     std::vector<ObjectData> objects;
 
+    // canonical metadata fields
+    std::string long_name = "";
+    std::string modelers = "";
+    std::string model_type = "";
+
     // optional data; doesn't persist
     std::string is_processed_dir = "";
+
+    std::string effectiveLongName() const {
+        return long_name.empty() ? title : long_name;
+    }
+
+    std::string effectiveModelers() const {
+        return modelers.empty() ? author : modelers;
+    }
+
+    void syncMetadataAliases() {
+        if (long_name.empty())
+            long_name = title;
+        if (title.empty())
+            title = long_name;
+
+        if (modelers.empty())
+            modelers = author;
+        if (author.empty())
+            author = modelers;
+    }
 };

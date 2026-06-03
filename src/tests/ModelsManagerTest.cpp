@@ -77,6 +77,9 @@ TEST_CASE("ModelsManager: update persists, refreshes cache from repo, and notifi
     // Change a few fields (title, flags)
     ModelData patch = *a;
     patch.title = "New Title";
+    patch.long_name = "Canonical New Title";
+    patch.modelers = "Jane Doe";
+    patch.model_type = "component";
     patch.is_included = true;
     patch.is_processed = true;
     REQUIRE(mm.updateModel(patch));
@@ -84,6 +87,9 @@ TEST_CASE("ModelsManager: update persists, refreshes cache from repo, and notifi
     auto all = mm.getAll();
     REQUIRE(all.size() == 1);
     REQUIRE(all[0].title == "New Title");
+    REQUIRE(all[0].long_name == "Canonical New Title");
+    REQUIRE(all[0].modelers == "Jane Doe");
+    REQUIRE(all[0].model_type == "component");
     REQUIRE(all[0].is_included == true);
     REQUIRE(all[0].is_processed == true);
 }

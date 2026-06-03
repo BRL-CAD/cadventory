@@ -25,7 +25,10 @@ public:
     IsSelectedRole,
     IsIncludedRole,
     IsProcessedRole,
-    TagsRole
+    TagsRole,
+    LongNameRole,
+    ModelersRole,
+    ModelTypeRole
     };
 
     explicit QtModelsListModel(const std::string& libraryPath, QObject* parent = nullptr);
