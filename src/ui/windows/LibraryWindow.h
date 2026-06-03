@@ -13,6 +13,7 @@
 #include "ui_librarywindow.h"
 #include "Library.h"
 #include "Model.h"
+#include "QtModelsListModel.h"
 #include "ModelCardDelegate.h"
 #include "ModelFilterProxyModel.h"
 #include "IndexingWorker.h"
@@ -86,6 +87,7 @@ private:
     QAction* reload;
     Ui::LibraryWindow ui;
     Model* model;
+    QtModelsListModel* uiModel;
 
     bool canceled = false;
     bool paused = false;

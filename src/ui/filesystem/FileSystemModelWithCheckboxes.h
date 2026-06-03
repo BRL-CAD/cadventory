@@ -4,14 +4,15 @@
 #include <QFileSystemModel>
 #include <QMutex>
 #include <QMutexLocker>
-#include "Model.h"
+#include "HiddenDir.h"
+#include "ModelsManager.h"
 
 class FileSystemModelWithCheckboxes : public QFileSystemModel
 {
     Q_OBJECT
 
 public:
-    FileSystemModelWithCheckboxes(Model* model, const QString& rootPath, QObject* parent = nullptr);
+    FileSystemModelWithCheckboxes(const QString& rootPath, QObject* parent = nullptr);
     ~FileSystemModelWithCheckboxes();
 
     QVariant data(const QModelIndex& index, int role) const override;
@@ -30,10 +31,14 @@ private:
     void initializeCheckStates(const QModelIndex& parentIndex);
     void updateChildren(const QModelIndex& index, Qt::CheckState state);
     void updateParent(const QModelIndex& index);
+    std::string relativePathFor(const QString& absolutePath) const;
+    ModelData lookupModelData(const QString& absolutePath) const;
+    std::optional<ModelData> ensureModelForFile(const QFileInfo& fileInfo);
 
-    Model* model;
     QString rootPath;
     QModelIndex rootIndex;
+    HiddenDir m_hiddenPaths;
+    ModelsManager m_models;
 
     mutable QMutex m_checkStatesMutex;
     mutable QHash<QString, Qt::CheckState> m_checkStates;

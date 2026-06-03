@@ -5,7 +5,13 @@
 #include <QFileInfo>
 #include <QFileIconProvider>
 
+#include <filesystem>
+
 namespace {
+bool isGModelFile(const QFileInfo& fileInfo) {
+    return fileInfo.isFile() && fileInfo.suffix().compare("g", Qt::CaseInsensitive) == 0;
+}
+
 class NullIconProvider : public QFileIconProvider {
 public:
   QIcon icon(IconType) const override { return QIcon(); }
@@ -13,8 +19,11 @@ public:
 };
 } // namespace
 
-FileSystemModelWithCheckboxes::FileSystemModelWithCheckboxes(Model* model, const QString& rootPath, QObject* parent)
-    : QFileSystemModel(parent), model(model), rootPath(QDir::cleanPath(rootPath))
+FileSystemModelWithCheckboxes::FileSystemModelWithCheckboxes(const QString& rootPath, QObject* parent)
+    : QFileSystemModel(parent),
+      rootPath(QDir::cleanPath(rootPath)),
+      m_hiddenPaths(this->rootPath.toStdString()),
+      m_models(this->rootPath.toStdString())
 {
     // Set filters to display directories and files
     setFilter(QDir::NoDotAndDotDot | QDir::AllDirs | QDir::Files);
@@ -24,6 +33,7 @@ FileSystemModelWithCheckboxes::FileSystemModelWithCheckboxes(Model* model, const
 
     connect(this, &QFileSystemModel::directoryLoaded, this, &FileSystemModelWithCheckboxes::onDirectoryLoaded);
 
+    m_models.refresh();
     rootIndex = setRootPath(this->rootPath);
 }
 
@@ -45,22 +55,13 @@ void FileSystemModelWithCheckboxes::initializeCheckStates(const QModelIndex& par
             continue;
         }
 
-        if (fileInfo.suffix().compare("g", Qt::CaseInsensitive) == 0) {
-            std::string filePathStd = model->getHiddenPaths().relativeToLibrary(path.toStdString());
-            ModelData modelData = model->getModelByFilePath(filePathStd);
-
-            if (modelData.id == 0) {
-                // Model not found in database, create a new one
-                modelData.short_name = fileInfo.fileName().toStdString();
-                modelData.file_path = filePathStd;
-                modelData.is_included = true;
-                modelData.is_selected = false;
-                modelData.is_processed = false;
-
-                model->insertModel(modelData);
-
-                // Fetch the inserted model to get the assigned id
-                modelData = model->getModelByFilePath(filePathStd);
+        if (isGModelFile(fileInfo)) {
+            ModelData modelData = lookupModelData(path);
+            if (modelData.id < 0) {
+                auto inserted = ensureModelForFile(fileInfo);
+                if (!inserted)
+                    continue;
+                modelData = *inserted;
             }
 
             // Update checkStates based on is_included
@@ -139,7 +140,7 @@ QVariant FileSystemModelWithCheckboxes::data(const QModelIndex& index, int role)
                 return Qt::Unchecked;
             else
                 return Qt::PartiallyChecked;
-        } else if (fileInfo.suffix().compare("g", Qt::CaseInsensitive) == 0) {
+        } else if (isGModelFile(fileInfo)) {
             // this file is a .g
             QMutexLocker locker(&m_checkStatesMutex);
             if (m_checkStates.contains(path))
@@ -188,28 +189,15 @@ bool FileSystemModelWithCheckboxes::setData(const QModelIndex& index, const QVar
             updateParent(index);
 
             return true;
-        } else if (fileInfo.suffix().compare("g", Qt::CaseInsensitive) == 0) {
-            std::string filePathStd = path.toStdString();
-            ModelData modelData = model->getModelByFilePath(filePathStd);
-
-            if (modelData.id != 0)
-            {
-                modelData.is_included = included;
-                model->updateModel(modelData.id, modelData);
-            }
-            else if (included)
-            {
-                // Model not found, create a new one
-                modelData.short_name = fileInfo.fileName().toStdString();
-                modelData.file_path = filePathStd;
-                modelData.is_included = true;
-                modelData.is_processed = false;
-                modelData.is_selected = false;
-
-                model->insertModel(modelData);
-
-                // Fetch the inserted model to get the assigned id
-                modelData = model->getModelByFilePath(filePathStd);
+        } else if (isGModelFile(fileInfo)) {
+            ModelData modelData = lookupModelData(path);
+            if (modelData.id >= 0) {
+                if (!m_models.setModelIncluded(modelData.id, included))
+                    return false;
+            } else if (included) {
+                auto inserted = ensureModelForFile(fileInfo);
+                if (!inserted)
+                    return false;
             }
 
             {
@@ -243,7 +231,7 @@ Qt::ItemFlags FileSystemModelWithCheckboxes::flags(const QModelIndex& index) con
                 if (checkStateData.isValid())
                     return defaultFlags | Qt::ItemIsUserCheckable;
             }
-        } else if (fileInfo.suffix().compare("g", Qt::CaseInsensitive) == 0) {
+        } else if (isGModelFile(fileInfo)) {
             // .g file: show checkbox
             return defaultFlags | Qt::ItemIsUserCheckable;
         }
@@ -274,22 +262,16 @@ void FileSystemModelWithCheckboxes::updateChildren(const QModelIndex& index, Qt:
 
             emit dataChanged(childIndex, childIndex, {Qt::CheckStateRole});
             updateChildren(childIndex, state);
-        } else if (fileInfo.suffix().compare("g", Qt::CaseInsensitive) == 0) {
+        } else if (isGModelFile(fileInfo)) {
             bool included = (state == Qt::Checked);
-            std::string filePathStd = path.toStdString();
-            ModelData modelData = model->getModelByFilePath(filePathStd);
+            ModelData modelData = lookupModelData(path);
 
-            if (modelData.id != 0) {
-                modelData.is_included = included;
-                model->updateModel(modelData.id, modelData);
+            if (modelData.id >= 0) {
+                if (!m_models.setModelIncluded(modelData.id, included))
+                    continue;
             } else if (included) {
-                // Model not found, create a new one
-                modelData.short_name = fileInfo.fileName().toStdString();
-                modelData.file_path = filePathStd;
-                modelData.is_included = true;
-                modelData.is_selected = false;
-                modelData.is_processed = false;
-                model->insertModel(modelData);
+                if (!ensureModelForFile(fileInfo))
+                    continue;
             }
 
             {
@@ -335,7 +317,7 @@ void FileSystemModelWithCheckboxes::updateParent(const QModelIndex& index)
                 }
                 ++gFileCount;
             }
-        } else if (fileInfo.suffix().compare("g", Qt::CaseInsensitive) == 0) {
+        } else if (isGModelFile(fileInfo)) {
             QVariant siblingData = data(siblingIndex, Qt::CheckStateRole);
             Qt::CheckState siblingState = static_cast<Qt::CheckState>(siblingData.toInt());
             if (siblingState == Qt::Checked)
@@ -371,6 +353,8 @@ void FileSystemModelWithCheckboxes::updateParent(const QModelIndex& index)
 
 void FileSystemModelWithCheckboxes::refresh()
 {
+    m_models.refresh();
+
     {
         QMutexLocker locker(&m_checkStatesMutex);
         m_checkStates.clear();
@@ -406,4 +390,40 @@ void FileSystemModelWithCheckboxes::onDirectoryLoaded(const QString& path)
     }
 
     emit dataChanged(index, index, {Qt::CheckStateRole});
+}
+
+std::string FileSystemModelWithCheckboxes::relativePathFor(const QString& absolutePath) const
+{
+    return m_hiddenPaths.relativeToLibrary(absolutePath.toStdString());
+}
+
+ModelData FileSystemModelWithCheckboxes::lookupModelData(const QString& absolutePath) const
+{
+    const std::string relativePath = relativePathFor(absolutePath);
+    ModelData modelData = m_models.getModelByFilePath(relativePath);
+    if (modelData.id >= 0)
+        return modelData;
+
+    // Bridge old absolute-path rows while the broader migration is still underway.
+    return m_models.getModelByFilePath(std::filesystem::path(absolutePath.toStdString()).generic_string());
+}
+
+std::optional<ModelData> FileSystemModelWithCheckboxes::ensureModelForFile(const QFileInfo& fileInfo)
+{
+    ModelData modelData{};
+    modelData.short_name = fileInfo.fileName().toStdString();
+    modelData.file_path = relativePathFor(fileInfo.absoluteFilePath());
+    modelData.is_included = true;
+    modelData.is_selected = false;
+    modelData.is_processed = false;
+
+    auto inserted = m_models.insertModel(modelData);
+    if (inserted)
+        return inserted;
+
+    ModelData existing = lookupModelData(fileInfo.absoluteFilePath());
+    if (existing.id >= 0)
+        return existing;
+
+    return std::nullopt;
 }

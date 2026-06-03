@@ -43,6 +43,7 @@ LibraryWindow::LibraryWindow(QWidget* parent)
     library(nullptr),
     mainWindow(nullptr),
     model(nullptr),
+    uiModel(nullptr),
     availableModelsProxyModel(new ModelFilterProxyModel(this)),
     modelCardDelegate(new ModelCardDelegate(this)),
     explorerModel(new QStandardItemModel(this)),
@@ -64,9 +65,16 @@ void LibraryWindow::loadFromLibrary(Library* _library) {
 
     // Load models from the library
     model = library->model;
+    model->refreshModelData();
+
+    if (uiModel) {
+        availableModelsProxyModel->setSourceModel(nullptr);
+        delete uiModel;
+    }
+    uiModel = new QtModelsListModel(library->fullPath, this);
 
     // Set the source model for proxy model
-    availableModelsProxyModel->setSourceModel(model);
+    availableModelsProxyModel->setSourceModel(uiModel);
 
     // Now that library is set, set up models and views
     setupModelsAndViews();
@@ -181,6 +189,8 @@ void LibraryWindow::onTagsGeneratedFromBatch(const QStringList& tags) {
         }
 
         model->refreshModelData();
+        if (uiModel)
+            uiModel->refresh();
         availableModelsProxyModel->invalidate();
     }
 
@@ -323,7 +333,7 @@ void LibraryWindow::setupModelsAndViews() {
     LOG_DEBUG << "Library Path in setupModelsAndViews:" << libraryPath << LOG_ENDL;
 
     // Create the FileSystemModelWithCheckboxes
-    fileSystemModel = new FileSystemModelWithCheckboxes(model, libraryPath, this);
+    fileSystemModel = new FileSystemModelWithCheckboxes(libraryPath, this);
 
     // Create and set up the proxy model to filter .g files
     fileSystemProxyModel = new FileSystemFilterProxyModel(libraryPath, this);
@@ -391,17 +401,20 @@ void LibraryWindow::populateExplorerModel() {
     explorerModel->setHorizontalHeaderLabels(QStringList() << "Models");
     
     // Get all models from the library
-    for (int i = 0; i < model->rowCount(); ++i) {
-        QModelIndex index = model->index(i, 0);
+    if (!uiModel)
+        return;
+
+    for (int i = 0; i < uiModel->rowCount(); ++i) {
+        QModelIndex index = uiModel->index(i, 0);
         
         // show all included models
-        if (model->data(index, Model::IsIncludedRole).toBool()) {
+        if (uiModel->data(index, QtModelsListModel::IsIncludedRole).toBool()) {
             
             // Get model data
-            int modelId = model->data(index, Model::IdRole).toInt();
-            QString shortName = model->data(index, Model::ShortNameRole).toString();
-            QString title = model->data(index, Model::TitleRole).toString();
-            bool isSelected = model->data(index, Model::IsSelectedRole).toBool();
+            int modelId = uiModel->data(index, QtModelsListModel::IdRole).toInt();
+            QString shortName = uiModel->data(index, QtModelsListModel::ShortNameRole).toString();
+            QString title = uiModel->data(index, QtModelsListModel::TitleRole).toString();
+            bool isSelected = uiModel->data(index, QtModelsListModel::IsSelectedRole).toBool();
             
             // Remove file extension from shortName if present
             int dotIndex = shortName.lastIndexOf('.');
@@ -436,23 +449,26 @@ void LibraryWindow::populateExplorerModel() {
 }
 
 void LibraryWindow::onExplorerModelClicked(const QModelIndex& index) {
+    if (!uiModel)
+        return;
+
     // Get the model ID from the item data
     int modelId = explorerModel->data(index, Qt::UserRole).toInt();
     LOG_DEBUG << "Explorer model clicked:" << modelId << LOG_ENDL;
     
-    // Find the corresponding model in the main model
-    for (int i = 0; i < model->rowCount(); ++i) {
-        QModelIndex modelIndex = model->index(i, 0);
-        if (model->data(modelIndex, Model::IdRole).toInt() == modelId) {
+    // Find the corresponding model in the UI-facing model
+    for (int i = 0; i < uiModel->rowCount(); ++i) {
+        QModelIndex modelIndex = uiModel->index(i, 0);
+        if (uiModel->data(modelIndex, QtModelsListModel::IdRole).toInt() == modelId) {
             // Toggle selection state
-            bool isSelected = model->data(modelIndex, Model::IsSelectedRole).toBool();
+            bool isSelected = uiModel->data(modelIndex, QtModelsListModel::IsSelectedRole).toBool();
             bool newSelectionState = !isSelected;
-            model->setData(modelIndex, newSelectionState, Model::IsSelectedRole);
+            uiModel->setData(modelIndex, newSelectionState, QtModelsListModel::IsSelectedRole);
             
             // Update the available models view to reflect the selection change
             QModelIndex proxyIndex = availableModelsProxyModel->mapFromSource(modelIndex);
             if (proxyIndex.isValid()) {
-                availableModelsProxyModel->dataChanged(proxyIndex, proxyIndex, {Model::IsSelectedRole});
+                availableModelsProxyModel->dataChanged(proxyIndex, proxyIndex, {QtModelsListModel::IsSelectedRole});
             }
             
             // Update the explorer view to highlight the selected item
@@ -527,8 +543,8 @@ void LibraryWindow::setupConnections() {
         this, &LibraryWindow::onResumeTagGenerationClicked);
 
     ui.searchFieldComboBox->clear();
-	ui.searchFieldComboBox->addItem("Short Name", Model::ShortNameRole);
-    ui.searchFieldComboBox->addItem("Tags", Model::TagsRole);
+	ui.searchFieldComboBox->addItem("Short Name", QtModelsListModel::ShortNameRole);
+    ui.searchFieldComboBox->addItem("Tags", QtModelsListModel::TagsRole);
 }
 
 void LibraryWindow::onSearchTextChanged(const QString& text) {
@@ -548,17 +564,20 @@ void LibraryWindow::onSearchFieldChanged(const QString& field) {
 }
 
 void LibraryWindow::onAvailableModelClicked(const QModelIndex& index) {
+    if (!uiModel)
+        return;
+
     // Toggle selection state
     QModelIndex sourceIndex = availableModelsProxyModel->mapToSource(index);
-    bool isSelected = model->data(sourceIndex, Model::IsSelectedRole).toBool();
+    bool isSelected = uiModel->data(sourceIndex, QtModelsListModel::IsSelectedRole).toBool();
     bool newSelectionState = !isSelected;
-    model->setData(sourceIndex, newSelectionState, Model::IsSelectedRole);
+    uiModel->setData(sourceIndex, newSelectionState, QtModelsListModel::IsSelectedRole);
 
     // Update the view to reflect the selection change
-    availableModelsProxyModel->dataChanged(index, index, {Model::IsSelectedRole});
+    availableModelsProxyModel->dataChanged(index, index, {QtModelsListModel::IsSelectedRole});
     
     // Get the model ID
-    int modelId = model->data(sourceIndex, Model::IdRole).toInt();
+    int modelId = uiModel->data(sourceIndex, QtModelsListModel::IdRole).toInt();
     
     // Update the explorer view to highlight the selected item
     for (int i = 0; i < explorerModel->rowCount(); ++i) {
@@ -585,6 +604,7 @@ void LibraryWindow::onAvailableModelClicked(const QModelIndex& index) {
 }
 
 void LibraryWindow::onGenerateReportButtonClicked() {
+    model->refreshModelData();
     bool have_selected = !model->getSelectedModels().empty();
     if (!have_selected) {
         // if we don't have any currently selected, ask to select all
@@ -599,7 +619,10 @@ void LibraryWindow::onGenerateReportButtonClicked() {
         if (choice != QMessageBox::Yes)
             return;
 
-        have_selected = model->selectAllIncluded(true);
+        if (uiModel)
+            uiModel->selectAllIncluded(true);
+        model->refreshModelData();
+        have_selected = !model->getSelectedModels().empty();
     }
 
     // if we still dont have any selected; bail
@@ -620,6 +643,8 @@ void LibraryWindow::onSettingsClicked(int modelId) {
 
 void LibraryWindow::onRefreshRequested() {
     model->refreshModelData();
+    if (uiModel)
+        uiModel->refresh();
     availableModelsProxyModel->invalidate();
 
     // Update explorer model
@@ -632,6 +657,8 @@ void LibraryWindow::onModelProcessed(const QString& directive, const QString& id
     if (!success)
         return;
     model->refreshModelData();
+    if (uiModel)
+        uiModel->refresh();
     availableModelsProxyModel->invalidate();
     
     // Update explorer model
@@ -675,6 +702,8 @@ void LibraryWindow::reloadLibrary() {
                 // Reload the library
                 model->resetDatabase();
                 model->refreshModelData();
+                if (uiModel)
+                    uiModel->refresh();
                 availableModelsProxyModel->invalidate();
                 fileSystemModel->refresh(); // Custom method to refresh the model
                 this->loadFromLibrary(library);
@@ -694,6 +723,8 @@ void LibraryWindow::onModelViewClicked(int modelId) {
     connect(modelView, &ModelView::tagsUpdated, this, [this]() {
         LOG_DEBUG << "Tags updated - refreshing proxy model" << LOG_ENDL;
         model->refreshModelData(); 
+        if (uiModel)
+            uiModel->refresh();
         availableModelsProxyModel->invalidate();
         });
 
@@ -724,10 +755,12 @@ void LibraryWindow::onProgressUpdated(const JobServiceStats& st) {
 
 void LibraryWindow::onInclusionChanged(const QModelIndex& index, bool /*included*/) {
     Q_UNUSED(index);
+    model->refreshModelData();
+    if (uiModel)
+        uiModel->refresh();
     availableModelsProxyModel->invalidate();
 
     startIndexing();
-    model->refreshModelData();
     
     // Update explorer model
     populateExplorerModel();
@@ -738,6 +771,8 @@ void LibraryWindow::onIndexingComplete() {
 
     // Refresh model data
     model->refreshModelData();
+    if (uiModel)
+        uiModel->refresh();
     availableModelsProxyModel->invalidate();
     
     // Update explorer model

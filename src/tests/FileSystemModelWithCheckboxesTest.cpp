@@ -64,7 +64,7 @@ private slots:
     // Test to verify data initialization using refresh
     void testRefreshUpdatesCheckStates() {
         Model model(tempDir.path().toStdString());
-        FileSystemModelWithCheckboxes fileSystemModel(&model, tempDir.path());
+        FileSystemModelWithCheckboxes fileSystemModel(tempDir.path());
 
         // Create a mock .g file
         QString gFilePath = tempDir.filePath("example.g");
@@ -94,7 +94,7 @@ private slots:
     // Test to verify parent-child checkbox interactions through setData
     void testParentChildCheckboxUpdate() {
         Model model(tempDir.path().toStdString());
-        FileSystemModelWithCheckboxes fileSystemModel(&model, tempDir.path());
+        FileSystemModelWithCheckboxes fileSystemModel(tempDir.path());
 
         // Create directory and .g files
         QString dirPath = tempDir.filePath("folder");
@@ -132,7 +132,7 @@ private slots:
     // Test to verify inclusionChanged signal is emitted
     void testInclusionChangedSignal() {
         Model model(tempDir.path().toStdString());
-        FileSystemModelWithCheckboxes fileSystemModel(&model, tempDir.path());
+        FileSystemModelWithCheckboxes fileSystemModel(tempDir.path());
 
         // Create a mock .g file
         QString gFilePath = tempDir.filePath("signalTest.g");
@@ -159,7 +159,7 @@ private slots:
     // Test to verify data retrieval for non-.g files
     void testDataForNonGFiles() {
         Model model(tempDir.path().toStdString());
-        FileSystemModelWithCheckboxes fileSystemModel(&model, tempDir.path());
+        FileSystemModelWithCheckboxes fileSystemModel(tempDir.path());
 
         // Create a non-.g file
         QString txtFilePath = tempDir.filePath("example.txt");
@@ -176,7 +176,7 @@ private slots:
 
     void testFlagsForDirectoriesAndGFiles() {
         Model model(tempDir.path().toStdString());
-        FileSystemModelWithCheckboxes fileSystemModel(&model, tempDir.path());
+        FileSystemModelWithCheckboxes fileSystemModel(tempDir.path());
 
         // Create directory and .g file
         QString dirPath = tempDir.filePath("testDir");
@@ -216,7 +216,7 @@ private slots:
 
     void testOnDirectoryLoaded() {
         Model model(tempDir.path().toStdString());
-        FileSystemModelWithCheckboxes fileSystemModel(&model, tempDir.path());
+        FileSystemModelWithCheckboxes fileSystemModel(tempDir.path());
 
         // Create directory and .g files
         QString dirPath = tempDir.filePath("loadedDir");

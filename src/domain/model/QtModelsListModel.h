@@ -9,7 +9,7 @@
 
 #include "ModelsManager.h"
 
-class QtModelsService final : public QAbstractListModel {
+class QtModelsListModel final : public QAbstractListModel {
     Q_OBJECT
 public:
     enum ModelRoles {
@@ -28,8 +28,8 @@ public:
     TagsRole
     };
 
-    explicit QtModelsService(const std::string& libraryPath, QObject* parent = nullptr);
-    ~QtModelsService() override;
+    explicit QtModelsListModel(const std::string& libraryPath, QObject* parent = nullptr);
+    ~QtModelsListModel() override;
 
     // Override QAbstringListModel methods
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;

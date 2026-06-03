@@ -202,6 +202,9 @@ add_cadventory_test(
     SOURCES
         FileSystemModelWithCheckboxesTest.cpp
         ../ui/filesystem/FileSystemModelWithCheckboxes.cpp
+        ../domain/model/ModelsManager.cpp
+        ../domain/model/SQLModelRepository.cpp
+        ../domain/model/SQLiteDB.cpp
         ../domain/model/Model.cpp
         ../domain/jobqueue/SimpleFileLock.cpp
 )
@@ -266,6 +269,7 @@ add_cadventory_test(
         ../domain/library/Library.cpp
         ../domain/llm/OllamaCLIService.cpp
         ../domain/model/Model.cpp
+        ../domain/model/QtModelsListModel.cpp
         ${REPO_MODEL_SOURCES}
         ../domain/model/AIModelTagging.cpp
         ../domain/model/ModelParser.cpp
@@ -311,6 +315,7 @@ add_cadventory_test(
         ../domain/library/Library.cpp
         ../domain/llm/OllamaCLIService.cpp
         ../domain/model/Model.cpp
+        ../domain/model/QtModelsListModel.cpp
         ${REPO_MODEL_SOURCES}
         ../domain/model/AIModelTagging.cpp
         ../domain/model/ModelParser.cpp
@@ -422,10 +427,10 @@ add_cadventory_test(
 )
 
 add_cadventory_test(
-    NAME QtModelsServiceTest
+    NAME QtModelsListModelTest
     SOURCES
-        QtModelsServiceTest.cpp
-        ../domain/model/QtModelsService.cpp
+        QtModelsListModelTest.cpp
+        ../domain/model/QtModelsListModel.cpp
         ../domain/model/ModelsManager.cpp
         ../domain/model/SQLModelRepository.cpp
         ../domain/model/SQLiteDB.cpp

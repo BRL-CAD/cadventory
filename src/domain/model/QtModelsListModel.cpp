@@ -1,4 +1,4 @@
-#include "QtModelsService.h"
+#include "QtModelsListModel.h"
 
 #include <QMetaObject>
 #include <QPointer>
@@ -9,11 +9,11 @@
 #include <QPixmap>
 #endif
 
-QtModelsService::QtModelsService(const std::string& libraryPath, QObject* parent)
+QtModelsListModel::QtModelsListModel(const std::string& libraryPath, QObject* parent)
     : QAbstractListModel(parent), m_mgr(std::make_unique<ModelsManager>(libraryPath)) {
 
     // connect manager to this service
-    QPointer<QtModelsService> self(this);
+    QPointer<QtModelsListModel> self(this);
     m_mgr->subscribe([self] {
         if (!self)
             return;
@@ -33,13 +33,13 @@ QtModelsService::QtModelsService(const std::string& libraryPath, QObject* parent
     refresh();
 }
 
-QtModelsService::~QtModelsService() {
+QtModelsListModel::~QtModelsListModel() {
     // zero out so we dont get callbacks after destruction
     if (m_mgr)
         m_mgr->subscribe(ModelsManager::Subscriber{});
 }
 
-int QtModelsService::rowCount(const QModelIndex& parent) const {
+int QtModelsListModel::rowCount(const QModelIndex& parent) const {
     if (parent.isValid() || !m_mgr)
         return 0;
   
@@ -47,9 +47,9 @@ int QtModelsService::rowCount(const QModelIndex& parent) const {
     return static_cast<int>(snap.size());
 }
 
-QVariant QtModelsService::data(const QModelIndex& index, int role) const {
+QVariant QtModelsListModel::data(const QModelIndex& index, int role) const {
     if (!m_mgr)
-        return 0;
+        return QVariant();
 
     const auto& snap = m_mgr->getAll_snapshot();
     if (!validIndex(index, static_cast<int>(snap.size())))
@@ -76,17 +76,16 @@ QVariant QtModelsService::data(const QModelIndex& index, int role) const {
             return tagList;
         }
         case ThumbnailRole:
-            // TODO/FIXME: optimize - we probably dont need to load on EVERY data() call
-            return {};
-    #if CADVENTORY_WITH_GUI
-          if (!modelData.thumbnail.empty()) {
-            QPixmap thumbnail;
-            thumbnail.loadFromData(
-                reinterpret_cast<const uchar*>(modelData.thumbnail.data()),
-                static_cast<uint>(modelData.thumbnail.size()), "PNG");
-            return thumbnail;
-          }
-    #endif
+#if CADVENTORY_WITH_GUI
+            // TODO/FIXME: optimize - we probably dont need to decode on EVERY data() call
+            if (!modelData.thumbnail.empty()) {
+                QPixmap thumbnail;
+                thumbnail.loadFromData(
+                    reinterpret_cast<const uchar*>(modelData.thumbnail.data()),
+                    static_cast<uint>(modelData.thumbnail.size()), "PNG");
+                return thumbnail;
+            }
+#endif
             return QVariant();
         case AuthorRole:
             return QString::fromStdString(modelData.author);
@@ -105,7 +104,7 @@ QVariant QtModelsService::data(const QModelIndex& index, int role) const {
     }
 }
 
-bool QtModelsService::setData(const QModelIndex& index, const QVariant& value, int role) {
+bool QtModelsListModel::setData(const QModelIndex& index, const QVariant& value, int role) {
     if (!m_mgr)
         return false;
     const auto& snap = m_mgr->getAll_snapshot();
@@ -128,14 +127,14 @@ bool QtModelsService::setData(const QModelIndex& index, const QVariant& value, i
     return false;
 }
 
-Qt::ItemFlags QtModelsService::flags(const QModelIndex& index) const {
+Qt::ItemFlags QtModelsListModel::flags(const QModelIndex& index) const {
     if (!index.isValid())
         return Qt::NoItemFlags;
 
     return Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable;
 }
 
-QHash<int, QByteArray> QtModelsService::roleNames() const {
+QHash<int, QByteArray> QtModelsListModel::roleNames() const {
     QHash<int, QByteArray> roles;
     roles[IdRole] = "id";
     roles[ShortNameRole] = "short_name";
@@ -154,16 +153,16 @@ QHash<int, QByteArray> QtModelsService::roleNames() const {
     return roles;
 }
 
-void QtModelsService::refresh() {
+void QtModelsListModel::refresh() {
     if (m_mgr)
         m_mgr->refresh();
 }
 
-void QtModelsService::selectAllIncluded(bool v) {
+void QtModelsListModel::selectAllIncluded(bool v) {
     if (m_mgr)
         m_mgr->selectAllIncluded(v);
 }
 
-bool QtModelsService::validIndex(const QModelIndex& idx, int nRows) noexcept {
+bool QtModelsListModel::validIndex(const QModelIndex& idx, int nRows) noexcept {
     return idx.isValid() && !idx.parent().isValid() && idx.row() >= 0 && idx.row() < nRows;
 }

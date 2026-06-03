@@ -5,7 +5,7 @@
 #include <QStringList>
 #include <QVariant>
 
-#include "QtModelsService.h"
+#include "QtModelsListModel.h"
 #include "ModelsManager.h"
 #include "ModelTypes.h"
 
@@ -17,7 +17,7 @@
 static QString freshTempLib(const char* tag) {
     const QString base = QDir::tempPath();
     const QString name = QString("%1_%2_%3")
-        .arg("QtModelsService")
+        .arg("QtModelsListModel")
         .arg(tag)
         .arg(QDateTime::currentMSecsSinceEpoch());
     QDir().mkpath(base + "/" + name);
@@ -47,12 +47,12 @@ static const unsigned char kPng1x1[] = {
 };
 
 // ---------- Test Suite ----------
-class QtModelsServiceTests : public QObject {
+class QtModelsListModelTests : public QObject {
     Q_OBJECT
 private slots:
     void roles_and_rowCount_and_data_basic() {
         const QString lib = freshTempLib("basic");
-        QtModelsService svc(lib.toStdString());
+        QtModelsListModel svc(lib.toStdString());
 
         // Seed via separate manager that points to the same library path:
         ModelsManager mm(lib.toStdString());
@@ -70,28 +70,28 @@ private slots:
 
         // role names exist
         const auto roles = svc.roleNames();
-        QVERIFY(roles.contains(QtModelsService::IdRole));
-        QVERIFY(roles.contains(QtModelsService::ShortNameRole));
-        QVERIFY(roles.contains(QtModelsService::TagsRole));
+        QVERIFY(roles.contains(QtModelsListModel::IdRole));
+        QVERIFY(roles.contains(QtModelsListModel::ShortNameRole));
+        QVERIFY(roles.contains(QtModelsListModel::TagsRole));
 
         // check a row
         QModelIndex i0 = svc.index(0, 0);
         QVERIFY(i0.isValid());
-        const auto short0 = svc.data(i0, QtModelsService::ShortNameRole).toString();
-        const auto path0  = svc.data(i0, QtModelsService::FilePathRole).toString();
+        const auto short0 = svc.data(i0, QtModelsListModel::ShortNameRole).toString();
+        const auto path0  = svc.data(i0, QtModelsListModel::FilePathRole).toString();
         QVERIFY(short0 == "a" || short0 == "b");
         if (short0 == "a")  QCOMPARE(path0, QString("a.g"));
         if (short0 == "b")  QCOMPARE(path0, QString("b.g"));
 
         // tags is QStringList
-        const QVariant tagsV = svc.data(i0, QtModelsService::TagsRole);
+        const QVariant tagsV = svc.data(i0, QtModelsListModel::TagsRole);
         QVERIFY(tagsV.canConvert<QStringList>());
         QCOMPARE(tagsV.toStringList().size(), 0);
     }
 
     void setData_toggles_flags_and_emits_reset_via_manager_notify() {
         const QString lib = freshTempLib("setData");
-        QtModelsService svc(lib.toStdString());
+        QtModelsListModel svc(lib.toStdString());
 
         // Seed one row
         ModelsManager mm(lib.toStdString());
@@ -108,24 +108,24 @@ private slots:
         QVERIFY(i0.isValid());
 
         // Flip included -> should succeed, and service should reset via subscription
-        QVERIFY(svc.setData(i0, true, QtModelsService::IsIncludedRole));
+        QVERIFY(svc.setData(i0, true, QtModelsListModel::IsIncludedRole));
         QVERIFY(resetSpy.wait(500));
-        QCOMPARE(svc.data(i0, QtModelsService::IsIncludedRole).toBool(), true);
+        QCOMPARE(svc.data(i0, QtModelsListModel::IsIncludedRole).toBool(), true);
 
         // Flip selected
-        QVERIFY(svc.setData(i0, true, QtModelsService::IsSelectedRole));
+        QVERIFY(svc.setData(i0, true, QtModelsListModel::IsSelectedRole));
         QVERIFY(resetSpy.wait(500));
-        QCOMPARE(svc.data(i0, QtModelsService::IsSelectedRole).toBool(), true);
+        QCOMPARE(svc.data(i0, QtModelsListModel::IsSelectedRole).toBool(), true);
 
         // Flip processed
-        QVERIFY(svc.setData(i0, true, QtModelsService::IsProcessedRole));
+        QVERIFY(svc.setData(i0, true, QtModelsListModel::IsProcessedRole));
         QVERIFY(resetSpy.wait(500));
-        QCOMPARE(svc.data(i0, QtModelsService::IsProcessedRole).toBool(), true);
+        QCOMPARE(svc.data(i0, QtModelsListModel::IsProcessedRole).toBool(), true);
     }
 
     void selectAllIncluded_affects_only_included_rows() {
         const QString lib = freshTempLib("selectAll");
-        QtModelsService svc(lib.toStdString());
+        QtModelsListModel svc(lib.toStdString());
 
         // Seed two rows
         ModelsManager mm(lib.toStdString());
@@ -149,13 +149,13 @@ private slots:
         // In case ordering is different, find the 'a' row by role
         int aRow = -1, bRow = -1;
         for (int r = 0; r < svc.rowCount(); ++r) {
-            const auto sn = svc.data(svc.index(r,0), QtModelsService::ShortNameRole).toString();
+            const auto sn = svc.data(svc.index(r,0), QtModelsListModel::ShortNameRole).toString();
             if (sn == "a") aRow = r;
             if (sn == "b") bRow = r;
         }
         QVERIFY(aRow >= 0 && bRow >= 0);
 
-        QVERIFY(svc.setData(svc.index(aRow,0), true, QtModelsService::IsIncludedRole));
+        QVERIFY(svc.setData(svc.index(aRow,0), true, QtModelsListModel::IsIncludedRole));
         QVERIFY(resetSpy.wait(500));
 
         // Bulk select included
@@ -163,10 +163,10 @@ private slots:
         QVERIFY(resetSpy.wait(500));
 
         // Verify: only included rows become selected
-        const bool aSelected = svc.data(svc.index(aRow,0), QtModelsService::IsSelectedRole).toBool();
-        const bool bSelected = svc.data(svc.index(bRow,0), QtModelsService::IsSelectedRole).toBool();
-        const bool aIncluded = svc.data(svc.index(aRow,0), QtModelsService::IsIncludedRole).toBool();
-        const bool bIncluded = svc.data(svc.index(bRow,0), QtModelsService::IsIncludedRole).toBool();
+        const bool aSelected = svc.data(svc.index(aRow,0), QtModelsListModel::IsSelectedRole).toBool();
+        const bool bSelected = svc.data(svc.index(bRow,0), QtModelsListModel::IsSelectedRole).toBool();
+        const bool aIncluded = svc.data(svc.index(aRow,0), QtModelsListModel::IsIncludedRole).toBool();
+        const bool bIncluded = svc.data(svc.index(bRow,0), QtModelsListModel::IsIncludedRole).toBool();
 
         QVERIFY(aIncluded);
         QCOMPARE(aSelected, true);
@@ -177,7 +177,7 @@ private slots:
 
     void tags_role_reflects_repo_changes_after_refresh() {
         const QString lib = freshTempLib("tags");
-        QtModelsService svc(lib.toStdString());
+        QtModelsListModel svc(lib.toStdString());
 
         // Seed & tag via external manager
         ModelsManager mm(lib.toStdString());
@@ -194,7 +194,7 @@ private slots:
 
         // Verify tags via role
         QModelIndex i0 = svc.index(0,0);
-        QStringList tags = svc.data(i0, QtModelsService::TagsRole).toStringList();
+        QStringList tags = svc.data(i0, QtModelsListModel::TagsRole).toStringList();
         QCOMPARE(tags.size(), 2);
         QVERIFY(tags.contains("steel"));
         QVERIFY(tags.contains("aluminum"));
@@ -203,14 +203,14 @@ private slots:
         QVERIFY(mm.removeTagFromModel(r->id, "steel"));
         svc.refresh();
         QVERIFY(resetSpy.wait(500));
-        tags = svc.data(i0, QtModelsService::TagsRole).toStringList();
+        tags = svc.data(i0, QtModelsListModel::TagsRole).toStringList();
         QCOMPARE(tags.size(), 1);
         QCOMPARE(tags[0], QString("aluminum"));
     }
 
     void thumbnail_role_decodes_png_conditionally() {
         const QString lib = freshTempLib("thumb");
-        QtModelsService svc(lib.toStdString());
+        QtModelsListModel svc(lib.toStdString());
 
         // Insert a record with a small valid PNG blob
         ModelsManager mm(lib.toStdString());
@@ -226,7 +226,7 @@ private slots:
         QCOMPARE(svc.rowCount(), 1);
 
         QModelIndex i0 = svc.index(0,0);
-        const QVariant v = svc.data(i0, QtModelsService::ThumbnailRole);
+        const QVariant v = svc.data(i0, QtModelsListModel::ThumbnailRole);
 #if CADVENTORY_WITH_GUI
         // With GUI, we expect a QPixmap QVariant (may be null pixmap if decode fails, but with the 1x1 it should succeed)
         QVERIFY(v.canConvert<QPixmap>());
@@ -237,5 +237,5 @@ private slots:
     }
 };
 
-QTEST_MAIN(QtModelsServiceTests)
-#include "QtModelsServiceTest.moc"
+QTEST_MAIN(QtModelsListModelTests)
+#include "QtModelsListModelTest.moc"

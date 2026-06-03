@@ -71,6 +71,7 @@ set(SRCS
   src/domain/library/Library.cpp
   src/domain/llm/OllamaCLIService.cpp
   src/domain/model/Model.cpp
+  src/domain/model/QtModelsListModel.cpp
   src/domain/model/ModelsManager.cpp
   src/domain/model/SQLModelRepository.cpp
   src/domain/model/SQLiteDB.cpp
@@ -96,6 +97,7 @@ set(HEADERS
   src/domain/model/Model.h
   src/domain/model/ModelMetadata.h
   src/domain/model/ModelTypes.h
+  src/domain/model/QtModelsListModel.h
   src/domain/model/ModelsManager.h
   src/domain/model/SQLModelRepository.h
   src/domain/model/SQLiteDB.h
