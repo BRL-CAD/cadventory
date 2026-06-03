@@ -29,6 +29,7 @@ public:
     LongNameRole,
     ModelersRole,
     ModelTypeRole,
+    AliasesRole,
     OwnerOrgRole,
     SourceOrgRole
     };

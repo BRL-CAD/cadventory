@@ -367,6 +367,7 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
     modelData.long_name = "Long Title";
     modelData.modelers = "Modeler Team";
     modelData.model_type = "Vehicle";
+    modelData.aliases = "Legacy Title\nArchive Handle";
     modelData.owner_org = "OpenAI";
     modelData.source_org = "BRL-CAD";
     REQUIRE(fixture.model->insertModel(modelData)); // Ensure model is inserted successfully
@@ -380,6 +381,7 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
         REQUIRE(properties["long_name"] == "Long Title");
         REQUIRE(properties["modelers"] == "Modeler Team");
         REQUIRE(properties["model_type"] == "Vehicle");
+        REQUIRE(properties["aliases"] == "Legacy Title\nArchive Handle");
         REQUIRE(properties["owner_org"] == "OpenAI");
         REQUIRE(properties["source_org"] == "BRL-CAD");
     }
@@ -389,6 +391,7 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
         REQUIRE(fixture.model->setPropertyForModel(modelId, "long_name", "New Title") == true);
         REQUIRE(fixture.model->setPropertyForModel(modelId, "modelers", "New Modelers") == true);
         REQUIRE(fixture.model->setPropertyForModel(modelId, "model_type", "Assembly") == true);
+        REQUIRE(fixture.model->setPropertyForModel(modelId, "aliases", "Alias One\nAlias Two") == true);
         REQUIRE(fixture.model->setPropertyForModel(modelId, "owner_org", "NIST") == true);
         REQUIRE(fixture.model->setPropertyForModel(modelId, "source_org", "Imported Archive") == true);
 
@@ -396,6 +399,7 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
         REQUIRE(updatedProperties["long_name"] == "New Title");
         REQUIRE(updatedProperties["modelers"] == "New Modelers");
         REQUIRE(updatedProperties["model_type"] == "Assembly");
+        REQUIRE(updatedProperties["aliases"] == "Alias One\nAlias Two");
         REQUIRE(updatedProperties["owner_org"] == "NIST");
         REQUIRE(updatedProperties["source_org"] == "Imported Archive");
 
@@ -403,6 +407,7 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
         REQUIRE(updatedModel.has_value());
         REQUIRE(updatedModel->title == "New Title");
         REQUIRE(updatedModel->author == "New Modelers");
+        REQUIRE(updatedModel->aliases == "Alias One\nAlias Two");
         REQUIRE(updatedModel->owner_org == "NIST");
         REQUIRE(updatedModel->source_org == "Imported Archive");
     }
