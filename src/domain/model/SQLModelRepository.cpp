@@ -14,21 +14,6 @@ using namespace std::string_literals;
 
 namespace {
 
-bool tableHasColumn(SQLiteDB& db, const char* tableName, const char* columnName) {
-    const std::string sql = "PRAGMA table_info(" + std::string(tableName) + ");";
-    bool found = false;
-    db.query(sql,
-        [&](sqlite3_stmt* st) {
-            const unsigned char* txt = sqlite3_column_text(st, 1);
-            if (!txt)
-                return true;
-
-            found = std::string(reinterpret_cast<const char*>(txt)) == columnName;
-            return !found;
-        });
-    return found;
-}
-
 std::string canonicalLongName(const ModelData& md) {
     return md.long_name.empty() ? md.title : md.long_name;
 }
@@ -180,47 +165,6 @@ bool SQLModelRepository::createTables() {
                     m_db.exec("CREATE INDEX IF NOT EXISTS idx_models_inc_proc ON models(is_included, is_processed);");
     if (!ok)
         return false;
-
-    if (!tableHasColumn(m_db, "models", "long_name") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN long_name TEXT;")) {
-        return false;
-    }
-    if (!tableHasColumn(m_db, "models", "modelers") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN modelers TEXT;")) {
-        return false;
-    }
-    if (!tableHasColumn(m_db, "models", "model_type") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN model_type TEXT;")) {
-        return false;
-    }
-    if (!tableHasColumn(m_db, "models", "aliases") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN aliases TEXT;")) {
-        return false;
-    }
-    if (!tableHasColumn(m_db, "models", "suitability") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN suitability TEXT;")) {
-        return false;
-    }
-    if (!tableHasColumn(m_db, "models", "classification") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN classification TEXT;")) {
-        return false;
-    }
-    if (!tableHasColumn(m_db, "models", "owner_org") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN owner_org TEXT;")) {
-        return false;
-    }
-    if (!tableHasColumn(m_db, "models", "source_org") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN source_org TEXT;")) {
-        return false;
-    }
-    if (!tableHasColumn(m_db, "models", "created_at_fs") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN created_at_fs TEXT;")) {
-        return false;
-    }
-    if (!tableHasColumn(m_db, "models", "modified_at_fs") &&
-        !m_db.exec("ALTER TABLE models ADD COLUMN modified_at_fs TEXT;")) {
-        return false;
-    }
 
     return true;
 }

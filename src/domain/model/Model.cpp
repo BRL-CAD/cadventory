@@ -25,26 +25,6 @@ namespace fs = std::filesystem;
 
 namespace {
 
-bool tableHasColumn(sqlite3* db, const char* tableName, const char* columnName) {
-  const std::string sql = "PRAGMA table_info(" + std::string(tableName) + ");";
-  sqlite3_stmt* stmt = nullptr;
-  if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-    return false;
-  }
-
-  bool found = false;
-  while (sqlite3_step(stmt) == SQLITE_ROW) {
-    const unsigned char* txt = sqlite3_column_text(stmt, 1);
-    if (txt && std::string(reinterpret_cast<const char*>(txt)) == columnName) {
-      found = true;
-      break;
-    }
-  }
-
-  sqlite3_finalize(stmt);
-  return found;
-}
-
 std::string getTextColumn(sqlite3_stmt* stmt, int col) {
   const unsigned char* text = sqlite3_column_text(stmt, col);
   return text ? reinterpret_cast<const char*>(text) : std::string{};
@@ -259,47 +239,6 @@ bool Model::createTables() {
                   executeSQL(sqlTags) && executeSQL(sqlModelTags);
   if (!ok)
     return false;
-
-  if (!tableHasColumn(db, "models", "long_name") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN long_name TEXT;")) {
-    return false;
-  }
-  if (!tableHasColumn(db, "models", "modelers") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN modelers TEXT;")) {
-    return false;
-  }
-  if (!tableHasColumn(db, "models", "model_type") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN model_type TEXT;")) {
-    return false;
-  }
-  if (!tableHasColumn(db, "models", "aliases") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN aliases TEXT;")) {
-    return false;
-  }
-  if (!tableHasColumn(db, "models", "suitability") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN suitability TEXT;")) {
-    return false;
-  }
-  if (!tableHasColumn(db, "models", "classification") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN classification TEXT;")) {
-    return false;
-  }
-  if (!tableHasColumn(db, "models", "owner_org") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN owner_org TEXT;")) {
-    return false;
-  }
-  if (!tableHasColumn(db, "models", "source_org") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN source_org TEXT;")) {
-    return false;
-  }
-  if (!tableHasColumn(db, "models", "created_at_fs") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN created_at_fs TEXT;")) {
-    return false;
-  }
-  if (!tableHasColumn(db, "models", "modified_at_fs") &&
-      !executeSQL("ALTER TABLE models ADD COLUMN modified_at_fs TEXT;")) {
-    return false;
-  }
 
   return true;
 }
