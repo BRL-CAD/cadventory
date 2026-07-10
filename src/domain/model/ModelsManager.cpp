@@ -1,6 +1,69 @@
 #include "ModelsManager.h"
+#include "AuditLog.h"
 
 #include <algorithm>
+
+#include "Logger.h"
+
+namespace {
+
+void recordMetadataDiff(const HiddenDir& paths,
+                        const ModelData& before,
+                        const ModelData& after) {
+    AuditLog audit(paths.auditDir());
+    struct FieldDiff {
+        const char* property;
+        const std::string* before;
+        const std::string* after;
+    };
+    const FieldDiff fields[] = {
+        {"short_name", &before.short_name, &after.short_name},
+        {"primary_file", &before.primary_file, &after.primary_file},
+        {"override_info", &before.override_info, &after.override_info},
+        {"title", &before.title, &after.title},
+        {"author", &before.author, &after.author},
+        {"file_path", &before.file_path, &after.file_path},
+        {"library_name", &before.library_name, &after.library_name},
+        {"long_name", &before.long_name, &after.long_name},
+        {"modelers", &before.modelers, &after.modelers},
+        {"model_type", &before.model_type, &after.model_type},
+        {"aliases", &before.aliases, &after.aliases},
+        {"owner_org", &before.owner_org, &after.owner_org},
+        {"source_org", &before.source_org, &after.source_org},
+        {"suitability", &before.suitability, &after.suitability},
+        {"classification", &before.classification, &after.classification},
+    };
+
+    for (const auto& field : fields) {
+        if (!audit.recordMetadataChange(after, field.property, *field.before, *field.after)) {
+            LOG_WARN << "Metadata changed but audit event could not be written for model "
+                     << after.id << LOG_ENDL;
+        }
+    }
+}
+
+std::string joinTags(const std::vector<std::string>& tags) {
+    std::string joined;
+    for (const auto& tag : tags) {
+        if (!joined.empty())
+            joined += '\n';
+        joined += tag;
+    }
+    return joined;
+}
+
+void recordTagDiff(const HiddenDir& paths,
+                   const ModelData& model,
+                   const std::vector<std::string>& before,
+                   const std::vector<std::string>& after) {
+    AuditLog audit(paths.auditDir());
+    if (!audit.recordMetadataChange(model, "tags", joinTags(before), joinTags(after))) {
+        LOG_WARN << "Tags changed but audit event could not be written for model "
+                 << model.id << LOG_ENDL;
+    }
+}
+
+}
 
 ModelsManager::ModelsManager(const std::string& libraryPath) : m_hiddenPaths(libraryPath) {
     m_repo = std::make_unique<SQLModelRepository>(m_hiddenPaths.modelDb());
@@ -106,8 +169,14 @@ std::optional<ModelData> ModelsManager::insertModel(const ModelData& md) {
 }
 
 bool ModelsManager::updateModel(const ModelData& md) {
+    const auto before = m_repo->getModelById(md.id);
     if (!m_repo->updateModel(md.id, md))
 	return false;
+
+    if (before) {
+        if (const auto after = m_repo->getModelById(md.id))
+            recordMetadataDiff(m_hiddenPaths, *before, *after);
+    }
 
     {	// update cache
 	std::lock_guard<std::mutex> lk(m_mutex);
@@ -231,8 +300,12 @@ bool ModelsManager::selectAllIncluded(bool select) {
 }
 
 bool ModelsManager::addTagToModel(int modelId, std::string_view tag) {
+    const auto before = m_repo->getTagsForModel(modelId);
     if (!m_repo->addTagToModel(modelId, tag))
 	return false;
+
+    if (const auto model = m_repo->getModelById(modelId))
+        recordTagDiff(m_hiddenPaths, *model, before, m_repo->getTagsForModel(modelId));
 
     {
 	std::lock_guard<std::mutex> lk(m_mutex);
@@ -250,8 +323,12 @@ bool ModelsManager::addTagToModel(int modelId, std::string_view tag) {
 }
 
 bool ModelsManager::removeTagFromModel(int modelId, std::string_view tag) {
+    const auto before = m_repo->getTagsForModel(modelId);
     if (!m_repo->removeTagFromModel(modelId, tag))
 	return false;
+
+    if (const auto model = m_repo->getModelById(modelId))
+        recordTagDiff(m_hiddenPaths, *model, before, m_repo->getTagsForModel(modelId));
 
     {
 	std::lock_guard<std::mutex> lk(m_mutex);
