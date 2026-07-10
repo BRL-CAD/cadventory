@@ -8,6 +8,7 @@ using std::filesystem::path;
 // hidden dir names
 inline constexpr const char* CADV_DOTFOLDER = ".cadventory";
 inline constexpr const char* CADV_DATA_DIR  = "data";
+inline constexpr const char* CADV_AUDIT_DIR = "audit";
 inline constexpr const char* CADV_JOBS_DIR  = "jobs";
 inline constexpr const char* CADV_JOBS_DB   = "jobs.db";
 inline constexpr const char* CADV_MODEL_DB  = "metadata.db";
@@ -39,6 +40,7 @@ public:
     std::string libRoot()   const { return norm(m_root); }
     std::string dotFolder() const { return norm(m_dotFolder); }
     std::string dataDir()   const { return norm(m_dotFolder / CADV_DATA_DIR); }
+    std::string auditDir()  const { return norm(m_dotFolder / CADV_AUDIT_DIR); }
     std::string jobsDir()   const { return norm(m_dotFolder / CADV_JOBS_DIR); }
     std::string modelDb()   const { return norm(m_dotFolder / CADV_MODEL_DB); }
     std::string jobsDb()    const { return norm(m_dotFolder / CADV_JOBS_DIR / CADV_JOBS_DB); }
@@ -59,6 +61,7 @@ private:
         std::error_code ec; // ignore errors
         std::filesystem::create_directories(m_dotFolder, ec);
         std::filesystem::create_directories(dataDir(), ec);
+        std::filesystem::create_directories(auditDir(), ec);
         std::filesystem::create_directories(jobsDir(), ec);
 
         // ensure our files too

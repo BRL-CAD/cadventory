@@ -426,6 +426,26 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
         REQUIRE(updatedModel->source_org == "Imported Archive");
         REQUIRE(updatedModel->created_at_fs == "2026-06-03T07:00:00Z");
         REQUIRE(updatedModel->modified_at_fs == "2026-06-03T08:30:00Z");
+
+        const auto auditRoot = fixture.model->getHiddenPaths().auditDir();
+        REQUIRE(std::filesystem::exists(auditRoot));
+        bool foundLongNameEvent = false;
+        for (const auto& day : std::filesystem::directory_iterator(auditRoot)) {
+            if (!day.is_directory())
+                continue;
+            for (const auto& event : std::filesystem::directory_iterator(day.path())) {
+                if (!event.is_regular_file() || event.path().extension() != ".json")
+                    continue;
+                std::ifstream input(event.path());
+                const std::string contents((std::istreambuf_iterator<char>(input)), {});
+                if (contents.find("\"property\":\"long_name\"") != std::string::npos &&
+                    contents.find("\"before\":\"Long Title\"") != std::string::npos &&
+                    contents.find("\"after\":\"New Title\"") != std::string::npos) {
+                    foundLongNameEvent = true;
+                }
+            }
+        }
+        REQUIRE(foundLongNameEvent);
     }
 
     // Verify that attempting to set an invalid property fails

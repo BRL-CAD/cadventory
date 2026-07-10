@@ -1,4 +1,5 @@
 #include "Model.h"
+#include "AuditLog.h"
 
 #include <QBuffer>
 #include <QDebug>
@@ -1617,6 +1618,29 @@ bool Model::setPropertyForModel(int modelId, const std::string& property,
     return false;
   }
 
+  const auto existing = getModelById(modelId);
+  if (!existing.has_value())
+    return false;
+
+  const auto oldValue = [&]() -> std::string {
+    if (property == "short_name") return existing->short_name;
+    if (property == "primary_file") return existing->primary_file;
+    if (property == "override_info") return existing->override_info;
+    if (property == "title") return existing->title;
+    if (property == "author") return existing->author;
+    if (property == "file_path") return existing->file_path;
+    if (property == "library_name") return existing->library_name;
+    if (property == "long_name") return existing->effectiveLongName();
+    if (property == "modelers") return existing->effectiveModelers();
+    if (property == "model_type") return existing->model_type;
+    if (property == "aliases") return existing->aliases;
+    if (property == "owner_org") return existing->owner_org;
+    if (property == "source_org") return existing->source_org;
+    if (property == "suitability") return existing->suitability;
+    if (property == "classification") return existing->classification;
+    return {};
+  }();
+
   std::string sql;
   if (property == "long_name") {
     sql = "UPDATE models SET long_name = ?, title = ? WHERE id = ?;";
@@ -1689,6 +1713,12 @@ bool Model::setPropertyForModel(int modelId, const std::string& property,
     const QModelIndex modelIndex = index(row);
     emit dataChanged(modelIndex, modelIndex);
     break;
+  }
+
+  AuditLog audit(hiddenPaths.auditDir());
+  if (!audit.recordMetadataChange(*existing, property, oldValue, value)) {
+    LOG_WARN << "Metadata changed but audit event could not be written for model "
+             << modelId << LOG_ENDL;
   }
 
   return true;

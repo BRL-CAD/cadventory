@@ -71,6 +71,7 @@ set(SRCS
   src/domain/library/Library.cpp
   src/domain/llm/OllamaCLIService.cpp
   src/domain/model/Model.cpp
+  src/domain/model/AuditLog.h
   src/domain/model/QtModelsListModel.cpp
   src/domain/model/ModelsManager.cpp
   src/domain/model/SQLModelRepository.cpp
