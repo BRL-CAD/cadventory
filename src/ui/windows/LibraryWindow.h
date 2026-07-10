@@ -40,6 +40,7 @@ private slots:
     void onSearchFieldChanged(const QString& field);
     void onAvailableModelClicked(const QModelIndex& index);
     void onGenerateReportButtonClicked();
+    void onAuditLogButtonClicked();
     void on_backButton_clicked();
     void onGenerateAllTagsClicked();
     void onPauseTagGenerationClicked();

@@ -147,6 +147,7 @@ add_cadventory_test(
     SOURCES
         ModelTest.cpp
         ../domain/model/Model.cpp
+        ../domain/library/LibraryBackup.cpp
         ../domain/jobqueue/SimpleFileLock.cpp
 )
 
@@ -275,6 +276,7 @@ add_cadventory_test(
         ../domain/model/ModelParser.cpp
         ../ui/windows/MainWindow.cpp
         ../ui/windows/LibraryWindow.cpp
+        ../ui/windows/AuditViewerDialog.cpp
         ../ui/windows/ReportGenerationWindow.cpp
         ../ui/windows/SettingWindow.cpp
         ../ui/windows/SplashDialog.cpp
@@ -321,6 +323,7 @@ add_cadventory_test(
         ../domain/model/ModelParser.cpp
         ../ui/windows/MainWindow.cpp
         ../ui/windows/LibraryWindow.cpp
+        ../ui/windows/AuditViewerDialog.cpp
         ../ui/windows/ReportGenerationWindow.cpp
         ../ui/windows/SettingWindow.cpp
         ../ui/windows/SplashDialog.cpp

@@ -3,7 +3,9 @@
 #include <catch2/catch_test_macros.hpp>
 #include <fstream>
 #include <iterator>
+#include "AuditLog.h"
 #include "Model.h"
+#include "LibraryBackup.h"
 #include <filesystem>
 #include <memory>
 
@@ -46,6 +48,36 @@ TEST_CASE("Model Initialization and CRUD Operations", "[Model]") {
         REQUIRE(fixture.model->deleteModel(fetchedModel.id) == true);
         REQUIRE_FALSE(fixture.model->modelExists(fetchedModel.id));
     }
+}
+
+TEST_CASE("LibraryBackup captures CADventory-managed state", "[Backup]") {
+    ModelTestFixture fixture(TEST_NAME);
+    ModelData modelData = {0, "BackupModel", "./model.g", "{}", "Original", {}, "Author",
+                           "/models/backup.g", "Library", false, false, false, {}};
+    REQUIRE(fixture.model->insertModel(modelData));
+    const int modelId = fixture.model->getModelByFilePath(modelData.file_path).id;
+    REQUIRE(fixture.model->setPropertyForModel(modelId, "long_name", "Backed Up Name"));
+
+    const fs::path managedData = fs::path(fixture.model->getHiddenPaths().dataDir()) / "cache.txt";
+    std::filesystem::create_directories(managedData.parent_path());
+    std::ofstream(managedData) << "managed output";
+
+    const fs::path geometry = fixture.tempDir / "source-model.g";
+    std::ofstream(geometry) << "not managed by CADventory";
+
+    const auto backup = LibraryBackup::create(fixture.model->getHiddenPaths(),
+                                               fixture.tempDir / "backups");
+    REQUIRE(backup.success);
+    REQUIRE(std::filesystem::exists(backup.directory / ".cadventory" / "metadata.db"));
+    REQUIRE(std::filesystem::exists(backup.directory / ".cadventory" / "jobs" / "jobs.db"));
+    REQUIRE(std::filesystem::exists(backup.directory / ".cadventory" / "data" / "cache.txt"));
+    REQUIRE(std::filesystem::exists(backup.directory / ".cadventory" / "audit"));
+    REQUIRE_FALSE(std::filesystem::exists(backup.directory / "source-model.g"));
+
+    Model restored(backup.directory.string());
+    const auto restoredModel = restored.getModelByFilePath(modelData.file_path);
+    REQUIRE(restoredModel.id > 0);
+    REQUIRE(restoredModel.long_name == "Backed Up Name");
 }
 
 // Tests for verifying data roles and utility functions
@@ -447,6 +479,16 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
             }
         }
         REQUIRE(foundLongNameEvent);
+
+        const auto auditEvents = AuditLog(auditRoot).readEvents();
+        REQUIRE(auditEvents.invalidEvents == 0);
+        REQUIRE_FALSE(auditEvents.events.empty());
+        bool foundParsedLongNameEvent = false;
+        for (const auto& event : auditEvents.events) {
+            if (event.property == "long_name" && event.after == "New Title")
+                foundParsedLongNameEvent = true;
+        }
+        REQUIRE(foundParsedLongNameEvent);
     }
 
     // Verify that attempting to set an invalid property fails

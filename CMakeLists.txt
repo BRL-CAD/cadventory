@@ -69,6 +69,7 @@ set(SRCS
   src/domain/jobqueue/SimpleFileLock.cpp
   src/domain/library/FilesystemIndexer.cpp
   src/domain/library/Library.cpp
+  src/domain/library/LibraryBackup.cpp
   src/domain/llm/OllamaCLIService.cpp
   src/domain/model/Model.cpp
   src/domain/model/AuditLog.h
@@ -93,6 +94,7 @@ set(HEADERS
   src/domain/jobqueue/SimpleFileLock.h
   src/domain/library/FilesystemIndexer.h
   src/domain/library/Library.h
+  src/domain/library/LibraryBackup.h
   src/domain/llm/ILLMService.h
   src/domain/llm/OllamaCLIService.h
   src/domain/model/Model.h
@@ -125,7 +127,8 @@ if(CADVENTORY_WITH_GUI)
     src/ui/widgets/GeometryBrowserDialog.cpp
     src/ui/widgets/ModelCardDelegate.cpp
     src/ui/widgets/ModelView.cpp
-    src/ui/windows/LibraryWindow.cpp
+  src/ui/windows/LibraryWindow.cpp
+  src/ui/windows/AuditViewerDialog.cpp
     src/ui/windows/MainWindow.cpp
     src/ui/windows/ReportGenerationWindow.cpp
     src/ui/windows/SettingWindow.cpp
@@ -139,6 +142,7 @@ if(CADVENTORY_WITH_GUI)
     src/ui/widgets/ModelCardDelegate.h
     src/ui/widgets/ModelView.h
     src/ui/windows/LibraryWindow.h
+    src/ui/windows/AuditViewerDialog.h
     src/ui/windows/MainWindow.h
     src/ui/windows/ReportGenerationWindow.h
     src/ui/windows/SettingWindow.h

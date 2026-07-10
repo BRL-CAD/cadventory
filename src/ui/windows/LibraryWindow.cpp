@@ -3,6 +3,7 @@
 #include "ProcessGFiles.h"
 #include "MainWindow.h"
 #include "GeometryBrowserDialog.h"
+#include "AuditViewerDialog.h"
 #include "ModelView.h"
 #include "Logger.h"
 // #include "AdvancedOptionsDialog.h"
@@ -516,6 +517,8 @@ void LibraryWindow::setupConnections() {
     // Connect Generate Report button
     connect(ui.generateReportButton, &QPushButton::clicked,
             this, &LibraryWindow::onGenerateReportButtonClicked);
+    connect(ui.auditLogButton, &QPushButton::clicked,
+            this, &LibraryWindow::onAuditLogButtonClicked);
 
     // Connect geometry browser clicked signal
     connect(modelCardDelegate, &ModelCardDelegate::geometryBrowserClicked,
@@ -545,6 +548,14 @@ void LibraryWindow::setupConnections() {
     ui.searchFieldComboBox->clear();
 	ui.searchFieldComboBox->addItem("Short Name", QtModelsListModel::ShortNameRole);
     ui.searchFieldComboBox->addItem("Tags", QtModelsListModel::TagsRole);
+}
+
+void LibraryWindow::onAuditLogButtonClicked() {
+    if (!model)
+        return;
+
+    AuditViewerDialog dialog(model->getHiddenPaths().auditDir(), this);
+    dialog.exec();
 }
 
 void LibraryWindow::onSearchTextChanged(const QString& text) {

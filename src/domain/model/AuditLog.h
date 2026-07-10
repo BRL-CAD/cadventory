@@ -9,10 +9,28 @@
 
 #include <filesystem>
 #include <fstream>
+#include <algorithm>
 #include <random>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
+
+struct AuditEvent {
+    QString timestamp;
+    QString actor;
+    QString shortName;
+    QString filePath;
+    QString property;
+    QString before;
+    QString after;
+    int modelId = -1;
+};
+
+struct AuditReadResult {
+    std::vector<AuditEvent> events;
+    std::size_t invalidEvents = 0;
+};
 
 class AuditLog {
 public:
@@ -77,6 +95,58 @@ public:
         }
 
         return true;
+    }
+
+    AuditReadResult readEvents() const {
+        AuditReadResult result;
+        std::error_code ec;
+        std::vector<std::filesystem::path> eventPaths;
+        if (!std::filesystem::exists(m_root, ec))
+            return result;
+
+        for (std::filesystem::recursive_directory_iterator it(m_root, ec), end;
+             !ec && it != end;
+             it.increment(ec)) {
+            if (it->is_regular_file(ec) && it->path().extension() == ".json")
+                eventPaths.push_back(it->path());
+        }
+        if (ec)
+            return result;
+
+        std::sort(eventPaths.begin(), eventPaths.end());
+        for (const auto& eventPath : eventPaths) {
+            std::ifstream input(eventPath);
+            const std::string contents((std::istreambuf_iterator<char>(input)), {});
+            const QJsonDocument document = QJsonDocument::fromJson(
+                QByteArray::fromStdString(contents));
+            if (!document.isObject()) {
+                ++result.invalidEvents;
+                continue;
+            }
+
+            const QJsonObject object = document.object();
+            if (!object.contains("timestamp") || !object.contains("property")) {
+                ++result.invalidEvents;
+                continue;
+            }
+
+            AuditEvent event;
+            event.timestamp = object.value("timestamp").toString();
+            event.actor = object.value("actor").toString();
+            event.modelId = object.value("model_id").toInt(-1);
+            event.shortName = object.value("short_name").toString();
+            event.filePath = object.value("file_path").toString();
+            event.property = object.value("property").toString();
+            event.before = object.value("before").toString();
+            event.after = object.value("after").toString();
+            result.events.push_back(std::move(event));
+        }
+
+        std::stable_sort(result.events.begin(), result.events.end(),
+                         [](const AuditEvent& left, const AuditEvent& right) {
+                             return left.timestamp > right.timestamp;
+                         });
+        return result;
     }
 
 private:
