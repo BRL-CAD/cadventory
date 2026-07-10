@@ -2,6 +2,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <atomic>
 #include <thread>
 #include <algorithm>
@@ -106,6 +108,20 @@ TEST_CASE("ModelsManager: update persists, refreshes cache from repo, and notifi
     REQUIRE(all[0].modified_at_fs == "2026-06-03T10:45:00Z");
     REQUIRE(all[0].is_included == true);
     REQUIRE(all[0].is_processed == true);
+
+    HiddenDir paths(fix.tempDir);
+    bool foundTitleEvent = false;
+    for (const auto& day : fs::directory_iterator(paths.auditDir())) {
+        for (const auto& event : fs::directory_iterator(day.path())) {
+            std::ifstream input(event.path());
+            const std::string contents((std::istreambuf_iterator<char>(input)), {});
+            if (contents.find("\"property\":\"title\"") != std::string::npos &&
+                contents.find("\"after\":\"New Title\"") != std::string::npos) {
+                foundTitleEvent = true;
+            }
+        }
+    }
+    REQUIRE(foundTitleEvent);
 }
 
 TEST_CASE("ModelsManager: delete removes from cache and notifies") {
