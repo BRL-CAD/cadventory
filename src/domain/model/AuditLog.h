@@ -9,18 +9,10 @@
 
 #include <filesystem>
 #include <fstream>
-#include <algorithm>
 #include <random>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
-
-struct AuditExportResult {
-    bool success = false;
-    std::size_t eventsExported = 0;
-    std::size_t invalidEvents = 0;
-};
 
 class AuditLog {
 public:
@@ -85,69 +77,6 @@ public:
         }
 
         return true;
-    }
-
-    AuditExportResult exportJsonLines(const std::filesystem::path& outputPath) const {
-        AuditExportResult result;
-        std::error_code ec;
-        std::vector<std::filesystem::path> events;
-
-        if (std::filesystem::exists(m_root, ec)) {
-            for (std::filesystem::recursive_directory_iterator it(m_root, ec), end;
-                 !ec && it != end;
-                 it.increment(ec)) {
-                if (it->is_regular_file(ec) && it->path().extension() == ".json")
-                    events.push_back(it->path());
-            }
-        }
-        if (ec)
-            return result;
-
-        std::sort(events.begin(), events.end());
-        if (!outputPath.parent_path().empty()) {
-            std::filesystem::create_directories(outputPath.parent_path(), ec);
-            if (ec)
-                return result;
-        }
-
-        const auto tempPath = outputPath.string() + ".tmp";
-        std::ofstream output(tempPath, std::ios::out | std::ios::trunc);
-        if (!output)
-            return result;
-
-        for (const auto& eventPath : events) {
-            std::ifstream input(eventPath);
-            const std::string contents((std::istreambuf_iterator<char>(input)), {});
-            const QJsonDocument event = QJsonDocument::fromJson(
-                QByteArray::fromStdString(contents));
-            if (!event.isObject()) {
-                ++result.invalidEvents;
-                continue;
-            }
-
-            const QByteArray line = event.toJson(QJsonDocument::Compact);
-            output.write(line.constData(), line.size());
-            output << '\n';
-            ++result.eventsExported;
-        }
-        output.close();
-        if (!output)
-            return AuditExportResult{};
-
-        std::filesystem::rename(tempPath, outputPath, ec);
-        if (ec) {
-            ec.clear();
-            std::filesystem::remove(outputPath, ec);
-            if (!ec)
-                std::filesystem::rename(tempPath, outputPath, ec);
-            if (ec) {
-                std::filesystem::remove(tempPath, ec);
-                return AuditExportResult{};
-            }
-        }
-
-        result.success = true;
-        return result;
     }
 
 private:

@@ -3,7 +3,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <fstream>
 #include <iterator>
-#include "AuditLog.h"
 #include "Model.h"
 #include <filesystem>
 #include <memory>
@@ -448,19 +447,6 @@ TEST_CASE("Model: Get and Set Properties", "[Model]") {
             }
         }
         REQUIRE(foundLongNameEvent);
-
-        const auto exportPath = fixture.tempDir / "metadata-audit.jsonl";
-        AuditLog audit(auditRoot);
-        const auto exportResult = audit.exportJsonLines(exportPath);
-        REQUIRE(exportResult.success);
-        REQUIRE(exportResult.eventsExported >= 1);
-        REQUIRE(exportResult.invalidEvents == 0);
-        REQUIRE(audit.exportJsonLines(exportPath).success);
-
-        std::ifstream exportFile(exportPath);
-        const std::string exported((std::istreambuf_iterator<char>(exportFile)), {});
-        REQUIRE(exported.find("\"property\":\"long_name\"") != std::string::npos);
-        REQUIRE(exported.find("\"after\":\"New Title\"") != std::string::npos);
     }
 
     // Verify that attempting to set an invalid property fails
