@@ -1,11 +1,13 @@
 // Catch2 is used for writing and running unit tests
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_test_macros.hpp>
+#include <chrono>
 #include <fstream>
 #include <iterator>
 #include "AuditLog.h"
 #include "Model.h"
 #include "LibraryBackup.h"
+#include "LibraryIntegrity.h"
 #include <filesystem>
 #include <memory>
 
@@ -78,6 +80,44 @@ TEST_CASE("LibraryBackup captures CADventory-managed state", "[Backup]") {
     const auto restoredModel = restored.getModelByFilePath(modelData.file_path);
     REQUIRE(restoredModel.id > 0);
     REQUIRE(restoredModel.long_name == "Backed Up Name");
+}
+
+TEST_CASE("LibraryIntegrity identifies missing and externally modified model files", "[Integrity]") {
+    ModelTestFixture fixture(TEST_NAME);
+    const fs::path unchangedPath = fixture.tempDir / "unchanged.g";
+    const fs::path missingPath = fixture.tempDir / "missing.g";
+    const fs::path modifiedPath = fixture.tempDir / "modified.g";
+    std::ofstream(unchangedPath) << "unchanged";
+    std::ofstream(missingPath) << "missing";
+    std::ofstream(modifiedPath) << "modified";
+
+    ModelData unchanged = {0, "Unchanged", "", "", "", {}, "", unchangedPath.string(),
+                           "Library", false, false, false, {}};
+    ModelData missing = {0, "Missing", "", "", "", {}, "", missingPath.string(),
+                         "Library", false, false, false, {}};
+    ModelData modified = {0, "Modified", "", "", "", {}, "", modifiedPath.string(),
+                          "Library", false, false, false, {}};
+    REQUIRE(fixture.model->insertModel(unchanged));
+    REQUIRE(fixture.model->insertModel(missing));
+    REQUIRE(fixture.model->insertModel(modified));
+
+    std::filesystem::remove(missingPath);
+    const auto originalTime = std::filesystem::last_write_time(modifiedPath);
+    std::filesystem::last_write_time(modifiedPath, originalTime + std::chrono::seconds(5));
+
+    const IntegrityReport report = LibraryIntegrity::inspect(fixture.model->getHiddenPaths(),
+                                                               fixture.model->getAll());
+    REQUIRE(report.checkedModels == 3);
+    REQUIRE(report.issues.size() == 2);
+
+    bool foundMissing = false;
+    bool foundModified = false;
+    for (const IntegrityIssue& issue : report.issues) {
+        foundMissing |= issue.type == IntegrityIssueType::MissingFile && issue.shortName == "Missing";
+        foundModified |= issue.type == IntegrityIssueType::ModifiedFile && issue.shortName == "Modified";
+    }
+    REQUIRE(foundMissing);
+    REQUIRE(foundModified);
 }
 
 // Tests for verifying data roles and utility functions

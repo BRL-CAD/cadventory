@@ -148,6 +148,7 @@ add_cadventory_test(
         ModelTest.cpp
         ../domain/model/Model.cpp
         ../domain/library/LibraryBackup.cpp
+        ../domain/library/LibraryIntegrity.cpp
         ../domain/jobqueue/SimpleFileLock.cpp
 )
 
@@ -268,6 +269,7 @@ add_cadventory_test(
         ../domain/jobqueue/SimpleFileLock.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
+        ../domain/library/LibraryIntegrity.cpp
         ../domain/llm/OllamaCLIService.cpp
         ../domain/model/Model.cpp
         ../domain/model/QtModelsListModel.cpp
@@ -277,6 +279,7 @@ add_cadventory_test(
         ../ui/windows/MainWindow.cpp
         ../ui/windows/LibraryWindow.cpp
         ../ui/windows/AuditViewerDialog.cpp
+        ../ui/windows/IntegrityViewerDialog.cpp
         ../ui/windows/ReportGenerationWindow.cpp
         ../ui/windows/SettingWindow.cpp
         ../ui/windows/SplashDialog.cpp
@@ -315,6 +318,7 @@ add_cadventory_test(
         ../domain/jobqueue/SimpleFileLock.cpp
         ../domain/library/FilesystemIndexer.cpp
         ../domain/library/Library.cpp
+        ../domain/library/LibraryIntegrity.cpp
         ../domain/llm/OllamaCLIService.cpp
         ../domain/model/Model.cpp
         ../domain/model/QtModelsListModel.cpp
@@ -324,6 +328,7 @@ add_cadventory_test(
         ../ui/windows/MainWindow.cpp
         ../ui/windows/LibraryWindow.cpp
         ../ui/windows/AuditViewerDialog.cpp
+        ../ui/windows/IntegrityViewerDialog.cpp
         ../ui/windows/ReportGenerationWindow.cpp
         ../ui/windows/SettingWindow.cpp
         ../ui/windows/SplashDialog.cpp

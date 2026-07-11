@@ -41,6 +41,7 @@ private slots:
     void onAvailableModelClicked(const QModelIndex& index);
     void onGenerateReportButtonClicked();
     void onAuditLogButtonClicked();
+    void onIntegrityButtonClicked();
     void on_backButton_clicked();
     void onGenerateAllTagsClicked();
     void onPauseTagGenerationClicked();

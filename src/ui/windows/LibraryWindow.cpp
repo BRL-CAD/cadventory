@@ -4,6 +4,7 @@
 #include "MainWindow.h"
 #include "GeometryBrowserDialog.h"
 #include "AuditViewerDialog.h"
+#include "IntegrityViewerDialog.h"
 #include "ModelView.h"
 #include "Logger.h"
 // #include "AdvancedOptionsDialog.h"
@@ -519,6 +520,8 @@ void LibraryWindow::setupConnections() {
             this, &LibraryWindow::onGenerateReportButtonClicked);
     connect(ui.auditLogButton, &QPushButton::clicked,
             this, &LibraryWindow::onAuditLogButtonClicked);
+    connect(ui.integrityButton, &QPushButton::clicked,
+            this, &LibraryWindow::onIntegrityButtonClicked);
 
     // Connect geometry browser clicked signal
     connect(modelCardDelegate, &ModelCardDelegate::geometryBrowserClicked,
@@ -555,6 +558,14 @@ void LibraryWindow::onAuditLogButtonClicked() {
         return;
 
     AuditViewerDialog dialog(model->getHiddenPaths().auditDir(), this);
+    dialog.exec();
+}
+
+void LibraryWindow::onIntegrityButtonClicked() {
+    if (!model)
+        return;
+
+    IntegrityViewerDialog dialog(model->getHiddenPaths(), model->getAll(), this);
     dialog.exec();
 }
 
