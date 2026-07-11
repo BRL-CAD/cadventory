@@ -207,6 +207,17 @@ void LibraryWindow::onTagsGeneratedFromBatch(const QStringList& tags) {
     QTimer::singleShot(200, this, &LibraryWindow::processNextFile);
 }
 
+void LibraryWindow::onTagGenerationFailed(const QString& reason) {
+    if (canceled || paused || currentFileIndex < 0)
+        return;
+
+    ui.statusLabel->setText(tr("Skipped %1: %2")
+                                .arg(currentFileIndex + 1)
+                                .arg(reason));
+    ++currentFileIndex;
+    QTimer::singleShot(200, this, &LibraryWindow::processNextFile);
+}
+
 void LibraryWindow::onResumeTagGenerationClicked() {
     paused = false;
 
@@ -259,7 +270,9 @@ void LibraryWindow::onGenerateAllTagsClicked() {
 
     // check the tagger was started successfully
     if (!tagger->taggingEnabled()) {
-        QMessageBox::critical(this, "Missing Dependency", "Unable to use the AI tagger.\nPlease ensure installation and setup is complete.");
+        const QString reason = tagger->taggingStatus();
+        QMessageBox::critical(this, tr("AI Tagging Unavailable"),
+                              reason.isEmpty() ? tr("Unable to use the AI tagger.") : reason);
         return;
     }
 
@@ -297,10 +310,10 @@ void LibraryWindow::onGenerateAllTagsClicked() {
     }
 
     // only setup one connection
-    static bool connectedOnce = false;
-    if (!connectedOnce) {
+    if (!taggerConnected) {
         connect(tagger, &AIModelTagging::tagsReady, this, &LibraryWindow::onTagsGeneratedFromBatch);
-        connectedOnce = true;
+        connect(tagger, &AIModelTagging::taggingFailed, this, &LibraryWindow::onTagGenerationFailed);
+        taggerConnected = true;
     }
 
     processNextFile();

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>400</width>
-    <height>300</height>
+    <height>390</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,7 +17,7 @@
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>240</y>
+     <y>330</y>
      <width>341</width>
      <height>32</height>
     </rect>
@@ -109,6 +109,36 @@
    <property name="maximum">
     <number>4096</number>
    </property>
+  </widget>
+  <widget class="QLabel" name="ollamaExecutableLabel">
+   <property name="geometry">
+    <rect><x>30</x><y>120</y><width>141</width><height>16</height></rect>
+   </property>
+   <property name="text"><string>Ollama executable:</string></property>
+  </widget>
+  <widget class="QLineEdit" name="ollamaExecutable">
+   <property name="geometry">
+    <rect><x>30</x><y>143</y><width>341</width><height>24</height></rect>
+   </property>
+   <property name="placeholderText"><string>Leave blank to discover from PATH</string></property>
+  </widget>
+  <widget class="QLabel" name="ollamaModelLabel">
+   <property name="geometry">
+    <rect><x>30</x><y>185</y><width>141</width><height>16</height></rect>
+   </property>
+   <property name="text"><string>Ollama model:</string></property>
+  </widget>
+  <widget class="QLineEdit" name="ollamaModel">
+   <property name="geometry">
+    <rect><x>180</x><y>181</y><width>191</width><height>24</height></rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="ollamaHelpLabel">
+   <property name="geometry">
+    <rect><x>30</x><y>220</y><width>341</width><height>61</height></rect>
+   </property>
+   <property name="wordWrap"><bool>true</bool></property>
+   <property name="text"><string>CADventory does not start Ollama or download models. Start Ollama separately and install the selected model with: ollama pull &lt;model&gt;.</string></property>
   </widget>
  </widget>
  <resources/>

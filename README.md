@@ -89,11 +89,13 @@ Example:
 
 CADventory includes an experimental AI-assisted tagging path built around Ollama and a local model such as `llama3`.
 
-Current expectation:
+Configuration:
 
-- Ollama installed locally
-- the desired model available locally
-- a local or offline workflow appropriate for your environment
+- In `Settings`, optionally set the path to the Ollama executable; leave it blank to discover `ollama` from `PATH`.
+- Select an installed local model (the default is `llama3`).
+- Start the Ollama service separately and install the selected model yourself, for example `ollama pull llama3`.
+
+CADventory does not start an Ollama daemon or download models automatically. If tagging cannot run, it identifies whether the executable, service, or selected model is unavailable; a failed file is skipped so the remaining batch can continue.
 
 ## Testing
 

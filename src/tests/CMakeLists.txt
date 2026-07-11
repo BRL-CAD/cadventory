@@ -444,3 +444,10 @@ add_cadventory_test(
         ../domain/model/SQLiteDB.cpp
         ../domain/jobqueue/SimpleFileLock.cpp
 )
+
+add_cadventory_test(
+    NAME OllamaCliServiceTest
+    SOURCES
+        OllamaCliServiceTest.cpp
+        ../domain/llm/OllamaCLIService.cpp
+)

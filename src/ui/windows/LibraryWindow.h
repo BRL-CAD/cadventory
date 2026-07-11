@@ -79,6 +79,7 @@ private:
 
     void processNextFile();
     void onTagsGeneratedFromBatch(const QStringList& tags);
+    void onTagGenerationFailed(const QString& reason);
 
     // Filesystem tree-view
     int m_fsTargetDepth = 1;			// default 'on-start' depth = 1
@@ -93,6 +94,7 @@ private:
 
     bool canceled = false;
     bool paused = false;
+    bool taggerConnected = false;
     std::vector<std::string> filesToTag;
     int currentFileIndex = -1;
 

@@ -62,14 +62,12 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
     addOptions(parser);
     parser.process(QCoreApplication::arguments());
 
-    // choose our llm backend
-    // TODO: if/when we have more than one backend use a factory
-    // TODO: have a top-level define for our ollama path
-    this->llm = std::make_unique<OllamaCliService>(/*OLLAMA_PATH*/);
-
-    // instantiate the model tagging object
-    // TODO: have a top-level define (or settings option) for our desired model
-    this->tagger = std::make_unique<AIModelTagging>(*llm, "llama3", this);
+    // Local AI settings are explicit, while PATH discovery remains a convenience fallback.
+    QSettings settings;
+    this->llm = std::make_unique<OllamaCliService>(settings.value("ai/ollamaExecutable").toString());
+    this->tagger = std::make_unique<AIModelTagging>(*llm,
+                                                    settings.value("ai/ollamaModel", "llama3").toString(),
+                                                    this);
 
     // reset if requested
     if (parser.isSet("reset")) {
@@ -295,4 +293,3 @@ void CADventory::indexDirectory(const char *path)
     emit indexingComplete(message.toUtf8().constData());
 }
 #endif
-

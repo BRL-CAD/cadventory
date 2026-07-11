@@ -18,6 +18,7 @@ public:
                             QObject *parent = nullptr);
 
     bool taggingEnabled() const;
+    QString taggingStatus() const;
     void generateTags(const QString &gFilePath);
     void cancel();
 

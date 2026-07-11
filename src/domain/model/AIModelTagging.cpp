@@ -37,11 +37,15 @@ bool AIModelTagging::taggingEnabled() const {
     return llm.isAvailable();
 }
 
+QString AIModelTagging::taggingStatus() const {
+    return llm.availabilityError();
+}
+
 void AIModelTagging::generateTags(const QString &gFilePath) {
     cancelled = false;
 
     if (!llm.isAvailable()) {
-        emit taggingFailed(tr("LLM is unavailable"));
+        emit taggingFailed(llm.availabilityError());
         return;
     }
 
@@ -102,8 +106,9 @@ Decorative
 
 QStringList AIModelTagging::parseTags(const QByteArray &raw) const
 {
-    QJsonDocument doc = QJsonDocument::fromJson(raw);
-    const QString resp = doc.object().value("response").toString();
+    const QJsonDocument doc = QJsonDocument::fromJson(raw);
+    const QString resp = doc.isObject() ? doc.object().value("response").toString()
+                                        : QString::fromUtf8(raw);
 
     QStringList lines = resp.split(QRegularExpression("[\r\n]+"),
                                    Qt::SkipEmptyParts);

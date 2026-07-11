@@ -25,6 +25,9 @@ public:
     // return's true if the model is available and usable
     virtual bool isAvailable() const = 0;
 
+    // Explain why the service is unavailable when a concrete backend can do so.
+    virtual QString availabilityError() const { return {}; }
+
     // 'brains'
     virtual LLMReply sendPrompt(const LLMRequest &req) = 0;
 };

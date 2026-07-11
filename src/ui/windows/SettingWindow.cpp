@@ -34,6 +34,9 @@ void SettingWindow::loadSettings()
     const int maxThreads = 4096;
     ui->workerThreads->setRange(0, maxThreads);
     ui->workerThreads->setValue(std::max(0, configured));
+
+    ui->ollamaExecutable->setText(settings.value("ai/ollamaExecutable").toString());
+    ui->ollamaModel->setText(settings.value("ai/ollamaModel", "llama3").toString());
 }
 
 void SettingWindow::saveSettings()
@@ -44,6 +47,8 @@ void SettingWindow::saveSettings()
     settings.setValue("previewTimer", ui->previewTimer->value());
     }
     settings.setValue("jobs/numThreads", ui->workerThreads->value());
+    settings.setValue("ai/ollamaExecutable", ui->ollamaExecutable->text().trimmed());
+    settings.setValue("ai/ollamaModel", ui->ollamaModel->text().trimmed());
 }
 
 void SettingWindow::on_buttonBox_accepted()
@@ -68,4 +73,3 @@ void SettingWindow::on_enablePreview_checkStateChanged(const Qt::CheckState &sta
         ui->previewWidget->setDisabled(false);
     }
 }
-

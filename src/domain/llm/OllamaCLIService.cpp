@@ -1,22 +1,46 @@
 #include "OllamaCLIService.h"
 
-#include <QFile>
-#include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QDebug>
+#include <QCoreApplication>
+#include <QFileInfo>
+#include <QProcess>
+#include <QStandardPaths>
+
+namespace {
+
+QString text(const char* source) {
+    return QCoreApplication::translate("OllamaCliService", source);
+}
+
+}
 
 /*** virtual class implementations ***/
 OllamaCliService::OllamaCliService(QString exe_path) {
-    if (ensureExe(exe_path)) {
-        // go ahead and start if we can
-        ensureDaemon();
-    }
+    ensureExe(exe_path);
 }
 
 bool OllamaCliService::isAvailable() const {
-    // check we have a running daemon
-    return ensureDaemon();
+    if (m_exe.isEmpty()) {
+        if (m_availabilityError.isEmpty())
+            m_availabilityError = text("Ollama executable was not found. Configure its path in Settings or add it to PATH.");
+        return false;
+    }
+
+    int exitCode = -1;
+    QString standardError;
+    runCmd({"list"}, 5000, &exitCode, &standardError);
+    if (exitCode != 0) {
+        m_availabilityError = standardError.trimmed();
+        if (m_availabilityError.isEmpty())
+            m_availabilityError = text("Ollama is installed but its local service is unavailable.");
+        return false;
+    }
+
+    m_availabilityError.clear();
+    return true;
+}
+
+QString OllamaCliService::availabilityError() const {
+    return m_availabilityError;
 }
 
 LLMReply OllamaCliService::sendPrompt(const LLMRequest &r) {
@@ -24,12 +48,13 @@ LLMReply OllamaCliService::sendPrompt(const LLMRequest &r) {
 
     if (!isAvailable()) {
         res.success = false;
-        res.error   = "ollama not available";
+        res.error = availabilityError();
         return res;
     }
     if (!ensureModel(r.model)) {
         res.success = false;
-        res.error   = "could not use requested model";
+        res.error = text("Ollama model '%1' is not installed. Select an installed model in Settings or install it with 'ollama pull %1'.")
+                        .arg(r.model);
         return res;
     }
 
@@ -37,11 +62,14 @@ LLMReply OllamaCliService::sendPrompt(const LLMRequest &r) {
     QStringList args { "run", r.model, r.prompt };
 
     int code = -1;
-    QByteArray raw = runCmd(args, r.timeoutMs, &code);
+    QString standardError;
+    QByteArray raw = runCmd(args, r.timeoutMs, &code, &standardError);
 
     if (code != 0 || raw.isEmpty()) {
         res.success = false;
-        res.error   = "ollama run failed (exit " + QString::number(code) + ")";
+        res.error = standardError.trimmed();
+        if (res.error.isEmpty())
+            res.error = text("Ollama did not return tags (exit %1).").arg(code);
         return res;
     }
 
@@ -49,92 +77,24 @@ LLMReply OllamaCliService::sendPrompt(const LLMRequest &r) {
     return res;
 }
 
-OllamaCliService::~OllamaCliService() {
-    // shutdown daemon
-    if (m_daemon) {
-        m_daemon->terminate();
-        if (!m_daemon->waitForFinished(3000))
-            m_daemon->kill();
-    }
-}
+OllamaCliService::~OllamaCliService() = default;
 
 bool OllamaCliService::ensureExe(QString exe_path) {
-    if (!exe_path.isEmpty() && QFile::exists(exe_path)) {
-        m_exe = exe_path;
-        return true;
-    }
-
-#if 0   // TODO/FIXME: see if we can find a system installed ollama
-#ifdef _WIN32
-    // First try to find ollama in our application directory
-    QString appDir = QCoreApplication::applicationDirPath();
-    QString ollamaLocalPath = appDir + "/ollama/ollama.exe";
-
-    QFileInfo fileInfo(ollamaLocalPath);
-    if (fileInfo.exists()) {
-        logToFile("Found bundled Ollama at: " + ollamaLocalPath.toStdString());
-        m_ollamaPath = ollamaLocalPath;
-        return true;
-    }
-
-    // Windows command using our blocking function as fallback
-    std::string output = executeCommandNoWindow("cmd /C where ollama");
-    logToFile("checkOllamaAvailability PATH check: output = " + output);
-
-    // If ollama is found in PATH
-    if (output.find("ollama") != std::string::npos) {
-        logToFile("Found Ollama in PATH");
-        m_ollamaPath = "ollama";
-        return true;
-    }
-#else
-    // First check local path for Linux/Mac
-    QString appDir = QCoreApplication::applicationDirPath();
-    QString ollamaLocalPath = appDir + "/ollama/ollama";
-
-    QFileInfo fileInfo(ollamaLocalPath);
-    if (fileInfo.exists() && fileInfo.isExecutable()) {
-        logToFile("Found bundled Ollama at: " + ollamaLocalPath.toStdString());
-        m_ollamaPath = ollamaLocalPath;
-        return true;
-    }
-
-    // Check PATH as fallback
-    int result = std::system("which ollama >/dev/null 2>&1");
-    logToFile("checkOllamaAvailability PATH check: result = " + std::to_string(result));
-
-    if (result == 0) {
-        m_ollamaPath = "ollama";
-        return true;
-    }
-#endif
-#endif
-
-    // not found anywhere
-    return false;
-}
-
-bool OllamaCliService::ensureDaemon() const {
-    // if we previously started it, make sure its still alive
-    if (m_daemon && m_daemon->state() == QProcess::Running)
-        return true;
-
-    if (!m_daemon) {
-        // spawn new daemon
-        m_daemon = new QProcess(nullptr);
-        m_daemon->setProgram(m_exe);
-        m_daemon->setArguments({"serve"});
-        m_daemon->setProcessChannelMode(QProcess::MergedChannels);
-        m_daemon->start();
-    } else {
-        // try to restart
-        m_daemon->start();
-    }
-
-    if (!m_daemon->waitForStarted(3000))
+    const QString candidate = exe_path.isEmpty()
+        ? QStandardPaths::findExecutable("ollama")
+        : QFileInfo(exe_path).absoluteFilePath();
+    const QFileInfo file(candidate);
+    if (!file.exists() || !file.isFile() || !file.isExecutable()) {
+        m_exe.clear();
+        m_availabilityError = exe_path.isEmpty()
+            ? text("Ollama executable was not found on PATH.")
+            : text("Configured Ollama executable is not usable: %1").arg(exe_path);
         return false;
+    }
 
-    return m_daemon->state() == QProcess::Running;
+    m_exe = file.absoluteFilePath();
+    m_availabilityError.clear();
+    return true;
 }
 
 bool OllamaCliService::ensureModel(const QString &model) const {
@@ -142,28 +102,17 @@ bool OllamaCliService::ensureModel(const QString &model) const {
     if (model == m_verified_model)
         return true;
 
-    // check for model in list
-    auto list = runCmd({"list", model}, 10000);
-    // expect output in format
-    // HEADER_ROW \n
-    // MODEL_NAME \n
-    // so, if we have more than one newline (ie more than just a header row) assume we have the model listed
-    if (list.count('\n') > 1) {
+    int exitCode = -1;
+    runCmd({"show", model}, 10000, &exitCode);
+    if (exitCode == 0) {
         m_verified_model = model;
         return true;
     }
-
-    // attempt to pull if missing
-    int code = -1;
-    runCmd({"pull", model}, 10 * 60 * 1000, &code);   // up to 10 min
-    bool pull_successful = (code == 0);
-    if (pull_successful)
-        m_verified_model = model;
-
-    return pull_successful;
+    return false;
 }
 
-QByteArray OllamaCliService::runCmd(const QStringList &args, int timeoutMs, int *exitCode) const {
+QByteArray OllamaCliService::runCmd(const QStringList &args, int timeoutMs, int *exitCode,
+                                    QString *standardError) const {
     // use QProcess for cross-platform running
     QProcess p;
     p.setProgram(m_exe);                                    // ollama executable
@@ -171,17 +120,25 @@ QByteArray OllamaCliService::runCmd(const QStringList &args, int timeoutMs, int 
     p.setProcessChannelMode(QProcess::SeparateChannels);    // avoid spinner writing in stderr
     p.start();
 
-    if (!p.waitForStarted())
+    if (!p.waitForStarted()) {
+        if (standardError)
+            *standardError = text("Could not start Ollama executable: %1").arg(m_exe);
         return {};
+    }
 
     p.closeWriteChannel();
     if (!p.waitForFinished(timeoutMs)) {
         p.kill();
         p.waitForFinished();
+        if (standardError)
+            *standardError = text("Ollama command timed out.");
     }
 
     if (exitCode)
         *exitCode = (p.exitStatus() == QProcess::NormalExit) ? p.exitCode() : -1;
+
+    if (standardError && standardError->isEmpty())
+        *standardError = QString::fromUtf8(p.readAllStandardError());
 
     return p.readAllStandardOutput();
 }
