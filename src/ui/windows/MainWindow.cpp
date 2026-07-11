@@ -15,12 +15,8 @@
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
-    // Clear settings (for development/testing purposes)
-    // QSettings settings;
-    // settings.clear();
-
-
-    this->setFixedSize(QSize(876, 600));
+    setMinimumSize(QSize(876, 600));
+    resize(876, 600);
     ui.setupUi(this);
     setWindowTitle(QString("CADventory"));
 
@@ -38,9 +34,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
     fileMenu = new QMenu(tr("&File"),this);
     editMenu = new QMenu(tr("&Edit"),this);
-    viewMenu = new QMenu(tr("&View"),this);
     windowMenu = new QMenu(tr("&Window"),this);
-    helpMenu = new QMenu(tr("&Help"),this);
     removelib = new QMenu(tr("&Remove library"),this);
 
     ui.librarywidget->hide();
@@ -55,20 +49,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     fileMenu->addMenu(removelib);
 
 
-    QAction *test = new QAction(tr("&test"),this);
-
-
-
-
-    viewMenu->addAction(test);
-    helpMenu->addAction(test);
-
-    // Some menu items do not have any functionality yet, but are placeholders for future features
     menuBar()->addMenu(fileMenu);
-    // menuBar()->addMenu(editMenu);
-    // menuBar()->addMenu(viewMenu);
     menuBar()->addMenu(windowMenu);
-    // menuBar()->addMenu(helpMenu);
 
     settingWindow = new SettingWindow(this);
     connect(set,&QAction::triggered,this,&MainWindow::showSettingsWindow);
@@ -80,6 +62,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     size_t loaded = loadState();
     if (loaded) {
         LOG_DEBUG << "Loaded " << loaded << " previously registered libraries" << LOG_ENDL;
+        updateStatusLabel("Choose a library to continue.");
+    } else {
+        updateStatusLabel("Add a library to begin indexing and organizing CAD files.");
     }
 
 }
@@ -420,4 +405,3 @@ void MainWindow::removeLibrary()
 
 
 }
-

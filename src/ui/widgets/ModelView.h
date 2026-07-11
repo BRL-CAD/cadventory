@@ -32,13 +32,16 @@ signals:
   void onOkClicked();
   void onGenerateTagsClicked();
   void onCancelTagGenerationClicked();
+  void onTagGenerationFailed(const QString& reason);
 
  private:
-  QFutureWatcher<std::vector<std::string>>* tagWatcher = nullptr;
+ QFutureWatcher<std::vector<std::string>>* tagWatcher = nullptr;
+  bool waitingForGeneratedTags = false;
   void loadPreviewImage();
   void populateProperties();
   void populateTags();
   void addTagItem(const QString& tagText);
+  bool hasTag(const QString& tagText) const;
 
   Ui::ModelView ui;
   int modelId;

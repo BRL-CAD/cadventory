@@ -139,7 +139,7 @@
       </font>
      </property>
      <property name="text">
-      <string>Indexing... please wait.</string>
+      <string>Add a library to begin indexing and organizing CAD files.</string>
      </property>
     </widget>
    </widget>

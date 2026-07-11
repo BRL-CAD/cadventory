@@ -51,6 +51,8 @@ ModelView::ModelView(int modelId, Model* model, QWidget* parent)
           this, &ModelView::onOkClicked);
   connect(ui.generateTagsButton, &QPushButton::clicked, this, &ModelView::onGenerateTagsClicked);
   connect(ui.cancelTagButton, &QPushButton::clicked, this, &ModelView::onCancelTagGenerationClicked);
+  connect(CADventory::instance()->getTagger(), &AIModelTagging::taggingFailed,
+          this, &ModelView::onTagGenerationFailed, Qt::UniqueConnection);
 
   // connect job service so we can refresh view on job completions
   // NOTE: this is VERY lazy and non-performant - ANY job completion refreshes the current view
@@ -190,6 +192,17 @@ void ModelView::addTagItem(const QString& tagText) {
           [this, item]() { onRemoveTagClicked(item); });
 }
 
+bool ModelView::hasTag(const QString& tagText) const {
+  for (int i = 0; i < ui.tagsList->count(); ++i) {
+    QWidget* widget = ui.tagsList->itemWidget(ui.tagsList->item(i));
+    if (const QLabel* label = widget ? widget->findChild<QLabel*>() : nullptr) {
+      if (label->text() == tagText)
+        return true;
+    }
+  }
+  return false;
+}
+
 void ModelView::onAddTagClicked() {
   QString newTag = ui.newTagLine->text();
   if (!newTag.isEmpty()) {
@@ -265,6 +278,7 @@ void ModelView::onCancelTagGenerationClicked() {
 
     // signal cancel
     tagger->cancel();
+    waitingForGeneratedTags = false;
 
     // ui updates
     ui.tagStatusLabel->setText("Tagging canceled.");
@@ -273,13 +287,27 @@ void ModelView::onCancelTagGenerationClicked() {
     ui.generateTagsButton->setVisible(true);
 }
 
+void ModelView::onTagGenerationFailed(const QString& reason) {
+    if (!waitingForGeneratedTags) {
+        return;
+    }
+
+    waitingForGeneratedTags = false;
+    ui.tagStatusLabel->setText(reason.isEmpty() ? tr("Tag generation failed.") : reason);
+    ui.cancelTagButton->setVisible(false);
+    ui.generateTagsButton->setVisible(true);
+    ui.generateTagsButton->setEnabled(true);
+}
+
 void ModelView::onGenerateTagsClicked() {
     // get our AI tagger
     AIModelTagging* tagger = CADventory::instance()->getTagger();
 
     // check the tagger was started successfully
     if (!tagger->taggingEnabled()) {
-        QMessageBox::critical(this, "Missing Dependency", "Unable to use the AI tagger.\nPlease ensure installation and setup is complete.");
+        const QString reason = tagger->taggingStatus();
+        QMessageBox::critical(this, tr("AI Tagging Unavailable"),
+                              reason.isEmpty() ? tr("Unable to use the AI tagger.") : reason);
         return;
     }
 
@@ -288,20 +316,16 @@ void ModelView::onGenerateTagsClicked() {
     ui.generateTagsButton->setEnabled(false);
     ui.generateTagsButton->setVisible(false);
     ui.cancelTagButton->setVisible(true);
+    waitingForGeneratedTags = true;
 
     // setup connection
     connect(tagger, &AIModelTagging::tagsReady, this,
         [=](const QStringList& tags) {
+            waitingForGeneratedTags = false;
+
             // Add the tags to the UI (avoid duplicates)
             for (const QString& tag : tags) {
-                bool alreadyExists = false;
-                for (int i = 0; i < ui.tagsList->count(); ++i) {
-                    if (ui.tagsList->item(i)->text() == tag) {
-                        alreadyExists = true;
-                        break;
-                    }
-                }
-                if (!alreadyExists) {
+                if (!hasTag(tag)) {
                     currModel.tags.push_back(tag.toStdString());
                     addTagItem(tag);
 
