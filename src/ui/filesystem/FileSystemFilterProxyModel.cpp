@@ -5,7 +5,7 @@
 #include <QDebug>
 
 FileSystemFilterProxyModel::FileSystemFilterProxyModel(const QString& rootPath, QObject* parent)
-    : QSortFilterProxyModel(parent), rootPath(QDir::cleanPath(rootPath))
+    : QSortFilterProxyModel(parent), rootPath(QDir::fromNativeSeparators(QDir::cleanPath(rootPath)))
 {
     setRecursiveFilteringEnabled(true);
 }
@@ -18,14 +18,15 @@ bool FileSystemFilterProxyModel::filterAcceptsRow(int sourceRow,
         return false;
 
     QFileInfo fileInfo = fsModel->fileInfo(index);
-    QString itemPath = fileInfo.absoluteFilePath();
+    QString itemPath = QDir::fromNativeSeparators(fileInfo.absoluteFilePath());
 
     if (itemPath == rootPath) {
         // Accept the root path unconditionally
         return true;
     }
 
-    if (!itemPath.startsWith(rootPath))
+    const QString rootPrefix = rootPath.endsWith('/') ? rootPath : rootPath + '/';
+    if (!itemPath.startsWith(rootPrefix))
         return false;
 
     if (fileInfo.isDir()) {
