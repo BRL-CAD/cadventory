@@ -163,12 +163,6 @@ void CADventory::run() {
     // slight delay and then show our main window
     QTimer::singleShot(250, this, [this]() {
         cad_ui::initMainWindow(*this);
-
-        // TODO: we don't expect to index on startup anymore (instead we assume a job manager
-        //       has already indexed and we're pulling the cache from the db. What stats do we 
-        //       want to show as the message on startup?
-        // TODO: should also probably update this signal - we're not 'indexing' anything..
-        emit indexingComplete("Select or add a new library");
     });
 }
 
