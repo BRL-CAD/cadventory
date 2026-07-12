@@ -83,13 +83,14 @@ void ReportGenerationWindow::onGenerateReportButtonClicked() {
     job["version"]    = ui->version_textEdit->toPlainText().trimmed();
     job["logo1"]      = ui->logo1_textEdit->toPlainText().trimmed();
     job["logo2"]      = ui->logo2_textEdit->toPlainText().trimmed();
-    job["output_dir"] = ui->outputDirectory_textEdit->toPlainText().trimmed();
+    const QString outputPath = ui->outputDirectory_textEdit->toPlainText().trimmed();
+    job["output_dir"] = outputPath;
     job["pages"]      = pages;
 
     const QString timestamp = QDateTime::currentDateTimeUtc().toString("yyyyMMdd_HHmmss");
 
     // output is not optional; if we didn't get one create a timestamped file
-    if (ui->outputDirectory_textEdit->toPlainText().isEmpty()) {
+    if (outputPath.isEmpty()) {
         const QString default_out = QString::fromStdString(dotCadventory) + 
                                     QString("/data/gist_reports/") + 
                                     QString("report_%1.pdf").arg(timestamp);
