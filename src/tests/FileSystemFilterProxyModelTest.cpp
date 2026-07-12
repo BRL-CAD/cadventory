@@ -36,6 +36,25 @@ private slots:
         QVERIFY(gFileIndex.isValid()); // The .g file should be visible
     }
 
+    // A sibling whose name merely starts with the root name is still outside the root.
+    void testRejectsSiblingWithMatchingPathPrefix() {
+        QFileSystemModel fsModel;
+        fsModel.setRootPath(tempDir.path());
+
+        FileSystemFilterProxyModel proxyModel(tempDir.path());
+        proxyModel.setSourceModel(&fsModel);
+
+        const QString siblingPath = tempDir.path() + "-other";
+        QVERIFY(QDir().mkpath(siblingPath));
+        const QString gFilePath = siblingPath + "/outside.g";
+        QFile gFile(gFilePath);
+        QVERIFY(gFile.open(QIODevice::WriteOnly));
+        gFile.close();
+
+        QVERIFY(!proxyModel.mapFromSource(fsModel.index(gFilePath)).isValid());
+        QVERIFY(QDir(siblingPath).removeRecursively());
+    }
+
     // Test that directories containing .g files are visible
     void testVisibleDirectoriesWithGFiles() {
         QFileSystemModel fsModel;
