@@ -62,10 +62,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     size_t loaded = loadState();
     if (loaded) {
         LOG_DEBUG << "Loaded " << loaded << " previously registered libraries" << LOG_ENDL;
-        updateStatusLabel("Choose a library to continue.");
-    } else {
-        updateStatusLabel("Add a library to begin indexing and organizing CAD files.");
     }
+    updateLibrarySelectionStatus();
 
 }
 
@@ -306,7 +304,15 @@ void MainWindow::returnCentralWidget()
     ui.librarywidget->hide();
     setWindowTitle( QString("Main Window"));
     ui.origin->show();
+    updateLibrarySelectionStatus();
 
+}
+
+void MainWindow::updateLibrarySelectionStatus()
+{
+    updateStatusLabel(libraries.empty()
+        ? "Add a library to begin indexing and organizing CAD files."
+        : "Choose a library to continue.");
 }
 
 

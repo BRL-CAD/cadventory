@@ -58,6 +58,7 @@ protected:
 
     void addLibraryButton(const char* label = nullptr, const char* path = nullptr);
     void removeLibrary();
+    void updateLibrarySelectionStatus();
 
 private:
     Ui::MainWindow ui;
