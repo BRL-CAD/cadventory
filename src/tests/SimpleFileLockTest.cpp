@@ -43,6 +43,20 @@ TEST_CASE("SimpleFileLock acquires and releases (RAII)", "[SimpleFileLock]") {
     cleanup_lock(lockPath);
 }
 
+TEST_CASE("SimpleFileLock zero timeout makes one non-blocking attempt", "[SimpleFileLock]") {
+    const fs::path lockPath = unique_lock_path("zero_timeout");
+    cleanup_lock(lockPath);
+
+    SimpleFileLock lock(lockPath, SimpleFileLock::millis{0});
+    {
+        SimpleFileLock::Guard guard(lock);
+        REQUIRE(guard.acquired());
+        REQUIRE(fs::exists(lockPath));
+    }
+
+    REQUIRE_FALSE(fs::exists(lockPath));
+}
+
 TEST_CASE("SimpleFileLock enforces mutual exclusion with timeout", "[SimpleFileLock]") {
     const fs::path lockPath = unique_lock_path("mutex");
     cleanup_lock(lockPath);

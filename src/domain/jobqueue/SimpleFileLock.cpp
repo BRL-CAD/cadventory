@@ -21,7 +21,9 @@ SimpleFileLock::Guard::Guard(SimpleFileLock& lock) : m_lock(&lock) {
     auto backoff = std::chrono::milliseconds(10);
     const auto backoffMax = std::chrono::milliseconds(160);
 
-    while (clock::now() < deadline) {
+    // Always make one attempt. A zero timeout means "do not wait", not
+    // "do not try".
+    do {
         if (m_lock->tryAcquire(m_id)) {
             // got the lock
             m_held = true;
@@ -37,7 +39,7 @@ SimpleFileLock::Guard::Guard(SimpleFileLock& lock) : m_lock(&lock) {
         if (backoff < backoffMax)
             // bump backoff
             backoff *= 2;
-    }
+    } while (clock::now() < deadline);
 
     // timed out -> m_held == false
 }
