@@ -256,9 +256,21 @@ bool ModelsManager::setModelSelected(int modelId, bool selected) {
 }
 
 bool ModelsManager::setThumbnail(int modelId, const std::vector<unsigned char>& png) {
-    return m_repo->setModelThumbnail(modelId, png);
+    if (!m_repo->setModelThumbnail(modelId, png))
+        return false;
 
-    // TODO: do we need to notify here?
+    {
+        std::lock_guard<std::mutex> lk(m_mutex);
+        const int idx = indexOfId(modelId);
+        if (idx >= 0) {
+            auto& thumbnail = m_cache[static_cast<std::size_t>(idx)].thumbnail;
+            thumbnail.assign(reinterpret_cast<const char*>(png.data()),
+                             reinterpret_cast<const char*>(png.data() + png.size()));
+        }
+    }
+
+    notify();
+    return true;
 }
 
 int ModelsManager::markAllNotIncluded() {
