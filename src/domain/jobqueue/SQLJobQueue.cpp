@@ -233,6 +233,10 @@ void SQLJobQueue::finish(const JobDescriptor& jd) {
 }
 
 void SQLJobQueue::rescueStale(std::chrono::seconds maxAge) {
+    SimpleFileLock::Guard lock(m_dbFileLock);
+    if (!lock)
+        return;
+
     sqlite3_reset(m_rqs);
     sqlite3_bind_int64(m_rqs, 1, maxAge.count());
     ck(sqlite3_step(m_rqs));
