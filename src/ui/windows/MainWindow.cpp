@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <QDir>
 #include <QFileDialog>
 #include <QIcon>
 #include <QLayout>
@@ -38,6 +39,13 @@ const char* const kLibraryCardStyle = R"(
         background-color: #1b2428;
     }
 )";
+
+QString libraryNameFromPath(const QString& path)
+{
+    const QDir directory(path);
+    const QString name = directory.dirName();
+    return name.isEmpty() ? directory.absolutePath() : name;
+}
 }
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
@@ -190,7 +198,8 @@ void MainWindow::addLibraryButton(const char* label, const char* /*path*/)
     }
 
     /* start making a new button */
-    QPushButton *newButton = new QPushButton(label, this);
+    const QString libraryName = QString::fromUtf8(label);
+    QPushButton *newButton = new QPushButton(this);
     if (buttons >= kCompactLibraryCardThreshold) {
         newButton->setFixedSize(kCompactLibraryCardSize);
     } else {
@@ -201,11 +210,9 @@ void MainWindow::addLibraryButton(const char* label, const char* /*path*/)
     font.setPointSize(15);
     newButton->setFont(font);
 
-    // Button label size adjustment, along with hover property
-    QFontMetrics metrics(newButton->font());
-    QString elidedText = metrics.elidedText(QString(label), Qt::ElideRight, newButton->width() - 10);
-    newButton->setText(elidedText);
-    newButton->setToolTip(QString(label));
+    newButton->setText(libraryName);
+    newButton->setToolTip(libraryName);
+    newButton->setAccessibleName(libraryName);
 
     connect(newButton, &QPushButton::released, this, &MainWindow::openLibrary);
 
@@ -268,7 +275,7 @@ void MainWindow::on_addLibraryButton_clicked()
 {
     QString folderPath = QFileDialog::getExistingDirectory(this, tr("Select Folder"), ".");
     if (!folderPath.isEmpty()) {
-        QString name = QFileInfo(folderPath).fileName();
+        const QString name = libraryNameFromPath(folderPath);
 
         QString adding = "Adding: \'" + name + "\'... (this could take a minute)";
         this->updateStatusLabel(adding.toStdString().c_str());
@@ -298,8 +305,8 @@ size_t MainWindow::saveState()
     for (auto lib : libraries) {
 
         settings.setArrayIndex(index++);
-        settings.setValue("name", lib->name());
-        settings.setValue("path", lib->path());
+        settings.setValue("name", QString::fromUtf8(lib->name()));
+        settings.setValue("path", QString::fromUtf8(lib->path()));
     }
     settings.endArray();
 
@@ -315,8 +322,14 @@ size_t MainWindow::loadState()
         QString name = settings.value("name").toString();
         QString path = settings.value("path").toString();
 
+        // Older settings stored raw C strings, which Qt serialized as empty names.
+        if (name.isEmpty()) {
+            name = libraryNameFromPath(path);
+        }
 
-        (void)addLibrary(name.toStdString().c_str(), path.toStdString().c_str());
+        if (!name.isEmpty() && !path.isEmpty()) {
+            (void)addLibrary(name.toStdString().c_str(), path.toStdString().c_str());
+        }
     }
     settings.endArray();
 

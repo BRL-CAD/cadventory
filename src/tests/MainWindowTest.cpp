@@ -5,6 +5,8 @@
 #include <QPushButton>
 #include <QTemporaryDir>
 #include <QDebug>
+
+#include <algorithm>
 #include <filesystem>
 
 #include "MainWindow.h"
@@ -31,6 +33,7 @@ private slots:
     void testClearLibraries();
     void testSaveAndLoadState();
     void testAddLibraryButtonClick();
+    void testLibraryCardLabel();
     void testStatusLabelUpdate();
 
 private:
@@ -88,6 +91,12 @@ void MainWindowTest::testSaveAndLoadState() {
     mainWindow->addLibrary("Persistent Library", BRLCAD_BUILD);
     mainWindow->publicSaveState();
 
+    QSettings settings;
+    QCOMPARE(settings.beginReadArray("libraries"), 1);
+    settings.setArrayIndex(0);
+    QCOMPARE(settings.value("name").toString(), QString("Persistent Library"));
+    settings.endArray();
+
     mainWindow->clearLibraries();  // Clear and then load
     QCOMPARE(mainWindow->getLibraries().size(), size_t(0));
 
@@ -100,6 +109,21 @@ void MainWindowTest::testAddLibraryButtonClick() {
     mainWindow->clearLibraries();
     //QMetaObject::invokeMethod(mainWindow, "on_addLibraryButton_clicked");
     QCOMPARE(mainWindow->getLibraries().size(), size_t(0));
+}
+
+void MainWindowTest::testLibraryCardLabel() {
+    const QString libraryName = QStringLiteral("Labeled Library");
+    mainWindow->addLibrary(libraryName.toUtf8().constData(), BRLCAD_BUILD);
+
+    const QList<QPushButton*> buttons = mainWindow->findChildren<QPushButton*>();
+    const auto card = std::find_if(buttons.cbegin(), buttons.cend(),
+        [&libraryName](const QPushButton* button) {
+            return button->toolTip() == libraryName;
+        });
+
+    QVERIFY(card != buttons.cend());
+    QCOMPARE((*card)->text(), libraryName);
+    QCOMPARE((*card)->accessibleName(), libraryName);
 }
 
 void MainWindowTest::testStatusLabelUpdate() {
