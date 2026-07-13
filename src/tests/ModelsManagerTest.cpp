@@ -276,7 +276,7 @@ TEST_CASE("ModelsManager: refresh repopulates cache from repo") {
     REQUIRE(it->title == "changed-outside");
 }
 
-TEST_CASE("ModelsManager: thumbnails are delegated to repo (no cache notify)") {
+TEST_CASE("ModelsManager: thumbnails update cache and notify") {
     TempDirFixture fix("mm_thumbs");
     ModelsManager mm(fix.tempDir.string());
     REQUIRE(mm.resetDatabase());
@@ -290,8 +290,11 @@ TEST_CASE("ModelsManager: thumbnails are delegated to repo (no cache notify)") {
     std::vector<unsigned char> png{0x89,0x50,0x4E,0x47};
     REQUIRE(mm.setThumbnail(a->id, png));
 
-    // No additional notify expected because cache doesn't track blobs
-    REQUIRE(notified.load() == 1);
+    REQUIRE(notified.load() == 2);
+
+    auto cached = mm.getAll();
+    REQUIRE(cached.size() == 1);
+    REQUIRE(cached.front().thumbnail.size() == png.size());
 
     auto roundtrip = mm.getThumbnail(a->id);
     REQUIRE(roundtrip == png);
