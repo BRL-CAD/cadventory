@@ -57,6 +57,7 @@ protected:
     size_t loadState();
 
     void addLibraryButton(const char* label = nullptr, const char* path = nullptr);
+    void reflowLibraryButtons();
     void removeLibrary();
     void updateLibrarySelectionStatus();
 

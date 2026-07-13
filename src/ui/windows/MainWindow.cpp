@@ -10,6 +10,7 @@
 #include <iostream>
 #include <QFileDialog>
 #include <QIcon>
+#include <QLayout>
 #include <QPushButton>
 #include <QSettings>
 #include <QMessageBox>
@@ -150,7 +151,10 @@ void MainWindow::openLibrary()
         libraryWindow->setMainWindow(this);
 
 
-        ui.librarywidget=libraryWindow;
+        QWidget* previousLibraryWidget = ui.librarywidget;
+        centralWidget()->layout()->replaceWidget(previousLibraryWidget, libraryWindow);
+        previousLibraryWidget->deleteLater();
+        ui.librarywidget = libraryWindow;
 
         ui.origin->hide();
         setWindowTitle(foundLibrary->name() + QString(" Library"));
@@ -222,6 +226,29 @@ void MainWindow::addLibraryButton(const char* label, const char* /*path*/)
                 }
             }
         }
+    }
+}
+
+void MainWindow::reflowLibraryButtons()
+{
+    std::vector<QPushButton*> libraryButtons;
+    for (int index = 0; index < ui.gridLayout->count(); ++index) {
+        QLayoutItem* item = ui.gridLayout->itemAt(index);
+        QPushButton* button = item ? qobject_cast<QPushButton*>(item->widget()) : nullptr;
+        if (button && button != ui.addLibraryButton) {
+            libraryButtons.push_back(button);
+        }
+    }
+
+    for (QPushButton* button : libraryButtons) {
+        ui.gridLayout->removeWidget(button);
+    }
+
+    for (std::size_t index = 0; index < libraryButtons.size(); ++index) {
+        const std::size_t gridIndex = index + 1; // The creation card occupies the first grid cell.
+        ui.gridLayout->addWidget(libraryButtons[index],
+            static_cast<int>(gridIndex / kLibraryCardColumns),
+            static_cast<int>(gridIndex % kLibraryCardColumns));
     }
 }
 
@@ -316,7 +343,7 @@ void MainWindow::returnCentralWidget()
 {
 
     ui.librarywidget->hide();
-    setWindowTitle( QString("Main Window"));
+    setWindowTitle(QStringLiteral("CADventory"));
     ui.origin->show();
     updateLibrarySelectionStatus();
 
@@ -332,14 +359,12 @@ void MainWindow::updateLibrarySelectionStatus()
 
 void MainWindow::resetting()
 {
-
-
-    for (int i = ui.gridLayout->count(); i>0 ; --i) {
-        QLayoutItem* item = ui.gridLayout->takeAt(i);
-        if (item && item->widget()) {
-            delete item->widget();
-            delete item;
-
+    for (int index = ui.gridLayout->count() - 1; index >= 0; --index) {
+        QLayoutItem* item = ui.gridLayout->itemAt(index);
+        QWidget* widget = item ? item->widget() : nullptr;
+        if (widget && widget != ui.addLibraryButton) {
+            ui.gridLayout->removeWidget(widget);
+            delete widget;
         }
     }
 
@@ -347,21 +372,13 @@ void MainWindow::resetting()
         delete lib;
     }
 
-    libraries.erase(
-        std::remove_if(
-            libraries.begin(),
-            libraries.end(),
-            [](Library*) {
-                return true;  // Remove all
-            }),
-        libraries.end()
-        );
+    libraries.clear();
 
-    QLayoutItem* item = ui.gridLayout->takeAt(0);
-    ui.gridLayout->addWidget(item->widget(),0,0);
-QSettings settings;
-settings.clear();
-settings.sync();
+    qDeleteAll(removelib->actions());
+    QSettings settings;
+    settings.clear();
+    settings.sync();
+    updateLibrarySelectionStatus();
 }
 
 void MainWindow::removeLibrary()
@@ -390,7 +407,7 @@ void MainWindow::removeLibrary()
             QLayoutItem* item = ui.gridLayout->itemAt(i);
 
             QPushButton* button = qobject_cast<QPushButton*>(item->widget());
-            if (button && button->text() == QString::fromLocal8Bit(foundLibrary->name())){
+            if (button && button->toolTip() == QString::fromLocal8Bit(foundLibrary->name())){
                 LOG_DEBUG << ui.gridLayout->count() << LOG_ENDL;
                 ui.gridLayout->removeWidget(button);
                 delete button;
@@ -404,15 +421,7 @@ void MainWindow::removeLibrary()
             }
         }
 
-        for (size_t i = (size_t)ui.gridLayout->count()-1; i > (size_t)0 ; --i) {
-            QLayoutItem* item = ui.gridLayout->itemAt(i);
-
-            QPushButton* button = qobject_cast<QPushButton*>(item->widget());
-            const size_t COLUMNS = 5;
-            int row = i / COLUMNS;
-            int column = i % COLUMNS;
-            ui.gridLayout->addWidget(button,row,column);
-        }
+        reflowLibraryButtons();
         fileMenu->removeAction(action);
         delete action;
         libraries.erase(std::remove(libraries.begin(), libraries.end(), foundLibrary), libraries.end());
