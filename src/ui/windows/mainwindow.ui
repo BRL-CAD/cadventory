@@ -65,20 +65,19 @@
         </property>
         <property name="minimumSize">
          <size>
-          <width>128</width>
-          <height>128</height>
+          <width>430</width>
+          <height>250</height>
          </size>
         </property>
         <property name="baseSize">
          <size>
-          <width>128</width>
-          <height>128</height>
+          <width>430</width>
+          <height>250</height>
          </size>
         </property>
         <property name="font">
          <font>
-          <family>Arial Black</family>
-          <pointsize>92</pointsize>
+          <pointsize>18</pointsize>
          </font>
         </property>
         <property name="mouseTracking">
@@ -88,19 +87,41 @@
          <bool>false</bool>
         </property>
         <property name="text">
-         <string>⨁</string>
+         <string>Create New Library
+
+Choose a folder to inventory and manage CAD models</string>
+        </property>
+        <property name="toolTip">
+         <string>Choose a CAD library folder to index</string>
         </property>
         <property name="iconSize">
          <size>
-          <width>128</width>
-          <height>128</height>
+          <width>64</width>
+          <height>64</height>
          </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton {
+    background-color: #1f343b;
+    border: 2px solid #6e9eaa;
+    border-radius: 18px;
+    color: #f4f5f3;
+    padding: 32px;
+    text-align: left;
+}
+QPushButton:hover {
+    background-color: #29464f;
+    border-color: #a8d1da;
+}
+QPushButton:pressed {
+    background-color: #18292f;
+}</string>
         </property>
         <property name="checkable">
          <bool>false</bool>
         </property>
         <property name="flat">
-         <bool>true</bool>
+         <bool>false</bool>
         </property>
        </widget>
       </item>
@@ -110,14 +131,14 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>470</y>
+      <y>488</y>
        <width>781</width>
-       <height>72</height>
+      <height>32</height>
       </rect>
      </property>
      <property name="font">
       <font>
-       <pointsize>26</pointsize>
+      <pointsize>20</pointsize>
       </font>
      </property>
      <property name="text">
@@ -128,14 +149,14 @@
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>500</y>
+      <y>528</y>
        <width>781</width>
-       <height>72</height>
+      <height>32</height>
       </rect>
      </property>
      <property name="font">
       <font>
-       <pointsize>22</pointsize>
+      <pointsize>14</pointsize>
       </font>
      </property>
      <property name="text">

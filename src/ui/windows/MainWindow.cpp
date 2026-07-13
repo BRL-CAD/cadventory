@@ -6,31 +6,50 @@
 #include "LibraryWindow.h"
 #include "Logger.h"
 
+#include <cstddef>
 #include <iostream>
 #include <QFileDialog>
+#include <QIcon>
 #include <QPushButton>
 #include <QSettings>
 #include <QMessageBox>
 #include <QMenuBar>
+
+namespace {
+const QSize kLibraryCardSize(220, 108);
+const QSize kCompactLibraryCardSize(160, 64);
+constexpr std::size_t kLibraryCardColumns = 3;
+constexpr std::size_t kCompactLibraryCardThreshold = 20;
+const char* const kLibraryCardStyle = R"(
+    QPushButton {
+        background-color: #242d31;
+        border: 1px solid #53636a;
+        border-radius: 12px;
+        color: #f2f4f3;
+        padding: 16px;
+        text-align: left;
+    }
+    QPushButton:hover {
+        background-color: #2d3a40;
+        border-color: #78a6b2;
+    }
+    QPushButton:pressed {
+        background-color: #1b2428;
+    }
+)";
+}
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     setMinimumSize(QSize(876, 600));
     resize(876, 600);
     ui.setupUi(this);
+    ui.addLibraryButton->setIcon(QIcon(":/file-sliders.svg"));
     setWindowTitle(QString("CADventory"));
 
     // Add our current version to label
     QString ver = QString::fromStdString(CADventory::instance()->version());
     ui.appNameVersionLabel->setText(QStringLiteral("CADventory v%1").arg(ver));
-
-    // Adjust the + button label position
-    QLayoutItem* item = ui.gridLayout->itemAt(0);
-    QPushButton* addButton = qobject_cast<QPushButton*>(item->widget());
-    if (addButton) {
-        addButton->setStyleSheet("QPushButton { padding-top: -10px; }");
-    }
-
 
     fileMenu = new QMenu(tr("&File"),this);
     editMenu = new QMenu(tr("&Edit"),this);
@@ -152,12 +171,6 @@ void MainWindow::openLibrary()
 
 void MainWindow::addLibraryButton(const char* label, const char* /*path*/)
 {
-    /* when we have more than this many buttons, we go smaller */
-    const size_t LAYOUT_SHIFT = 20;
-    const size_t COLUMNS = 5;
-    static const QSize SMALLER_SIZE = QSize(128, 64);
-    static const QSize DEFAULT_SIZE = QSize(128, 128);
-
     /* count how many buttons we got */
     size_t buttons = 0;
     QLayoutItem* item;
@@ -174,11 +187,12 @@ void MainWindow::addLibraryButton(const char* label, const char* /*path*/)
 
     /* start making a new button */
     QPushButton *newButton = new QPushButton(label, this);
-    if (buttons >= LAYOUT_SHIFT) {
-        newButton->setFixedSize(SMALLER_SIZE);
+    if (buttons >= kCompactLibraryCardThreshold) {
+        newButton->setFixedSize(kCompactLibraryCardSize);
     } else {
-        newButton->setFixedSize(DEFAULT_SIZE);
+        newButton->setFixedSize(kLibraryCardSize);
     }
+    newButton->setStyleSheet(kLibraryCardStyle);
     QFont font = newButton->font();
     font.setPointSize(15);
     newButton->setFont(font);
@@ -192,19 +206,19 @@ void MainWindow::addLibraryButton(const char* label, const char* /*path*/)
     connect(newButton, &QPushButton::released, this, &MainWindow::openLibrary);
 
     /* add our new button */
-    int row = (buttons) / COLUMNS;
-    int column = (buttons) % COLUMNS;
+    const int row = static_cast<int>(buttons / kLibraryCardColumns);
+    const int column = static_cast<int>(buttons % kLibraryCardColumns);
     LOG_DEBUG << "row = "<< row << " column = "<< column << LOG_ENDL;
     ui.gridLayout->addWidget(newButton, row, column);
 
     /* once we have a lot of buttons, make them all smaller */
-    if (buttons == LAYOUT_SHIFT) {
+    if (buttons == kCompactLibraryCardThreshold) {
         for (int i = 0; i < ui.gridLayout->count(); ++i) {
             QLayoutItem* item = ui.gridLayout->itemAt(i);
             if (item && item->widget()) {
                 QPushButton* button = qobject_cast<QPushButton*>(item->widget());
-                if (button) {
-                    button->setFixedSize(SMALLER_SIZE);
+                if (button && button != ui.addLibraryButton) {
+                    button->setFixedSize(kCompactLibraryCardSize);
                 }
             }
         }
