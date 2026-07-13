@@ -221,7 +221,10 @@ void FileJobQueue::janitorDirs() {
         auto age = now - f.last_write_time();
         if (age > CUR_JOB_TIMEOUT) {
             fs::path rel = fs::relative(f, curRoot);
-            fs::path dst = m_jobsRoot / NEW_DIR / rel.stem(); // drop .rand
+            // Keep the hash buckets when recycling the claim. Dropping them
+            // sends every stale job into one flat directory and can collide
+            // for jobs whose source filenames match.
+            fs::path dst = m_jobsRoot / NEW_DIR / rel.parent_path() / rel.stem(); // drop .rand
             fs::create_directories(dst.parent_path());
             std::error_code ec; fs::rename(f, dst, ec);
         }
