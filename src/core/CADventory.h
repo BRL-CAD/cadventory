@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <memory>
+#include <string>
 
 #include "config.h"
 #include "ILLMService.h"
@@ -45,6 +46,13 @@ private:
 
     // config
     bool gui = true;		// default gui enabled
+
+    // headless report mode (--report)
+    bool        m_reportMode  = false;
+    std::string m_reportLib;
+    std::string m_reportOut;
+    int         m_reportDepth = 4;
+    bool        m_reportTags  = true;
 };
 
 #endif /* CADVENTORY_H */

@@ -14,6 +14,7 @@
 #include "OllamaCLIService.h"
 #include "JobManager.h"
 #include "JobWorker.h"
+#include "ReportRunner.h"
 
 
 static void addOptions(QCommandLineParser& parser) {
@@ -35,6 +36,18 @@ static void addOptions(QCommandLineParser& parser) {
     // declare -v so parser accepts it; Logger class manually parses for stacking -v
     QCommandLineOption verboseOpt(QStringList{"v"},
                                 "Increase verbosity (max logging at -vv)");
+    // headless PDF report generation over a library of .g files
+    QCommandLineOption reportOpt(QStringList{"report"},
+                                "Generate a PDF report of all .g files under a library (CLI, no GUI)",
+                                "path");
+    QCommandLineOption outputOpt(QStringList{"o", "output"},
+                                "Output PDF path for --report (defaults under the library)",
+                                "file");
+    QCommandLineOption depthOpt(QStringList{"depth"},
+                                "Filesystem scan depth for --report (auto-deepens if none found)",
+                                "#");
+    QCommandLineOption noTagsOpt(QStringList{"no-tags"},
+                                "Disable AI tagging during --report");
     // TODO: --worker (no gui worker)
 
     parser.addOption(indexOpt);
@@ -43,6 +56,10 @@ static void addOptions(QCommandLineParser& parser) {
     parser.addOption(numCpusOpt);
     parser.addOption(timeoutOpt);
     parser.addOption(verboseOpt);
+    parser.addOption(reportOpt);
+    parser.addOption(outputOpt);
+    parser.addOption(depthOpt);
+    parser.addOption(noTagsOpt);
     parser.addHelpOption();
 }
 
@@ -95,6 +112,22 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
             QSettings().setValue("previewTimer", val);
             QSettings().sync();
         }
+    }
+
+    // headless report mode short-circuits the job-service selection below
+    if (parser.isSet("report")) {
+        m_reportMode  = true;
+        m_reportLib   = parser.value("report").toStdString();
+        m_reportOut   = parser.isSet("output") ? parser.value("output").toStdString() : std::string();
+        m_reportTags  = !parser.isSet("no-tags");
+        if (parser.isSet("depth")) {
+            bool ok = false;
+            int val = parser.value("depth").toInt(&ok);
+            if (ok && val > 0)
+                m_reportDepth = val;
+        }
+        this->gui = false;
+        return;   // no job service needed
     }
 
     // choose our JobService
@@ -152,6 +185,18 @@ CADventory::~CADventory()
 }
 
 void CADventory::run() {
+    if (m_reportMode) {
+        // run the (synchronous) report generation, then quit the event loop
+        ReportRunner::Options opt;
+        opt.libraryPath = m_reportLib;
+        opt.outputPdf   = m_reportOut;
+        opt.depth       = m_reportDepth;
+        opt.tags        = m_reportTags;
+        const int rc = ReportRunner::run(opt);
+        QTimer::singleShot(0, qApp, [rc]() { QCoreApplication::exit(rc); });
+        return;
+    }
+
     if (!this->gui) {
         // if we're running no gui, just start the service
         jobService->start();

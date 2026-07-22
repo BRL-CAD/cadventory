@@ -262,6 +262,7 @@ add_cadventory_test(
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/IndexingWorker.cpp
         ../domain/processing/ReportGeneratorWorker.cpp
+        ../domain/processing/ReportRunner.cpp
         ../domain/jobqueue/QtJobServiceBase.cpp
         ../domain/jobqueue/JobManager.cpp
         ../domain/jobqueue/JobWorker.cpp
@@ -311,6 +312,7 @@ add_cadventory_test(
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/IndexingWorker.cpp
         ../domain/processing/ReportGeneratorWorker.cpp
+        ../domain/processing/ReportRunner.cpp
         ../domain/jobqueue/QtJobServiceBase.cpp
         ../domain/jobqueue/JobManager.cpp
         ../domain/jobqueue/JobWorker.cpp
