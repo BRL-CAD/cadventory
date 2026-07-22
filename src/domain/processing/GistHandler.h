@@ -32,6 +32,7 @@
 #include "Model.h"
 #include "ProcessGFiles.h"
 #include "Logger.h"
+#include "config.h"     // GIST_EXECUTABLE_PATH
 
 #define FONT "Arial"
 
@@ -69,23 +70,41 @@ private:
 
     // convenience: extract from context and job
     const auto json = parseJson(job.sourcePath);
-    const QString inputFilePath = json.value("file_path").toString();
+    QString inputFilePath = json.value("file_path").toString();
     const QString primary_obj = json.value("primary").toString();
+
+    // Resolve the input to an absolute path. Queue entries may store the .g
+    // path relative to the library root (_dataDir is <libRoot>/.cadventory/data).
+    {
+        fs::path inPath = inputFilePath.toStdString();
+        if (inPath.is_relative())
+            inPath = _dataDir.parent_path().parent_path() / inPath;
+        inputFilePath = QString::fromStdString(inPath.lexically_normal().generic_string());
+    }
+
+    // per-model output/scratch directory under .cadventory/data
     const fs::path outDir = _dataDir / job.fileId;
-    const QString outputFilePath = QString::fromStdString(fs::path(outDir / (job.directive + ".png")).generic_string());
-    const QString cache_path = QString::fromStdString(fs::path(outDir / "gist_cache").generic_string());
+    std::error_code ec;
+    fs::create_directories(outDir, ec);
+    const QString outputFilePath = QString::fromStdString((outDir / (job.directive + ".png")).generic_string());
+
+    // gist derives its scratch ".working" directory from the input path, and
+    // its -a (working dir) override is broken in the 7.42.2 release. Stage the
+    // .g inside outDir and run gist there with a relative input so all scratch
+    // output stays contained under .cadventory/data instead of the source tree.
+    const fs::path localG = outDir / fs::path(inputFilePath.toStdString()).filename();
+    fs::copy_file(fs::path(inputFilePath.toStdString()), localG,
+                  fs::copy_options::overwrite_existing, ec);
+    if (ec)
+        return {false, "failed to stage .g for gist: " + ec.message()};
+
     // build up arguments list
     QStringList arguments;
-    arguments << inputFilePath
-              << "-o" << outputFilePath;
-    // force re-generation
-    arguments << "-f";
-    // re-use previous renders if found
-    arguments << "-Z";
-    // supplied primary 'top' object
-    arguments << "-t" << primary_obj;
-    // point to consistent cache dir
-    arguments << "-a" << cache_path;
+    arguments << QString::fromStdString(localG.filename().generic_string())
+              << "-o" << QString::fromStdString((job.directive + ".png"))  // relative to outDir
+              << "-f"        // overwrite existing report
+              << "-Z"        // reuse renders if scratch dir is found
+              << "-t" << primary_obj;
     // optional arguments (like label, owner, classification, ...)
     if (json.contains("label"))
         arguments << "-c" << json.value("label").toString();
@@ -93,7 +112,7 @@ private:
         arguments << "-n" << json.value("user").toString();
         arguments << "-r" << json.value("user").toString();
     }
-    if (json.contains("logo1"))
+    if (json.contains("logo1") && !json.value("logo1").toString().isEmpty())
         arguments << "-m" << json.value("logo1").toString();
 
 
@@ -101,6 +120,7 @@ private:
     QProcess process;
     process.setProgram(gistExecutable);
     process.setArguments(arguments);
+    process.setWorkingDirectory(QString::fromStdString(outDir.generic_string()));
     process.setProcessChannelMode(QProcess::MergedChannels);    // merge stdout and stderr log
 
     // start
@@ -174,6 +194,7 @@ private:
     std::string long_name;
     std::string modelers;
     std::string model_type;
+    std::string tags;
   };
   inline HandlerResult handleReport(const JobDescriptor& job, std::atomic<bool>& stopFlag) {
     /*
@@ -216,7 +237,8 @@ private:
         o.value("short_name").toString().toStdString(),
         o.value("long_name").toString().toStdString(),
         o.value("modelers").toString().toStdString(),
-        o.value("model_type").toString().toStdString()
+        o.value("model_type").toString().toStdString(),
+        o.value("tags").toString().toStdString()
       };
       if (pg.long_name.empty())
         pg.long_name = pg.short_name;
@@ -310,6 +332,19 @@ private:
         painter.drawText(QRectF(0,0,pdf.width(),pdf.height()), Qt::AlignCenter,
                          QStringLiteral("(missing gist.png)\n%1")
                            .arg(QString::fromStdString(pg.short_name)));
+      }
+
+      // AI tags banner across the bottom (only when tags are present)
+      if (!pg.tags.empty()) {
+        const int bandH = std::clamp(pdf.height() / 22, 60, 180);
+        const QRectF band(0, pdf.height() - bandH, pdf.width(), bandH);
+        painter.fillRect(band, QColor(0, 0, 0, 170));
+        QFont f(FONT, 12);
+        painter.setFont(f);
+        painter.setPen(Qt::white);
+        painter.drawText(band.adjusted(bandH / 2, 0, -bandH * 3, 0),
+                         Qt::AlignVCenter | Qt::AlignLeft | Qt::TextWordWrap,
+                         QStringLiteral("AI tags: %1").arg(QString::fromStdString(pg.tags)));
       }
 
       drawPageNumber(painter, pdf, pageNo++, Qt::white);   // draw in white on-top of bottom banner
