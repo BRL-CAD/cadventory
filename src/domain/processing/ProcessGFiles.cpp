@@ -2,6 +2,7 @@
 #include "Logger.h"
 #include <brlcad/ged.h>
 #include <brlcad/bu/uuid.h>
+#include <brlcad/brlcad_version.h>   // BRLCAD_API() for version-conditional API use
 #include <QDebug>
 #include <iostream>
 #include <QProcess>
@@ -200,7 +201,13 @@ struct safeRtInternal {
     rt_db_internal intern{};
     bool ok{false};
     safeRtInternal(struct directory* dp, struct db_i* dbip) {
+#if BRLCAD_API(7, 42, 2)
+        // BRL-CAD 7.42.2 and earlier take a trailing resource argument.
+        ok = (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) >= 0);
+#else
+        // Newer BRL-CAD dropped the resource parameter from rt_db_get_internal.
         ok = (rt_db_get_internal(&intern, dp, dbip, NULL) >= 0);
+#endif
     }
     ~safeRtInternal() {
         if (ok) rt_db_free_internal(&intern);
