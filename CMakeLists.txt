@@ -83,6 +83,7 @@ set(SRCS
   src/domain/processing/IndexingWorker.cpp
   src/domain/processing/ProcessGFiles.cpp
   src/domain/processing/ReportGeneratorWorker.cpp
+  src/domain/processing/ReportRunner.cpp
   src/domain/processing/IDirectiveHandler.cpp
   src/domain/processing/sha1.cpp
 )
@@ -111,6 +112,7 @@ set(HEADERS
   src/domain/processing/IndexingWorker.h
   src/domain/processing/ProcessGFiles.h
   src/domain/processing/ReportGeneratorWorker.h
+  src/domain/processing/ReportRunner.h
   src/domain/processing/IDirectiveHandler.h
   src/domain/processing/DummyHandler.h
   src/domain/processing/ProcessHandler.h
@@ -235,6 +237,12 @@ set(MGED_EXECUTABLE "${BRLCAD_ROOT}/bin/mged${CMAKE_EXECUTABLE_SUFFIX}")
 set(RT_EXECUTABLE "${BRLCAD_ROOT}/bin/rt${CMAKE_EXECUTABLE_SUFFIX}")
 set(GIST_EXECUTABLE "${BRLCAD_ROOT}/bin/gist${CMAKE_EXECUTABLE_SUFFIX}")
 
+# Normalize to forward slashes so these paths remain valid C string literals in
+# config.h (a backslash BRLCAD_ROOT would create bogus escapes like '\b'/'\m').
+file(TO_CMAKE_PATH "${MGED_EXECUTABLE}" MGED_EXECUTABLE)
+file(TO_CMAKE_PATH "${RT_EXECUTABLE}" RT_EXECUTABLE)
+file(TO_CMAKE_PATH "${GIST_EXECUTABLE}" GIST_EXECUTABLE)
+
 if(NOT EXISTS "${MGED_EXECUTABLE}" OR NOT EXISTS "${RT_EXECUTABLE}" OR NOT EXISTS "${GIST_EXECUTABLE}")
   message(FATAL_ERROR "Could not find BRL-CAD executables. Please ensure BRLCAD_ROOT is set correctly.")
 endif()
@@ -254,7 +262,7 @@ install(TARGETS cadventory
   BUNDLE  DESTINATION .
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-install(FILES splash.png
+install(FILES src/assets/splash.png
   # Eventually should go to DATADIR
   DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
@@ -301,7 +309,7 @@ if(WIN32)
 
         # Copy DLL to the install dir
         install(FILES ${dll_path}
-          DESTINATION $<TARGET_FILE_DIR:${target}>
+          DESTINATION ${CMAKE_INSTALL_BINDIR}
         )
       else()
         message(WARNING "DLL for ${qt_module} not found.")
@@ -312,6 +320,7 @@ if(WIN32)
   # function to copy brlcad DLLs for a target
   function(copy_brlcad_dlls target)
     set(brl_bin "${BRLCAD_ROOT}/bin")
+    file(TO_CMAKE_PATH "${brl_bin}" brl_bin)   # forward slashes for valid install() strings
     if (NOT EXISTS "${brl_bin}")
       message(WARNING "BRL-CAD bin dir not found: ${brl_bin}")
       return()
@@ -330,6 +339,8 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${brl_dll}" $<TARGET_FILE_DIR:${target}>
         COMMENT "Copying BRL-CAD DLL ${brl_dll} -> $<TARGET_FILE_DIR:${target}>"
       )
+      # also stage the DLL into the install tree so the installed app is runnable
+      install(FILES "${brl_dll}" DESTINATION ${CMAKE_INSTALL_BINDIR})
     endforeach()
   endfunction()
 
