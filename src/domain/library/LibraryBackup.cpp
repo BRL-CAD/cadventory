@@ -21,8 +21,8 @@ bool backupSqliteDatabase(const fs::path& sourcePath, const fs::path& destinatio
     sqlite3* source = nullptr;
     sqlite3* destination = nullptr;
 
-    const int sourceOpen = sqlite3_open_v2(sourcePath.c_str(), &source, SQLITE_OPEN_READONLY, nullptr);
-    const int destinationOpen = sqlite3_open_v2(destinationPath.c_str(), &destination,
+    const int sourceOpen = sqlite3_open_v2(sourcePath.string().c_str(), &source, SQLITE_OPEN_READONLY, nullptr);
+    const int destinationOpen = sqlite3_open_v2(destinationPath.string().c_str(), &destination,
                                                 SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr);
     if (sourceOpen != SQLITE_OK || destinationOpen != SQLITE_OK) {
         sqlite3_close(source);
