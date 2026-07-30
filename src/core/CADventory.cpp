@@ -48,6 +48,8 @@ static void addOptions(QCommandLineParser& parser) {
                                 "#");
     QCommandLineOption noTagsOpt(QStringList{"no-tags"},
                                 "Disable AI tagging during --report");
+    QCommandLineOption noRenderOpt(QStringList{"no-render"},
+                                "For --report, only assemble already-cached gist pages (no raytracing)");
     // TODO: --worker (no gui worker)
 
     parser.addOption(indexOpt);
@@ -60,6 +62,7 @@ static void addOptions(QCommandLineParser& parser) {
     parser.addOption(outputOpt);
     parser.addOption(depthOpt);
     parser.addOption(noTagsOpt);
+    parser.addOption(noRenderOpt);
     parser.addHelpOption();
 }
 
@@ -120,6 +123,7 @@ CADventory::CADventory(int &argc, char *argv[], QObject* parent) : QObject(paren
         m_reportLib   = parser.value("report").toStdString();
         m_reportOut   = parser.isSet("output") ? parser.value("output").toStdString() : std::string();
         m_reportTags  = !parser.isSet("no-tags");
+        m_reportRender = !parser.isSet("no-render");
         if (parser.isSet("depth")) {
             bool ok = false;
             int val = parser.value("depth").toInt(&ok);
@@ -192,6 +196,7 @@ void CADventory::run() {
         opt.outputPdf   = m_reportOut;
         opt.depth       = m_reportDepth;
         opt.tags        = m_reportTags;
+        opt.render      = m_reportRender;
         const int rc = ReportRunner::run(opt);
         QTimer::singleShot(0, qApp, [rc]() { QCoreApplication::exit(rc); });
         return;

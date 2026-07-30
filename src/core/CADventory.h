@@ -53,6 +53,7 @@ private:
     std::string m_reportOut;
     int         m_reportDepth = 4;
     bool        m_reportTags  = true;
+    bool        m_reportRender = true;
 };
 
 #endif /* CADVENTORY_H */
