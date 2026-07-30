@@ -158,6 +158,11 @@ int ReportRunner::run(const Options& opt) {
 
         // (re)render the gist page only if we don't already have one
         if (!fs::exists(png, ec) || fs::file_size(png, ec) == 0) {
+            if (!opt.render) {
+                LOG_WARN << "[ReportRunner] no cached page for " << md.short_name
+                         << " and rendering disabled; skipping" << LOG_ENDL;
+                continue;
+            }
             QJsonObject gj;
             gj["file_path"] = QString::fromStdString(abs);
             gj["primary"]   = QString::fromStdString(primary);
