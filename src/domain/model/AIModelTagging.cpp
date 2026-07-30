@@ -110,14 +110,42 @@ QStringList AIModelTagging::parseTags(const QByteArray &raw) const
     const QString resp = doc.isObject() ? doc.object().value("response").toString()
                                         : QString::fromUtf8(raw);
 
-    QStringList lines = resp.split(QRegularExpression("[\r\n]+"),
-                                   Qt::SkipEmptyParts);
-    // keep first 10 single words
+    // Small local models frequently ignore the "single word per line, no numbering"
+    // instruction and emit markdown/numbered lists with preamble ("Here are..."),
+    // so normalize each line before extracting a single clean tag word.
+    static const QRegularExpression leadingMarker(QStringLiteral("^[\\s\\-\\*\\u2022\\d\\.\\)\\(]+"));
+    static const QRegularExpression splitter(QStringLiteral("[\\s,;:/]+"));
+    static const QRegularExpression validWord(QStringLiteral("^[A-Za-z][A-Za-z0-9\\-]+$"));
+    static const QStringList skip = {
+        "here", "are", "the", "tags", "tag", "keywords", "file", "filepath",
+        "title", "objects", "model", "models", "object", "and", "for"
+    };
+
     QStringList tags;
-    for (const auto &l : lines) {
-        const QString word = l.trimmed().split(' ').first();
-        if (!word.isEmpty()) tags << word;
-        if (tags.size() == 10) break;
+    const QStringList lines = resp.split(QRegularExpression(QStringLiteral("[\r\n]+")),
+                                         Qt::SkipEmptyParts);
+    for (QString line : lines) {
+        line.remove('*');                    // markdown bold/italics
+        line.remove(leadingMarker);          // "1.", "1)", "- ", bullets
+        line = line.trimmed();
+        if (line.isEmpty())
+            continue;
+
+        const QString word = line.split(splitter, Qt::SkipEmptyParts).value(0).trimmed();
+        if (!validWord.match(word).hasMatch())
+            continue;
+        if (skip.contains(word.toLower()))
+            continue;
+
+        bool dup = false;
+        for (const auto &t : tags)
+            if (t.compare(word, Qt::CaseInsensitive) == 0) { dup = true; break; }
+        if (dup)
+            continue;
+
+        tags << word;
+        if (tags.size() == 10)
+            break;
     }
     return tags;
 }
