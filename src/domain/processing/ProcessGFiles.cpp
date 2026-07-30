@@ -244,6 +244,20 @@ struct ProcessGFiles::WalkCtx {
     std::string     selectedName;
 };
 
+// Heuristic: is this top-level object a non-geometry "data" object that gist
+// cannot raytrace (density tables, pixel/image binaries, saved views, etc.)?
+static bool isDataTop(const std::string& name) {
+    if (!name.empty() && name.front() == '_')   // _DENSITIES, _GLOBAL, ...
+        return true;
+    static const char* dataExts[] = {".pix", ".bw", ".rle", ".png", ".pnm", ".dpix"};
+    for (const char* ext : dataExts) {
+        const size_t L = std::strlen(ext);
+        if (name.size() >= L && name.compare(name.size() - L, L, ext) == 0)
+            return true;
+    }
+    return false;
+}
+
 void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp, std::string& selected_object_name) {
     LOG_DEBUG << "[ProcessGFiles::extractObjects] Started for model ID:" << modelData.id << LOG_ENDL;
 
@@ -304,9 +318,19 @@ void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp, std::
         return;
     }
 
-    // we didn't get lucky with common object_name, use first 'tops'
-    if (selected_object_name.empty() && !tops.empty())
-        selected_object_name = std::string(tops.front()->d_namep);
+    // we didn't get lucky with a common name; fall back to the first 'tops'
+    // object that is renderable geometry (skip data objects like _DENSITIES
+    // or image/pixel tops that gist cannot raytrace)
+    if (selected_object_name.empty() && !tops.empty()) {
+        for (const directory* t : tops) {
+            if (t->d_namep && !isDataTop(t->d_namep)) {
+                selected_object_name = std::string(t->d_namep);
+                break;
+            }
+        }
+        if (selected_object_name.empty())
+            selected_object_name = std::string(tops.front()->d_namep);
+    }
 
     // cache what we can
     ChildrenCache childrenCache;    // unpack each comb once -> set of children
