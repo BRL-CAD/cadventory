@@ -11,6 +11,7 @@
 #include "AIModelTagging.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
 #include <QEventLoop>
@@ -90,8 +91,36 @@ int ReportRunner::run(const Options& opt) {
     const std::string lib = libAbs.generic_string();
     LOG_INFO << "[ReportRunner] library: " << lib << LOG_ENDL;
 
-    // fresh, deterministic state for this report
-    Model repo(lib);
+    // Resolve the final output before setting up the report cache.
+    std::string outPdf = opt.outputPdf;
+    if (outPdf.empty()) {
+        const QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+        outPdf = (libAbs / CADV_DOTFOLDER / "reports" /
+                  ("report_" + ts.toStdString() + ".pdf")).generic_string();
+    } else {
+        outPdf = fs::absolute(outPdf, ec).lexically_normal().generic_string();
+    }
+    fs::create_directories(fs::path(outPdf).parent_path(), ec);
+    if (ec) {
+        LOG_ERR << "[ReportRunner] could not create output directory: " << ec.message() << LOG_ENDL;
+        return 1;
+    }
+
+    // Keep metadata and gist scratch/cache outside the source library.  The
+    // stable cache supports --no-render and lets interrupted reports resume,
+    // while resetting report metadata cannot alter a library database.
+    const QByteArray cacheKey = QCryptographicHash::hash(
+        QByteArray::fromStdString(lib), QCryptographicHash::Sha256).toHex().left(20);
+    const fs::path workspace = fs::temp_directory_path() /
+        "cadventory-report-cache" / cacheKey.constData();
+    fs::create_directories(workspace, ec);
+    if (ec) {
+        LOG_ERR << "[ReportRunner] could not create report cache: " << ec.message() << LOG_ENDL;
+        return 1;
+    }
+    LOG_INFO << "[ReportRunner] cache: " << workspace.generic_string() << LOG_ENDL;
+
+    Model repo(workspace.generic_string());
     repo.resetDatabase();
     const HiddenDir& paths = repo.getHiddenPaths();
 
@@ -115,7 +144,9 @@ int ReportRunner::run(const Options& opt) {
     for (const auto& abs : gfiles) {
         ModelData md{};
         md.short_name  = fs::path(abs).filename().string();
-        md.file_path   = paths.relativeToLibrary(abs);   // normalized, forward slashes
+        // Absolute source paths let the temporary repository process the real
+        // library without staging, copying, or writing beside the input files.
+        md.file_path   = fs::path(abs).lexically_normal().generic_string();
         md.is_included = true;
         md.is_processed = false;
         repo.insertModel(md);
@@ -166,20 +197,40 @@ int ReportRunner::run(const Options& opt) {
             QJsonObject gj;
             gj["file_path"] = QString::fromStdString(abs);
             gj["primary"]   = QString::fromStdString(primary);
+            // Generate low-effort geometry views first.  The final pass below
+            // reuses those renders while composing gist's normal 300-PPI sheet,
+            // preserving its established layout and readable metadata.
+            gj["ppi"] = 72;
+            gj["cpus"] = 8;
+            gj["preview"] = true;
+            gj["timeout_seconds"] = 45;
             if (!opt.label.empty()) gj["label"] = QString::fromStdString(opt.label);
             if (!opt.user.empty())  gj["user"]  = QString::fromStdString(opt.user);
 
             JobDescriptor jd;
-            jd.directive  = "gist_page";
+            jd.directive  = "gist_preview";
             jd.fileId     = fileId;
             jd.sourcePath = QJsonDocument(gj).toJson(QJsonDocument::Compact).toStdString();
 
-            LOG_INFO << "[ReportRunner] rendering gist page for " << md.short_name
+            LOG_INFO << "[ReportRunner] rendering low-effort gist views for " << md.short_name
                      << " (" << primary << ")" << LOG_ENDL;
-            const HandlerResult r = gist.handle(jd, stop);
-            if (!r.success) {
+            HandlerResult result = gist.handle(jd, stop);
+            if (!result.success) {
                 LOG_WARN << "[ReportRunner] gist failed for " << md.short_name
-                         << ": " << r.message << "; skipping" << LOG_ENDL;
+                         << ": " << result.message << "; skipping" << LOG_ENDL;
+                continue;
+            }
+
+            gj["ppi"] = 300;
+            gj["timeout_seconds"] = 120;
+            jd.directive = "gist_page";
+            jd.sourcePath = QJsonDocument(gj).toJson(QJsonDocument::Compact).toStdString();
+            LOG_INFO << "[ReportRunner] composing standard gist sheet for " << md.short_name
+                     << LOG_ENDL;
+            result = gist.handle(jd, stop);
+            if (!result.success) {
+                LOG_WARN << "[ReportRunner] gist sheet failed for " << md.short_name
+                         << ": " << result.message << "; skipping" << LOG_ENDL;
                 continue;
             }
         }
@@ -200,17 +251,6 @@ int ReportRunner::run(const Options& opt) {
         LOG_ERR << "[ReportRunner] no pages could be rendered; no PDF produced" << LOG_ENDL;
         return 2;
     }
-
-    // resolve output path (default under the library's data dir)
-    std::string outPdf = opt.outputPdf;
-    if (outPdf.empty()) {
-        const QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-        outPdf = (fs::path(paths.dataDir()) / "gist_reports" /
-                  ("report_" + ts.toStdString() + ".pdf")).generic_string();
-    } else {
-        outPdf = fs::absolute(outPdf, ec).lexically_normal().generic_string();
-    }
-    fs::create_directories(fs::path(outPdf).parent_path(), ec);
 
     QJsonObject job;
     job["title"]      = QString::fromStdString(opt.title);
