@@ -70,6 +70,17 @@ The currently supported command-line options are:
   Run library indexing in CLI mode
 - `--worker /path/to/library`
   Run the background worker in CLI mode
+- `--report /path/to/library`
+  Recursively discover and process BRL-CAD `.g` files, render geometry previews,
+  and assemble a PDF without opening the GUI. Report metadata and renderer
+  scratch files use a temporary workspace, so existing library metadata is not
+  reset or modified.
+- `-o`, `--output /path/to/report.pdf`
+  Set the output path for `--report`
+- `--depth N`
+  Set the initial report scan depth; the scan automatically deepens when needed
+- `--no-tags`
+  Skip optional AI tagging during report generation
 - `--reset`
   Clear CADventory settings and reset the model database state
 - `-j`, `--num-cpus`
@@ -83,6 +94,15 @@ Example:
 
 ```bash
 ./install/bin/cadventory --index /path/to/library -v
+```
+
+Generate a folder inventory PDF:
+
+```bash
+./install/bin/cadventory \
+  --report /path/to/library \
+  --output /path/to/model-inventory.pdf \
+  --no-tags
 ```
 
 ## AI Tagging
