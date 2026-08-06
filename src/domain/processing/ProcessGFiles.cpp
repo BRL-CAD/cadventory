@@ -201,12 +201,12 @@ struct safeRtInternal {
     rt_db_internal intern{};
     bool ok{false};
     safeRtInternal(struct directory* dp, struct db_i* dbip) {
-#if BRLCAD_API(7, 42, 2)
+#if BRLCAD_API(7, 43, 0)
+        // BRL-CAD 7.43 and newer dropped the resource parameter.
+        ok = (rt_db_get_internal(&intern, dp, dbip, NULL) >= 0);
+#else
         // BRL-CAD 7.42.2 and earlier take a trailing resource argument.
         ok = (rt_db_get_internal(&intern, dp, dbip, NULL, &rt_uniresource) >= 0);
-#else
-        // Newer BRL-CAD dropped the resource parameter from rt_db_get_internal.
-        ok = (rt_db_get_internal(&intern, dp, dbip, NULL) >= 0);
 #endif
     }
     ~safeRtInternal() {
@@ -296,8 +296,9 @@ void ProcessGFiles::extractObjects(ModelData& modelData, struct ged* gedp, std::
         if (dp->d_flags & RT_DIR_COMB)
             combs.push_back(dp);
 
-        // no refs means we're a 'tops' object
-        if (dp->d_nref == 0) {
+        // No refs means a top-level object, but non-geometric database records
+        // (for example pix data or _DENSITIES) are not drawable report tops.
+        if (dp->d_nref == 0 && (dp->d_flags & (RT_DIR_SOLID | RT_DIR_COMB))) {
             tops.push_back(dp);
 
             if (selected_object_name.empty() &&
