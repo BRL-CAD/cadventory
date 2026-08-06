@@ -48,7 +48,7 @@ public:
     , m_queue(queue) {}
 
   inline HandlerResult handle(const JobDescriptor& jd, std::atomic<bool>& stopFlag) override {
-    if (jd.directive == "gist_page")
+    if (jd.directive == "gist_page" || jd.directive == "gist_preview")
         return handleGist(jd, stopFlag);
     if (jd.directive == "gist_report") {
 #if CADVENTORY_WITH_GUI
@@ -105,6 +105,12 @@ private:
               << "-f"        // overwrite existing report
               << "-Z"        // reuse renders if scratch dir is found
               << "-t" << primary_obj;
+    if (json.contains("ppi"))
+        arguments << "-p" << QString::number(json.value("ppi").toInt());
+    if (json.contains("cpus"))
+        arguments << "-P" << QString::number(json.value("cpus").toInt());
+    if (json.value("preview").toBool())
+        arguments << "-Q";
     // optional arguments (like label, owner, classification, ...)
     if (json.contains("label"))
         arguments << "-c" << json.value("label").toString();
@@ -133,7 +139,9 @@ private:
     bool timedOut = false;
     QSettings settings;
     // use our previewTimer since it's wired into the ui (TODO: do we want separte gist / rt setting?)
-    int timeoutMs = settings.value("previewTimer", 120).toInt() * 1000;
+    int timeoutMs = (json.contains("timeout_seconds")
+        ? json.value("timeout_seconds").toInt()
+        : settings.value("previewTimer", 120).toInt()) * 1000;
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
     while (true) {
       // finished?
