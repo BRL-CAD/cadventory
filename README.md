@@ -126,9 +126,18 @@ cmake -S . -B build-debug \
   -DCMAKE_BUILD_TYPE=Debug \
   -DBRLCAD_ROOT=/path/to/brlcad/install-or-build-root
 
-cmake --build build-debug
-ctest --test-dir build-debug --output-on-failure
+cmake --build build-debug --parallel
+ctest --test-dir build-debug -L headless -LE "smoke|performance" --output-on-failure
+ctest --test-dir build-debug -L gui --output-on-failure
+ctest --test-dir build-debug -L performance --output-on-failure
+ctest --test-dir build-debug -L smoke --output-on-failure
 ```
+
+Tests link the same `cadventory_domain` and `cadventory_application` libraries as
+the executable. Use `CADVENTORY_BUILD_TESTS=OFF` for an application-only build,
+`CADVENTORY_ENABLE_SANITIZERS=ON` for AddressSanitizer and UBSan, or
+`CADVENTORY_ENABLE_COVERAGE=ON` for compiler coverage instrumentation. Coverage
+and sanitizers require separate build directories.
 
 ## Additional Documentation
 
