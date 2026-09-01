@@ -51,7 +51,8 @@ TEST_CASE("Process arguments are passed literally", "[ProcessRunner]") {
 }
 
 TEST_CASE("Process execution supports timeout and cancellation", "[ProcessRunner]") {
-    const ProcessResult timedOut = runProcess(helper, {"--sleep", "5000"}, 50ms);
+    // Leave ample process-start margin for instrumented builds under CI load.
+    const ProcessResult timedOut = runProcess(helper, {"--sleep", "10000"}, 2s);
     REQUIRE(timedOut.timedOut);
     REQUIRE_FALSE(timedOut.success());
 

@@ -4,7 +4,10 @@
 
 #include <QCoreApplication>
 #include <QSettings>
+#include <chrono>
+#include <filesystem>
 #include <string>
+#include <thread>
 
 #include "ModelTestFixture.h"
 #include "JobWorker.h"
@@ -55,16 +58,34 @@ TEST_CASE("JobWorker end-to-end pipeline", "[JobWorker]") {
     // let JobWorker do its thing
     REQUIRE(worker.start());
 
-    // wait ~5s for worker
-    auto timelimit = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    while (std::chrono::steady_clock::now() < timelimit) 
-        ;   // wait
+    auto countOutputFiles = [&paths]() {
+        int count = 0;
+        if (!std::filesystem::exists(paths.dataDir()))
+            return count;
+
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(paths.dataDir())) {
+            if (entry.is_regular_file())
+                ++count;
+        }
+        return count;
+    };
+
+    SQLJobQueue qcheck(paths.jobsDir());
+    int outputFiles = 0;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+    while (std::chrono::steady_clock::now() < deadline) {
+        outputFiles = countOutputFiles();
+        if (outputFiles > 0 && qcheck.totalCount() == 0)
+            break;
+
+        QCoreApplication::processEvents();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
 
     // stop worker
     worker.stop();
 
     // verify queue is empty
-    SQLJobQueue qcheck(paths.jobsDir());
     REQUIRE_FALSE(qcheck.claimJob("verify"));
 
     // verify model row final state
@@ -74,11 +95,5 @@ TEST_CASE("JobWorker end-to-end pipeline", "[JobWorker]") {
     //REQUIRE_FALSE(md.is_processed_dir.empty());
 
     // verify we have *something* in data/
-    int outputFiles = 0;
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(paths.dataDir())) {
-        if (std::filesystem::is_regular_file(entry.status())) {
-            ++outputFiles;
-        }
-    }
     REQUIRE(outputFiles > 0);
 }
