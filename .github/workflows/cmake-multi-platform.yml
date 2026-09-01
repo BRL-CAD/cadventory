@@ -25,19 +25,29 @@ jobs:
             build_type: Release
             c_compiler: gcc
             cpp_compiler: g++
-            gui: ON
+            gui: "ON"
+            sanitizers: "OFF"
           - name: macos-clang-release
             os: macos-latest
             build_type: Release
             c_compiler: clang
             cpp_compiler: clang++
-            gui: ON
+            gui: "ON"
+            sanitizers: "OFF"
           - os: windows-latest
             name: windows-msvc-release
             build_type: Release
             c_compiler: cl
             cpp_compiler: cl
-            gui: ON
+            gui: "ON"
+            sanitizers: "OFF"
+          - name: linux-gcc-sanitizers
+            os: ubuntu-latest
+            build_type: Debug
+            c_compiler: gcc
+            cpp_compiler: g++
+            gui: "ON"
+            sanitizers: "ON"
 
     steps:
     - uses: actions/checkout@v4
@@ -91,6 +101,7 @@ jobs:
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -DCADVENTORY_WITH_GUI=${{ matrix.gui }}
+        -DCADVENTORY_ENABLE_SANITIZERS=${{ matrix.sanitizers }}
         -DCADVENTORY_USE_SQLITE=ON
         -DQt6_DIR="${{ env.Qt6_DIR }}"
         -DBRLCAD_ROOT=${{ env.BRLCAD_ROOT }}
@@ -113,6 +124,29 @@ jobs:
       run: |
         echo "QT_QPA_PLATFORM=offscreen" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-    - name: Test
+    - name: Headless release gate
+      if: matrix.sanitizers == 'OFF'
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      run: ctest --build-config ${{ matrix.build_type }} --output-on-failure --timeout 600
+      run: ctest --build-config ${{ matrix.build_type }} -L headless -LE "smoke|performance" --output-on-failure --timeout 600
+
+    - name: GUI release gate
+      if: matrix.sanitizers == 'OFF'
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: ctest --build-config ${{ matrix.build_type }} -L gui --output-on-failure --timeout 600
+
+    - name: Performance release gate
+      if: matrix.sanitizers == 'OFF'
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: ctest --build-config ${{ matrix.build_type }} -L performance --output-on-failure --timeout 600
+
+    - name: Report smoke gate
+      if: matrix.sanitizers == 'OFF'
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      run: ctest --build-config ${{ matrix.build_type }} -L smoke --output-on-failure --timeout 600
+
+    - name: Linux sanitizer gate
+      if: matrix.sanitizers == 'ON'
+      working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      env:
+        ASAN_OPTIONS: detect_leaks=0
+      run: ctest --build-config ${{ matrix.build_type }} -L headless -LE "smoke|performance" --output-on-failure --timeout 600
