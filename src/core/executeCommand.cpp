@@ -1,200 +1,91 @@
 #include "executeCommand.h"
-#include "Logger.h"
-#include <iostream>
-#include <cstdio>
-#include <stdexcept>
-#include <string>
-#include <fstream>
-#include <array>
 
-#ifdef _WIN32
-#include <windows.h>
-#else
-    #include <fcntl.h>
-    #include <sys/types.h>
-    #include <sys/wait.h>
-    #include <unistd.h>
-#endif
+#include <algorithm>
+#include <limits>
 
+#include <QElapsedTimer>
+#include <QProcess>
+#include <QStringList>
 
-std::string executeCommandNoWindowWithRedirection(const std::string& command,
-    const std::string& inputFile,
-    const std::string& outputFile) {
-#ifdef _WIN32
-    /* Windows */
-    HANDLE hInput = CreateFileA(inputFile.c_str(), GENERIC_READ, FILE_SHARE_READ,
-        NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hInput == INVALID_HANDLE_VALUE) {
-        LOG_ERR << "Failed to open input file: " << inputFile << LOG_ENDL;
-        return "";
-    }
+namespace {
 
-    HANDLE hOutput = CreateFileA(outputFile.c_str(), GENERIC_WRITE, 0,
-        NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hOutput == INVALID_HANDLE_VALUE) {
-        LOG_ERR << "Failed to open output file: " << outputFile << LOG_ENDL;
-        CloseHandle(hInput);
-        return "";
-    }
-
-    STARTUPINFOA si;
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
-    si.hStdInput = hInput;
-    si.hStdOutput = hOutput;
-    si.hStdError = hOutput;
-
-    ZeroMemory(&pi, sizeof(pi));
-
-    if (!CreateProcessA(NULL,
-        const_cast<char*>(command.c_str()),
-        NULL, NULL, TRUE,
-        CREATE_NO_WINDOW,
-        NULL, NULL,
-        &si, &pi)) {
-        LOG_ERR << "CreateProcess failed" << LOG_ENDL;
-        CloseHandle(hInput);
-        CloseHandle(hOutput);
-        return "";
-    }
-
-    WaitForSingleObject(pi.hProcess, INFINITE);
-
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-    CloseHandle(hInput);
-    CloseHandle(hOutput);
-#else
-    /* linux */
-    pid_t pid = fork();
-    if (pid < 0) {
-        perror("fork");
-        return "";
-    }
-
-    if (pid == 0) {
-        // redirect stdin
-        int fdIn = open(inputFile.c_str(), O_RDONLY);
-        if (fdIn < 0) {
-            perror(("open " + inputFile).c_str());
-            _exit(1);
-        }
-        dup2(fdIn, STDIN_FILENO);
-        close(fdIn);
-
-        // redirect stdout / stderr
-        int fdOut = open(outputFile.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0644);
-        if (fdOut < 0) {
-            perror(("open " + outputFile).c_str());
-            _exit(1);
-        }
-        dup2(fdOut, STDOUT_FILENO);
-        dup2(fdOut, STDERR_FILENO);
-        close(fdOut);
-
-        // Execute through the shell so users can pass complex commands.
-        execl("/bin/sh", "sh", "-c", command.c_str(), (char*)nullptr);
-        _exit(127); // only reached if exec fails
-    }
-
-    // ---- parent ----
-    int status = 0;
-    if (waitpid(pid, &status, 0) == -1) {
-        perror("waitpid");
-        return {};
-    }
-#endif
-
-    // read back output file into a string
-    std::ifstream outFile(outputFile);
-    std::string result((std::istreambuf_iterator<char>(outFile)),
-        std::istreambuf_iterator<char>());
-    outFile.close();
-
-    return result;
+int boundedMilliseconds(std::chrono::milliseconds value) {
+    return static_cast<int>(std::clamp<long long>(
+        value.count(), 1, std::numeric_limits<int>::max()));
 }
 
-std::string executeCommandNoWindow(const std::string& command) {
-#ifdef _WIN32
-    /* Windows */
-    STARTUPINFOA si;
-    PROCESS_INFORMATION pi;
-    SECURITY_ATTRIBUTES sa;
-    HANDLE hStdOutRead, hStdOutWrite;
-    std::string result;
+void stopProcess(QProcess& process) {
+    process.kill();
+    process.waitForFinished(1000);
+}
 
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-    si.dwFlags = STARTF_USESHOWWINDOW; 
-    si.wShowWindow = SW_HIDE;          
+} // namespace
 
-    ZeroMemory(&pi, sizeof(pi));
-
-    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-    sa.bInheritHandle = TRUE;
-    sa.lpSecurityDescriptor = NULL;
-    if (!CreatePipe(&hStdOutRead, &hStdOutWrite, &sa, 0)) {
-        LOG_ERR << "Stdout pipe creation failed" << LOG_ENDL;
-        return "";
+ProcessResult runProcess(const std::string& program,
+                         const std::vector<std::string>& arguments,
+                         std::chrono::milliseconds timeout,
+                         const std::atomic_bool* cancellation) {
+    ProcessResult result;
+    if (program.empty()) {
+        result.error = "Process executable is empty.";
+        return result;
+    }
+    if (cancellation && cancellation->load(std::memory_order_relaxed)) {
+        result.cancelled = true;
+        result.error = "Process was cancelled before it started.";
+        return result;
     }
 
-    si.hStdOutput = hStdOutWrite;
-    si.hStdError = hStdOutWrite;
-    si.dwFlags |= STARTF_USESTDHANDLES;
+    QStringList qtArguments;
+    qtArguments.reserve(static_cast<qsizetype>(arguments.size()));
+    for (const auto& argument : arguments)
+        qtArguments.push_back(QString::fromStdString(argument));
 
-    if (!CreateProcessA(NULL,
-        const_cast<char*>(command.c_str()),
-        NULL,
-        NULL,
-        TRUE,
-        CREATE_NO_WINDOW,
-        NULL,
-        NULL,
-        &si,
-        &pi)) {
-        LOG_ERR << "CreateProcess failed" << LOG_ENDL;
-        CloseHandle(hStdOutWrite);
-        CloseHandle(hStdOutRead);
-        return "";
+    QProcess process;
+    process.setProcessChannelMode(QProcess::MergedChannels);
+    process.setProgram(QString::fromStdString(program));
+    process.setArguments(qtArguments);
+
+    const int timeoutMs = boundedMilliseconds(timeout);
+    QElapsedTimer elapsed;
+    elapsed.start();
+    process.start();
+    if (!process.waitForStarted(std::min(timeoutMs, 5000))) {
+        result.error = process.errorString().toStdString();
+        if (process.state() != QProcess::NotRunning)
+            stopProcess(process);
+        return result;
+    }
+    result.started = true;
+
+    while (process.state() != QProcess::NotRunning) {
+        if (cancellation && cancellation->load(std::memory_order_relaxed)) {
+            result.cancelled = true;
+            result.error = "Process was cancelled.";
+            stopProcess(process);
+            break;
+        }
+
+        const qint64 remaining = static_cast<qint64>(timeoutMs) - elapsed.elapsed();
+        if (remaining <= 0) {
+            result.timedOut = true;
+            result.error = "Process timed out.";
+            stopProcess(process);
+            break;
+        }
+
+        process.waitForFinished(static_cast<int>(std::min<qint64>(remaining, 50)));
     }
 
-    CloseHandle(hStdOutWrite);
+    result.output = process.readAll().toStdString();
+    result.exitCode = process.exitCode();
+    result.crashed = process.exitStatus() == QProcess::CrashExit &&
+                     !result.timedOut && !result.cancelled;
 
-    char buffer[128];
-    DWORD bytesRead;
-    while (ReadFile(hStdOutRead, buffer, sizeof(buffer) - 1, &bytesRead, NULL) && bytesRead > 0) {
-        buffer[bytesRead] = '\0';
-        result += buffer;
+    if (!result.success() && result.error.empty()) {
+        result.error = result.crashed
+            ? "Process crashed."
+            : "Process exited with code " + std::to_string(result.exitCode) + ".";
     }
-    CloseHandle(hStdOutRead);
-
-    WaitForSingleObject(pi.hProcess, INFINITE);
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-
     return result;
-#else
-    /* linux */
-    std::string result;
-    std::array<char, 256> buffer{};
-
-    // redirect stderr / stdout
-    std::string fullCmd = command + " 2>&1";
-    FILE* pipe = popen(fullCmd.c_str(), "r");
-    if (!pipe) {
-        perror("popen");
-        return "";
-    }
-
-    while (fgets(buffer.data(), static_cast<int>(buffer.size()), pipe)) {
-        result.append(buffer.data());
-    }
-
-    (void)pclose(pipe);
-
-    return result;
-#endif
 }

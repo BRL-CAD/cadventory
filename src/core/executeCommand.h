@@ -1,34 +1,29 @@
 #ifndef EXECUTE_COMMAND_H
 #define EXECUTE_COMMAND_H
 
+#include <atomic>
+#include <chrono>
 #include <string>
+#include <vector>
 
-/**
- * @brief Executes external commands in a platform-independent manner
- *
- * Provides a unified interface for executing Ollama commands across
- * Windows, macOS, and Linux platforms, handling platform-specific
- * differences transparently.
- *
- * @param command The command to execute
- * @param args Command-line arguments
- * @return The command output as string
- */
-std::string executeCommandNoWindow(const std::string& command);
+struct ProcessResult {
+    std::string output;
+    std::string error;
+    int exitCode = -1;
+    bool started = false;
+    bool timedOut = false;
+    bool cancelled = false;
+    bool crashed = false;
 
-/**
- * @brief Executes an external command with input and output redirection
- *
- * This function executes a command in a hidden window, redirecting
- * input and output to specified files.
- *
- * @param command The command to execute
- * @param inputFile The file to read input from
- * @param outputFile The file to write output to
- * @return The command output as string
- */
-std::string executeCommandNoWindowWithRedirection(const std::string& command,
-    const std::string& inputFile,
-    const std::string& outputFile);
+    bool success() const noexcept {
+        return started && !timedOut && !cancelled && !crashed && exitCode == 0;
+    }
+};
+
+ProcessResult runProcess(
+    const std::string& program,
+    const std::vector<std::string>& arguments,
+    std::chrono::milliseconds timeout = std::chrono::seconds(30),
+    const std::atomic_bool* cancellation = nullptr);
 
 #endif // EXECUTE_COMMAND_H
