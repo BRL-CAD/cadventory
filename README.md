@@ -38,13 +38,15 @@ Important:
 
 - CADventory currently expects `find_package(BRLCAD)` to resolve BRL-CAD libraries
 - CADventory also checks for `mged`, `rt`, and `gist` under `${BRLCAD_ROOT}/bin`
+- if the BRL-CAD tree exports a Qt package under `lib/cmake/Qt6`, CADventory uses
+  it automatically so BRL-CAD plugins and CADventory load the same Qt runtime
+- otherwise, set `Qt6_DIR` to the Qt installation used to build BRL-CAD
 
 ## Build
 
 ```bash
 cmake -S . -B build-release \
   -DCMAKE_BUILD_TYPE=Release \
-  -DQt6_DIR=/path/to/qt6 \
   -DBRLCAD_ROOT=/path/to/brlcad/install-or-build-root
 
 cmake --build build-release
@@ -122,7 +124,6 @@ CADventory does not start an Ollama daemon or download models automatically. If 
 ```bash
 cmake -S . -B build-debug \
   -DCMAKE_BUILD_TYPE=Debug \
-  -DQt6_DIR=/path/to/qt6 \
   -DBRLCAD_ROOT=/path/to/brlcad/install-or-build-root
 
 cmake --build build-debug

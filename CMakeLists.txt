@@ -14,6 +14,31 @@ option(CADVENTORY_WITH_GUI "Build with Qt Widgets/Gui" ON)
 
 find_package(Threads REQUIRED)
 
+# BRL-CAD display-manager plugins may load libqtcad at process startup.  When a
+# BRL-CAD build/install tree exports its own Qt package, CADventory must use
+# that same package; mixing it with another Qt installation loads two copies of
+# QtCore/QtGui and crashes during platform plugin initialization (notably on
+# macOS).  Set this before find_package(Qt6), and override stale component
+# cache entries so reconfiguring an existing build directory also repairs it.
+set(BRLCAD_ROOT "$ENV{BRLCAD_ROOT}" CACHE PATH "Path to BRL-CAD installation")
+set(_brlcad_qt6_dir "${BRLCAD_ROOT}/lib/cmake/Qt6")
+if(BRLCAD_ROOT AND EXISTS "${_brlcad_qt6_dir}/Qt6Config.cmake")
+  if(Qt6_DIR AND NOT Qt6_DIR STREQUAL _brlcad_qt6_dir)
+    message(STATUS
+      "Using BRL-CAD's Qt package (${_brlcad_qt6_dir}) instead of ${Qt6_DIR} "
+      "to keep a single Qt runtime")
+  endif()
+  set(Qt6_DIR "${_brlcad_qt6_dir}" CACHE PATH "Qt 6 package directory" FORCE)
+  foreach(_qt_component Core Concurrent Gui Widgets Test)
+    set(_brlcad_qt_component_dir
+      "${BRLCAD_ROOT}/lib/cmake/Qt6${_qt_component}")
+    if(EXISTS "${_brlcad_qt_component_dir}/Qt6${_qt_component}Config.cmake")
+      set(Qt6${_qt_component}_DIR "${_brlcad_qt_component_dir}"
+        CACHE PATH "Qt 6 ${_qt_component} package directory" FORCE)
+    endif()
+  endforeach()
+endif()
+
 # always needed qt
 set(_qt_components Core Concurrent)
 set(_qt_modules Qt6::Core Qt6::Concurrent)
@@ -210,11 +235,6 @@ endif()
 
 # Add the directory containing FindBRLCAD.cmake to CMAKE_MODULE_PATH
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
-
-# Optionally set BRLCAD_ROOT to your BRL-CAD installation directory
-if(NOT BRLCAD_ROOT)
-  set(BRLCAD_ROOT "" CACHE PATH "Path to BRL-CAD installation")
-endif()
 
 # Find BRL-CAD using the provided FindBRLCAD.cmake module
 find_package(BRLCAD REQUIRED)
