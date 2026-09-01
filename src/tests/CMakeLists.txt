@@ -222,6 +222,7 @@ add_cadventory_test(
     NAME ProcessGFilesTest
     SOURCES
         ProcessGFilesTest.cpp
+        ../core/executeCommand.cpp
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/sha1.cpp
         ../domain/model/Model.cpp
@@ -232,6 +233,7 @@ add_cadventory_test(
     NAME IndexingWorkerTest
     SOURCES
         IndexingWorkerTest.cpp
+        ../core/executeCommand.cpp
         ../domain/processing/IndexingWorker.cpp
         ../domain/processing/ProcessGFiles.cpp
         ../domain/processing/sha1.cpp
@@ -355,6 +357,7 @@ add_cadventory_test(
     NAME JobServiceTest
     SOURCES
         JobServiceTest.cpp
+        ../core/executeCommand.cpp
         ../domain/jobqueue/JobManager.cpp
         ../domain/jobqueue/JobWorker.cpp
         ../domain/jobqueue/QtJobServiceBase.cpp
@@ -372,6 +375,7 @@ add_cadventory_test(
     NAME JobWorkerTest
     SOURCES
         JobWorkerTest.cpp
+        ../core/executeCommand.cpp
         ../domain/jobqueue/JobWorker.cpp
         ../domain/jobqueue/QtJobServiceBase.cpp
         ../domain/jobqueue/SQLJobQueue.cpp
@@ -453,3 +457,17 @@ add_cadventory_test(
         OllamaCliServiceTest.cpp
         ../domain/llm/OllamaCLIService.cpp
 )
+
+qt_add_executable(ProcessRunnerTestHelper ProcessRunnerTestHelper.cpp)
+target_link_libraries(ProcessRunnerTestHelper PRIVATE Qt6::Core)
+
+add_cadventory_test(
+    NAME ProcessRunnerTest
+    SOURCES
+        ProcessRunnerTest.cpp
+        ../core/executeCommand.cpp
+        ../domain/model/ModelParser.cpp
+)
+target_compile_definitions(ProcessRunnerTest PRIVATE
+    PROCESS_RUNNER_TEST_HELPER="$<TARGET_FILE:ProcessRunnerTestHelper>")
+add_dependencies(ProcessRunnerTest ProcessRunnerTestHelper)
