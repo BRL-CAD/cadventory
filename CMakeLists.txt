@@ -11,6 +11,35 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Add option for disabling gui in headless environments
 option(CADVENTORY_WITH_GUI "Build with Qt Widgets/Gui" ON)
+option(CADVENTORY_BUILD_TESTS "Build CADventory tests" ON)
+option(CADVENTORY_ENABLE_COVERAGE "Enable compiler coverage instrumentation" OFF)
+option(CADVENTORY_ENABLE_SANITIZERS "Enable address and undefined-behavior sanitizers" OFF)
+option(CADVENTORY_USE_SQLITE "Use an installed SQLite library" OFF)
+
+if(CADVENTORY_ENABLE_COVERAGE AND CADVENTORY_ENABLE_SANITIZERS)
+  message(FATAL_ERROR "Coverage and sanitizers must use separate build directories")
+endif()
+
+if(CADVENTORY_ENABLE_COVERAGE)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-fprofile-instr-generate -fcoverage-mapping -O0 -g)
+    add_link_options(-fprofile-instr-generate)
+  else()
+    message(FATAL_ERROR "Coverage is supported only with GCC or Clang")
+  endif()
+endif()
+
+if(CADVENTORY_ENABLE_SANITIZERS)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+  else()
+    message(FATAL_ERROR "Sanitizers are supported only with GCC or Clang")
+  endif()
+endif()
 
 find_package(Threads REQUIRED)
 
@@ -39,13 +68,12 @@ if(BRLCAD_ROOT AND EXISTS "${_brlcad_qt6_dir}/Qt6Config.cmake")
   endforeach()
 endif()
 
-# always needed qt
-set(_qt_components Core Concurrent)
-set(_qt_modules Qt6::Core Qt6::Concurrent)
+# Core reporting and model code uses Qt image classes even in CLI builds.
+set(_qt_components Core Concurrent Gui)
+set(_qt_modules Qt6::Core Qt6::Concurrent Qt6::Gui)
 if(CADVENTORY_WITH_GUI)
-  # needed with Gui
-  list(APPEND _qt_components Gui Widgets)
-  list(APPEND _qt_modules Qt6::Widgets Qt6::Gui)
+  list(APPEND _qt_components Widgets)
+  list(APPEND _qt_modules Qt6::Widgets)
 endif()
 
 find_package(Qt6 REQUIRED COMPONENTS ${_qt_components})
@@ -57,16 +85,16 @@ if(MSVC)
 endif()
 
 # Support SQLite built from external or against system
-if (DEFINED CADVENTORY_USE_SQLITE)
+if(CADVENTORY_USE_SQLITE)
   find_package(SQLite3 REQUIRED)
-  set(SQLITE_LIBRARY SQLite::SQLite3)
+  set(SQLITE_LIBRARY SQLite3::SQLite3)
 else()
   include(cmake/sqlite.cmake)
   set(SQLITE_LIBRARY sqlite_static)
 endif()
 
 # Import the static library that was built (assuming sqlite.cmake defines sqlite_STATIC_LIBRARIES and sqlite_INCLUDE_DIR)
-if(NOT DEFINED CADVENTORY_USE_SQLITE)
+if(NOT CADVENTORY_USE_SQLITE)
   add_library(sqlite_static IMPORTED STATIC GLOBAL)
   add_dependencies(sqlite_static sqlite)
   set_target_properties(sqlite_static PROPERTIES
@@ -81,12 +109,9 @@ else()
   add_compile_options(-Wall -Wextra -pedantic)
 endif()
 
-set(SRCS
-  src/core/CADventory.cpp
+set(CADVENTORY_DOMAIN_SOURCES
   src/core/executeCommand.cpp
-  src/core/main.cpp
 
-  src/domain/jobqueue/FileJobQueue.cpp
   src/domain/jobqueue/QtJobServiceBase.cpp
   src/domain/jobqueue/JobManager.cpp
   src/domain/jobqueue/JobWorker.cpp
@@ -112,11 +137,9 @@ set(SRCS
   src/domain/processing/IDirectiveHandler.cpp
   src/domain/processing/sha1.cpp
 )
-set(HEADERS
-  src/core/CADventory.h
+set(CADVENTORY_DOMAIN_HEADERS
   src/core/executeCommand.h
 
-  src/domain/jobqueue/FileJobQueue.h
   src/domain/jobqueue/SQLJobQueue.h
   src/domain/jobqueue/SimpleFileLock.h
   src/domain/library/FilesystemIndexer.h
@@ -144,27 +167,32 @@ set(HEADERS
   src/domain/processing/ThumbHandler.h
   src/domain/processing/sha1.h
 )
-set(UIS
+set(CADVENTORY_APPLICATION_SOURCES
+  src/core/CADventory.cpp
+)
+set(CADVENTORY_APPLICATION_HEADERS
+  src/core/CADventory.h
   src/ui/UiShim.h
 )
+set(CADVENTORY_APPLICATION_UIS)
 
 if(CADVENTORY_WITH_GUI)
-  list(APPEND SRCS
+  list(APPEND CADVENTORY_APPLICATION_SOURCES
     src/ui/filesystem/FileSystemModelWithCheckboxes.cpp
     src/ui/filesystem/FileSystemFilterProxyModel.cpp
     src/ui/filesystem/ModelFilterProxyModel.cpp
     src/ui/widgets/GeometryBrowserDialog.cpp
     src/ui/widgets/ModelCardDelegate.cpp
     src/ui/widgets/ModelView.cpp
-  src/ui/windows/LibraryWindow.cpp
-  src/ui/windows/AuditViewerDialog.cpp
-  src/ui/windows/IntegrityViewerDialog.cpp
+    src/ui/windows/LibraryWindow.cpp
+    src/ui/windows/AuditViewerDialog.cpp
+    src/ui/windows/IntegrityViewerDialog.cpp
     src/ui/windows/MainWindow.cpp
     src/ui/windows/ReportGenerationWindow.cpp
     src/ui/windows/SettingWindow.cpp
     src/ui/windows/SplashDialog.cpp
   )
-  list(APPEND HEADERS
+  list(APPEND CADVENTORY_APPLICATION_HEADERS
     src/ui/filesystem/FileSystemFilterProxyModel.h
     src/ui/filesystem/FileSystemModelWithCheckboxes.h
     src/ui/filesystem/ModelFilterProxyModel.h
@@ -179,7 +207,7 @@ if(CADVENTORY_WITH_GUI)
     src/ui/windows/SettingWindow.h
     src/ui/windows/SplashDialog.h
   )
-  list(APPEND UIS
+  list(APPEND CADVENTORY_APPLICATION_UIS
     src/ui/widgets/modelview.ui
 
     src/ui/windows/librarywindow.ui
@@ -191,11 +219,25 @@ if(CADVENTORY_WITH_GUI)
 endif()
 
 set(CMAKE_AUTORCC ON)
-# qt_add_executable automatically handles AUTOUIC, AUTOMOC, AUTORCC
+qt_add_library(cadventory_domain STATIC
+  ${CADVENTORY_DOMAIN_SOURCES}
+  ${CADVENTORY_DOMAIN_HEADERS}
+)
+qt_add_library(cadventory_application STATIC
+  ${CADVENTORY_APPLICATION_SOURCES}
+  ${CADVENTORY_APPLICATION_HEADERS}
+  ${CADVENTORY_APPLICATION_UIS}
+)
+
+# A few legacy public widget headers still embed their generated Ui types.
+# Give consumers a stable build-tree include path until those headers are pimpl'd.
+set(CADVENTORY_APPLICATION_AUTOGEN_DIR
+  "${CMAKE_CURRENT_BINARY_DIR}/cadventory_application_autogen")
+set_target_properties(cadventory_application PROPERTIES
+  AUTOGEN_BUILD_DIR "${CADVENTORY_APPLICATION_AUTOGEN_DIR}"
+)
 qt_add_executable(cadventory WIN32
-  ${SRCS}
-  ${UIS}
-  ${HEADERS}
+  src/core/main.cpp
   src/assets/images.qrc
 )
 
@@ -213,22 +255,33 @@ set(SRC_INCLUDE_DIRECTORIES
     ${CMAKE_SOURCE_DIR}/src/ui/widgets
     ${CMAKE_SOURCE_DIR}/src/ui/windows
 )
-# Note dependencies and include directories
-target_include_directories(cadventory PRIVATE ${SRC_INCLUDE_DIRECTORIES})
+target_include_directories(cadventory_domain PUBLIC
+  ${SRC_INCLUDE_DIRECTORIES}
+  "${CMAKE_CURRENT_BINARY_DIR}"
+)
+target_include_directories(cadventory_application PUBLIC
+  ${SRC_INCLUDE_DIRECTORIES}
+  "$<BUILD_INTERFACE:${CADVENTORY_APPLICATION_AUTOGEN_DIR}/include>"
+  "${CMAKE_CURRENT_BINARY_DIR}"
+)
 
-# export so we can use in code
-target_compile_definitions(cadventory PUBLIC CADVENTORY_WITH_GUI=$<BOOL:${CADVENTORY_WITH_GUI}>)
+target_compile_definitions(cadventory_domain PUBLIC
+  CADVENTORY_WITH_GUI=$<BOOL:${CADVENTORY_WITH_GUI}>
+)
+target_compile_definitions(cadventory_application PUBLIC
+  CADVENTORY_WITH_GUI=$<BOOL:${CADVENTORY_WITH_GUI}>
+)
 
-# Qt links
-target_link_libraries(cadventory PRIVATE ${_qt_modules})
+target_link_libraries(cadventory_domain PUBLIC ${_qt_modules})
+target_link_libraries(cadventory_application PUBLIC cadventory_domain ${_qt_modules})
+target_link_libraries(cadventory PRIVATE cadventory_application)
 
-# sqlite links
-if (DEFINED CADVENTORY_USE_SQLITE)
-  target_link_libraries(cadventory PRIVATE ${SQLITE_LIBRARY})
+if(CADVENTORY_USE_SQLITE)
+  target_link_libraries(cadventory_domain PUBLIC ${SQLITE_LIBRARY})
 else()
-  target_include_directories(cadventory PRIVATE ${sqlite_INCLUDE_DIR})
-  add_dependencies(cadventory sqlite_static)
-  target_link_libraries(cadventory PRIVATE sqlite_static)
+  target_include_directories(cadventory_domain PUBLIC ${sqlite_INCLUDE_DIR})
+  add_dependencies(cadventory_domain sqlite_static)
+  target_link_libraries(cadventory_domain PUBLIC sqlite_static)
 endif()
 
 # --- Begin BRL-CAD Configuration ---
@@ -243,11 +296,9 @@ if(BRLCAD_FOUND)
   message(STATUS "BRL-CAD found.")
   message(STATUS "BRLCAD_LIBRARIES: ${BRLCAD_LIBRARIES}")
   message(STATUS "BRLCAD_INCLUDE_DIRS: ${BRLCAD_INCLUDE_DIRS}")
-  # Include the BRL-CAD include 
-  target_compile_definitions(cadventory PRIVATE RT_DLL_IMPORTS)
-  target_include_directories(cadventory PRIVATE ${BRLCAD_INCLUDE_DIRS})
-  # Link against BRLCAD::BRLCAD
-  target_link_libraries(cadventory PRIVATE BRLCAD::BRLCAD)
+  target_compile_definitions(cadventory_domain PUBLIC RT_DLL_IMPORTS)
+  target_include_directories(cadventory_domain PUBLIC ${BRLCAD_INCLUDE_DIRS})
+  target_link_libraries(cadventory_domain PUBLIC BRLCAD::BRLCAD)
 else()
   message(FATAL_ERROR "BRL-CAD not found.")
 endif()
@@ -271,9 +322,6 @@ configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/src/core/config.h.in"
   "${CMAKE_CURRENT_BINARY_DIR}/config.h"
 )
-
-# Include the generated config.h
-target_include_directories(cadventory PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
 # --- End BRL-CAD Configuration ---
 
@@ -470,6 +518,7 @@ if(NOT WIN32)
   )
 endif()
 
-# Testing
-enable_testing()
-add_subdirectory(src/tests)
+if(CADVENTORY_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(src/tests)
+endif()
