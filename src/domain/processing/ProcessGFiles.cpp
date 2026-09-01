@@ -20,6 +20,7 @@
 #include <unordered_map>
 
 #include "sha1.h"
+#include "executeCommand.h"
 
 // Helper function to truncate a path if it exceeds maxLen (default 50 characters).
 // It keeps the first part and the last part of the path and places "..." in between.
@@ -473,49 +474,15 @@ bool ProcessGFiles::generateThumbnail(ModelData& modelData, const std::string& s
     // Use the RT_EXECUTABLE_PATH from configuration
     QString rtExecutable = QStringLiteral(RT_EXECUTABLE_PATH);
 
-    // Build the arguments list for rt.exe
-    QStringList arguments;
-    arguments << "-s512"
-        << "-o" << pngFilePath
-        << QString::fromStdString(modelData.file_path)
-        << QString::fromStdString(selected_object_name);
-
-    LOG_DEBUG << "[ProcessGFiles::generateThumbnail] Running command:" << rtExecutable << arguments << LOG_ENDL;
-
-    QProcess process;
-    process.setProcessChannelMode(QProcess::MergedChannels);
-
-#ifdef Q_OS_WIN
-    // On Windows, execute the executable directly.
-    process.setProgram(rtExecutable);
-    process.setArguments(arguments);
-#else
-    // On Unix-like systems, if needed, you can execute via the shell.
-    QString rtCommand = rtExecutable + " " + arguments.join(" ");
-    process.setProgram("/bin/sh");
-    process.setArguments({ "-c", rtCommand });
-#endif
-
-    process.start();
-    if (!process.waitForStarted()) {
-        LOG_DEBUG << "[ProcessGFiles::generateThumbnail] Failed to start the process for command:" 
-                  << rtExecutable << arguments << LOG_ENDL;
-        return false;
-    }
-
-    bool finishedInTime = process.waitForFinished(timeLimitMs);
-    if (!finishedInTime) {
-        LOG_DEBUG << "[ProcessGFiles::generateThumbnail] Command timed out after" 
-                  << timeLimitMs / 1000 << "seconds." << LOG_ENDL;
-        process.kill();
-        process.waitForFinished();
-        return false;
-    }
-
-    int exitCode = process.exitCode();
-    if (exitCode != 0) {
-        LOG_DEBUG << "[ProcessGFiles::generateThumbnail] The process finished with a non-zero exit code:" 
-                  << exitCode << ". Error output:" << process.readAllStandardOutput() << LOG_ENDL;
+    const ProcessResult result = runProcess(
+        rtExecutable.toStdString(),
+        {"-s512", "-o", pngFilePath.toStdString(), modelData.file_path,
+         selected_object_name},
+        std::chrono::milliseconds(timeLimitMs));
+    if (!result.success()) {
+        LOG_DEBUG << "[ProcessGFiles::generateThumbnail] rt failed: "
+                  << QString::fromStdString(result.error) << " "
+                  << QString::fromStdString(result.output) << LOG_ENDL;
         return false;
     }
 

@@ -1,99 +1,86 @@
 #include "ModelParser.h"
-#include <fstream>
-#include <iostream>
-#include <stdexcept>
-#include <array>
-#include <memory>
+
 #include <algorithm>
+#include <fstream>
 #include <sstream>
-#include "executeCommand.h"
+#include <stdexcept>
+#include <utility>
+
 #include "Logger.h"
+#include "config.h"
+#include "executeCommand.h"
 
-#ifdef _WIN32
-#define _CRT_SECURE_NO_WARNINGS  
-#include <cstdio>               
-#endif
+ModelParser::ModelParser()
+    : ModelParser(MGED_EXECUTABLE_PATH) {}
 
-ModelParser::ModelParser() {
-    // Constructor implementation (if needed)
-}
+ModelParser::ModelParser(std::string mgedExecutable)
+    : m_mgedExecutable(std::move(mgedExecutable)) {}
 
-/**
-* @brief Fetches object files from a BRL-CAD model file
-* 
-* @param path Path to the BRL-CAD model file
-* @return A vector of object file names
-*/
-std::vector<std::string> fetchObjectFiles(const std::string& path) {
+std::vector<std::string> ModelParser::fetchObjectFiles(const std::string& path) const {
     std::vector<std::string> objectFiles;
 
-    for (int i = 1; i < 10; i++) {
-        std::string command = "mged -c \"" + path + "\" search / -depth " + std::to_string(i);
-        std::string output = executeCommandNoWindow(command);
+    for (int depth = 1; depth < 10; ++depth) {
+        const ProcessResult result = runProcess(
+            m_mgedExecutable,
+            {"-c", path, "search", "/", "-depth", std::to_string(depth)});
+        if (!result.success()) {
+            LOG_ERR << "mged object search failed for " << path << ": "
+                    << result.error << LOG_ENDL;
+            continue;
+        }
 
-        // Ensure output lines are properly split
-        std::istringstream objStream(output);
-        std::string obj;
-
-        while (std::getline(objStream, obj)) {
-            // Trim whitespace
-            obj.erase(0, obj.find_first_not_of(" \t\r\n"));
-            obj.erase(obj.find_last_not_of(" \t\r\n") + 1);
-
-            // Skip empty lines
-            if (!obj.empty()) {
-                objectFiles.push_back(obj);
-            }
+        std::istringstream stream(result.output);
+        std::string object;
+        while (std::getline(stream, object)) {
+            const auto first = object.find_first_not_of(" \t\r\n");
+            if (first == std::string::npos)
+                continue;
+            const auto last = object.find_last_not_of(" \t\r\n");
+            objectFiles.push_back(object.substr(first, last - first + 1));
         }
     }
 
-    // Debugging: Final check on the collected object files
-    if (objectFiles.empty()) {
-        LOG_ERR << "ERROR: Object files vector is still empty after parsing!" << LOG_ENDL;
-    }
-
+    if (objectFiles.empty())
+        LOG_ERR << "No objects found while parsing " << path << LOG_ENDL;
     return objectFiles;
 }
 
-
-std::string fetchTitle(const std::string& path) {
-    return executeCommandNoWindow("mged -c \"" + path + "\" title 2>&1");
-}
-
-std::string convertToUnixPath(const std::string& windowsPath) {
-    std::string unixPath = windowsPath;
-    std::replace(unixPath.begin(), unixPath.end(), '\\', '/'); 
-    if (unixPath.find("C:/") == 0) {
-        unixPath.replace(0, 2, "/mnt/c");
+std::string ModelParser::fetchTitle(const std::string& path) const {
+    const ProcessResult result = runProcess(m_mgedExecutable, {"-c", path, "title"});
+    if (!result.success()) {
+        LOG_ERR << "mged title lookup failed for " << path << ": "
+                << result.error << LOG_ENDL;
+        return {};
     }
-    return unixPath;
+    return result.output;
 }
+
+namespace {
+
+std::string nativePath(std::string path) {
+#ifndef _WIN32
+    std::replace(path.begin(), path.end(), '\\', '/');
+    if (path.rfind("C:/", 0) == 0)
+        path.replace(0, 2, "/mnt/c");
+#endif
+    return path;
+}
+
+} // namespace
 
 ModelMetadata ModelParser::parseModel(std::string filepath) const {
+    const std::string resolvedPath = nativePath(filepath);
+    std::ifstream file(resolvedPath);
+    if (!file.is_open())
+        throw std::invalid_argument("File does not exist: " + filepath);
+
     ModelMetadata metadata;
-
-    std::string fixedPath;
-
-    #ifdef _WIN32
-        fixedPath = filepath;
-    #else
-        // If running on Linux (WSL), convert the Windows path to Unix format
-        fixedPath = (filepath.find("C:/") == 0) ? convertToUnixPath(filepath) : filepath;
-    #endif
-
-    // fidn if the file exists
-    std::ifstream
-    file(fixedPath);
-    if (!file.is_open()) {
-        throw std::invalid_argument("File does not exist");
-    }
-
     metadata.filepath = filepath;
-
-    metadata.title = fetchTitle(filepath);
-    metadata.title.erase(metadata.title.find_last_not_of("\n\r") + 1);
-
-    metadata.objectFiles = fetchObjectFiles(filepath);
-
+    metadata.title = fetchTitle(resolvedPath);
+    while (!metadata.title.empty() &&
+           (metadata.title.back() == '\n' || metadata.title.back() == '\r')) {
+        metadata.title.pop_back();
+    }
+    metadata.objectFiles = fetchObjectFiles(resolvedPath);
     return metadata;
 }
